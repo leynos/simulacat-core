@@ -9,8 +9,8 @@ import type {
   AnyState,
   ExtendSimulationActionsInputLoose,
   ExtendSimulationSelectorsInputLoose,
-  ExtendStoreConfig,
-} from "@simulacrum/foundation-simulator";
+  ExtendStoreConfig
+} from '@simulacrum/foundation-simulator';
 import {
   convertInitialStateToStoreState,
   type GitHubStore,
@@ -19,8 +19,8 @@ import {
   type GitHubRepository,
   type GitHubUser,
   type GitHubBranch,
-  type GitHubAppInstallation,
-} from "./entities.ts";
+  type GitHubAppInstallation
+} from './entities.ts';
 
 type ExtendedSchema = ReturnType<typeof inputSchema>;
 type ExtendActions = typeof inputActions;
@@ -38,63 +38,51 @@ export type ExtendedSimulationStore = SimulationStore<GitHubSchema, GitHubAction
 // `extendStore` argument. This wires the foundation `ExtendStoreConfig`
 // generics to the concrete GitHub schema/actions/selectors types so callers
 // get accurate typing when they provide schema/actions/selectors extensions.
-export type GitHubExtendStoreInput = ExtendStoreConfig<
-  GitHubSchema,
-  GitHubActions,
-  GitHubSelectors
->;
+export type GitHubExtendStoreInput = ExtendStoreConfig<GitHubSchema, GitHubActions, GitHubSelectors>;
 
 export type GitHubOrganizationWithRepositories = GitHubOrganization & {
   repositories: GitHubRepository[];
 };
 
-export type GitHubAppInstallationWithAccount = Omit<GitHubAppInstallation, "account"> & {
+export type GitHubAppInstallationWithAccount = Omit<GitHubAppInstallation, 'account'> & {
   account: GitHubOrganization;
-  target_id?: GitHubOrganization["id"];
-  target_type?: GitHubOrganization["type"];
+  target_id?: GitHubOrganization['id'];
+  target_type?: GitHubOrganization['type'];
 };
 
-export type GitHubRepoOwner = Omit<GitHubOrganization, "name" | "email"> & {
+export type GitHubRepoOwner = Omit<GitHubOrganization, 'name' | 'email'> & {
   id: number;
 };
 
-export type GitHubRepositoryWithOrganizationOwner = Omit<GitHubRepository, "id" | "owner"> & {
+export type GitHubRepositoryWithOrganizationOwner = Omit<GitHubRepository, 'id' | 'owner'> & {
   id: number;
   owner: GitHubRepoOwner;
 };
 
 const inputSchema =
   <T>(initialState?: GitHubStore, extendedSchema?: ExtendSimulationSchemaInput<T>) =>
-  ({ slice }: ExtendSimulationSchema) => {
+  ({slice}: ExtendSimulationSchema) => {
     const storeInitialState = convertInitialStateToStoreState(initialState);
-    const extended = extendedSchema ? extendedSchema({ slice }) : {};
-    let slices = {
-      users: slice.table<GitHubUser>(
-        !storeInitialState ? {} : { initialState: storeInitialState.users },
-      ),
+    const extended = extendedSchema ? extendedSchema({slice}) : {};
+    const slices = {
+      users: slice.table<GitHubUser>(!storeInitialState ? {} : {initialState: storeInitialState.users}),
       installations: slice.table<GitHubAppInstallation>(
-        !storeInitialState ? {} : { initialState: storeInitialState.installations },
+        !storeInitialState ? {} : {initialState: storeInitialState.installations}
       ),
       repositories: slice.table<GitHubRepository>(
-        !storeInitialState ? {} : { initialState: storeInitialState.repositories },
+        !storeInitialState ? {} : {initialState: storeInitialState.repositories}
       ),
-      branches: slice.table<GitHubBranch>(
-        !storeInitialState ? {} : { initialState: storeInitialState.branches },
-      ),
+      branches: slice.table<GitHubBranch>(!storeInitialState ? {} : {initialState: storeInitialState.branches}),
       organizations: slice.table<GitHubOrganization>(
-        !storeInitialState ? {} : { initialState: storeInitialState.organizations },
+        !storeInitialState ? {} : {initialState: storeInitialState.organizations}
       ),
-      blobs: slice.table<GitHubBlob>(
-        !storeInitialState ? {} : { initialState: storeInitialState.blobs },
-      ),
-      ...extended,
+      blobs: slice.table<GitHubBlob>(!storeInitialState ? {} : {initialState: storeInitialState.blobs}),
+      ...extended
     };
     return slices;
   };
 
-const inputActions = (
-  _args: ExtendSimulationActions<ExtendedSchema>,
-): ExtendSimulationActions<ExtendedSchema> => {
+const inputActions = (_args: ExtendSimulationActions<ExtendedSchema>): ExtendSimulationActions<ExtendedSchema> => {
   return {} as ExtendSimulationActions<ExtendedSchema>;
 };
 
@@ -106,27 +94,26 @@ const extendActions =
     const extResult = extendedActions(args);
     return {
       ...(base as object),
-      ...(extResult as object),
+      ...(extResult as object)
     } as GitHubActions;
   };
 
-const inputSelectors = ({ createSelector, schema }: ExtendSimulationSelectors<ExtendedSchema>) => {
-  const allGithubOrganizations: (state: AnyState) => GitHubOrganizationWithRepositories[] =
-    createSelector(
-      schema.organizations.selectTableAsList,
-      schema.repositories.selectTableAsList,
-      (ghOrgs, repos) => {
-        return ghOrgs.map((ghOrg) => {
-          const repositories = repos.filter((r) => r.owner === ghOrg.login);
-          return { ...ghOrg, repositories };
-        });
-      },
-    );
+const inputSelectors = ({createSelector, schema}: ExtendSimulationSelectors<ExtendedSchema>) => {
+  const allGithubOrganizations: (state: AnyState) => GitHubOrganizationWithRepositories[] = createSelector(
+    schema.organizations.selectTableAsList,
+    schema.repositories.selectTableAsList,
+    (ghOrgs, repos) => {
+      return ghOrgs.map((ghOrg) => {
+        const repositories = repos.filter((r) => r.owner === ghOrg.login);
+        return {...ghOrg, repositories};
+      });
+    }
+  );
 
   const getAppInstallation: (
     state: AnyState,
     org: string,
-    repo?: string,
+    repo?: string
   ) => GitHubAppInstallationWithAccount | undefined = createSelector(
     schema.installations.selectTableAsList,
     schema.organizations.selectTableAsList,
@@ -136,7 +123,7 @@ const inputSelectors = ({ createSelector, schema }: ExtendSimulationSelectors<Ex
     (installations, orgs, repos, org, repo) => {
       const appInstall = installations.find((install) => install.account === org);
       if (!appInstall) return undefined;
-      let account = undefined;
+      let account;
       if (repo) {
         const repoData = repos.find((r) => r.owner === appInstall?.account && r.name === repo);
         if (repoData) account = orgs.find((o) => o.login === repoData.owner);
@@ -146,79 +133,70 @@ const inputSelectors = ({ createSelector, schema }: ExtendSimulationSelectors<Ex
       if (!account) return undefined;
       return {
         ...appInstall,
-        account: { ...account },
+        account: {...account},
         target_id: account?.id,
-        target_type: account?.type,
+        target_type: account?.type
       };
-    },
+    }
   );
 
-  const allReposWithOrgs: (
-    state: AnyState,
-    org?: string,
-  ) => GitHubRepositoryWithOrganizationOwner[] | undefined = createSelector(
-    schema.repositories.selectTableAsList,
-    schema.organizations.selectTable,
-    (_: AnyState, org?: string) => org,
-    (allRepos, orgMap, org) => {
-      if (org && !orgMap?.[org]) return undefined;
-      const repos = !org ? allRepos : allRepos.filter((r) => r.owner === org);
-      return repos.map((repo) => {
-        const linkedRepo = {
-          ...repo,
-          id: Number(repo.id),
-          owner: { ...orgMap[repo.owner], id: Number(orgMap[repo.owner].id) },
-        };
-        // TODO better option than delete?
-        delete linkedRepo.owner.name;
-        delete linkedRepo.owner.email;
-        return linkedRepo;
-      });
-    },
-  );
+  const allReposWithOrgs: (state: AnyState, org?: string) => GitHubRepositoryWithOrganizationOwner[] | undefined =
+    createSelector(
+      schema.repositories.selectTableAsList,
+      schema.organizations.selectTable,
+      (_: AnyState, org?: string) => org,
+      (allRepos, orgMap, org) => {
+        if (org && !orgMap?.[org]) return undefined;
+        const repos = !org ? allRepos : allRepos.filter((r) => r.owner === org);
+        return repos.map((repo) => {
+          const linkedRepo = {
+            ...repo,
+            id: Number(repo.id),
+            owner: {...orgMap[repo.owner], id: Number(orgMap[repo.owner].id)}
+          };
+          // TODO better option than delete?
+          delete linkedRepo.owner.name;
+          delete linkedRepo.owner.email;
+          return linkedRepo;
+        });
+      }
+    );
 
-  const getBlob: (
-    state: AnyState,
-    owner: string,
-    repo: string,
-    sha_or_path: string,
-  ) => GitHubBlob | undefined = createSelector(
-    schema.blobs.selectTableAsList,
-    (_state: AnyState, owner: string, repo: string, sha_or_path: string) => ({
-      owner,
-      repo,
-      sha_or_path,
-    }),
-    (blobs, { owner, repo, sha_or_path }) => {
-      const blob = blobs.find(
-        (blob) =>
-          blob.owner === owner &&
-          blob.repo === repo &&
-          (blob.path === sha_or_path || blob.sha === sha_or_path),
-      );
-      return blob;
-    },
-  );
-
-  const getBlobAtOwnerRepo: (state: AnyState, owner: string, repo: string) => GitHubBlob[] =
+  const getBlob: (state: AnyState, owner: string, repo: string, sha_or_path: string) => GitHubBlob | undefined =
     createSelector(
       schema.blobs.selectTableAsList,
-      (_state: AnyState, owner: string, repo: string) => ({
+      (_state: AnyState, owner: string, repo: string, sha_or_path: string) => ({
         owner,
         repo,
+        sha_or_path
       }),
-      (blobs, { owner, repo }) => {
-        const blob = blobs.filter((blob) => blob.owner === owner && blob.repo === repo);
+      (blobs, {owner, repo, sha_or_path}) => {
+        const blob = blobs.find(
+          (blob) =>
+            blob.owner === owner && blob.repo === repo && (blob.path === sha_or_path || blob.sha === sha_or_path)
+        );
         return blob;
-      },
+      }
     );
+
+  const getBlobAtOwnerRepo: (state: AnyState, owner: string, repo: string) => GitHubBlob[] = createSelector(
+    schema.blobs.selectTableAsList,
+    (_state: AnyState, owner: string, repo: string) => ({
+      owner,
+      repo
+    }),
+    (blobs, {owner, repo}) => {
+      const blob = blobs.filter((blob) => blob.owner === owner && blob.repo === repo);
+      return blob;
+    }
+  );
 
   return {
     allGithubOrganizations,
     getAppInstallation,
     allReposWithOrgs,
     getBlob,
-    getBlobAtOwnerRepo,
+    getBlobAtOwnerRepo
   };
 };
 
@@ -230,13 +208,13 @@ const extendSelectors =
     const extResult = extendedSelectors(args);
     return {
       ...(base as object),
-      ...(extResult as object),
+      ...(extResult as object)
     } as GitHubSelectors;
   };
 
 export const extendStore = (
   initialState: GitHubStore | undefined,
-  extended?: GitHubExtendStoreInput,
+  extended?: GitHubExtendStoreInput
 ): {
   schema: ExtendSimulationSchemaInput<GitHubSchema>;
   actions?: ExtendSimulationActionsInput<GitHubActions, GitHubSchema>;
@@ -245,5 +223,5 @@ export const extendStore = (
 } => ({
   actions: extendActions(extended?.actions),
   selectors: extendSelectors(extended?.selectors),
-  schema: inputSchema(initialState, extended?.schema),
+  schema: inputSchema(initialState, extended?.schema)
 });

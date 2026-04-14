@@ -1,10 +1,20 @@
 {
-  "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "baseUrl": ".",
+    "allowImportingTsExtensions": true,
+    "esModuleInterop": true,
+    "ignoreDeprecations": "6.0",
+    "lib": ["DOM", "ES2022"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "noEmit": true,
     "outDir": "dist",
-    // for codegen as it doesn't adhere
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "target": "ES2022",
+    "types": ["bun-types", "node"],
     "verbatimModuleSyntax": false
   },
-  "include": ["src/**/*.ts", "test/**/*.ts", "example/**/*.ts"]
+  "exclude": ["dist", "node_modules"],
+  "include": ["codegen.ts", "src/**/*.ts", "tests/**/*.ts", "example/**/*.ts", "sync.ts", "tsdown.config.ts"]
 }

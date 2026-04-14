@@ -34,17 +34,17 @@ const identity = <A>(a: A): A => a;
 export function applyRelayPagination<T, R>(
   nodes: T[],
   args: PageArgs,
-  mapper: (a: T) => R = identity as (a: T) => R,
+  mapper: (a: T) => R = identity as (a: T) => R
 ): Page<R> {
-  let range = applyCursorsToEdges(nodes, args.before, args.after);
+  const range = applyCursorsToEdges(nodes, args.before, args.after);
 
-  let edges = edgesToReturn(range, args.first, args.last).map((edge) => ({
+  const edges = edgesToReturn(range, args.first, args.last).map((edge) => ({
     ...edge,
-    node: mapper(edge.node),
+    node: mapper(edge.node)
   }));
 
-  let [first] = edges;
-  let last = edges.slice().pop();
+  const [first] = edges;
+  const last = edges.slice().pop();
 
   return {
     totalCount: nodes.length,
@@ -52,7 +52,7 @@ export function applyRelayPagination<T, R>(
     nodes: edges.map((e) => e.node),
     pageInfo: {
       get hasNextPage() {
-        let { first, before } = args;
+        const {first, before} = args;
         if (first != null) {
           return range.length > first;
         } else if (before != null) {
@@ -61,7 +61,7 @@ export function applyRelayPagination<T, R>(
         return false;
       },
       get hasPreviousPage() {
-        let { last, after } = args;
+        const {last, after} = args;
         if (last != null) {
           return range.length > last;
         } else if (after != null) {
@@ -70,18 +70,18 @@ export function applyRelayPagination<T, R>(
         return false;
       },
       startCursor: first?.cursor,
-      endCursor: last?.cursor,
-    } as PageInfo,
+      endCursor: last?.cursor
+    } as PageInfo
   };
 }
 
 function applyCursorsToEdges<T>(nodes: T[], before?: string, after?: string) {
-  let afterIdx = after ? Number(after) : -1;
-  let beforeIdx = before ? Number(before) : nodes.length;
+  const afterIdx = after ? Number(after) : -1;
+  const beforeIdx = before ? Number(before) : nodes.length;
 
-  let edges = nodes.slice(afterIdx + 1, beforeIdx).map((node, i) => ({
+  const edges = nodes.slice(afterIdx + 1, beforeIdx).map((node, i) => ({
     node,
-    cursor: (afterIdx + 1 + i).toString(),
+    cursor: (afterIdx + 1 + i).toString()
   }));
 
   return edges;

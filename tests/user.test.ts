@@ -1,21 +1,23 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { simulation } from "../src/index.ts";
+import {afterAll, beforeAll, describe, expect, it} from 'bun:test';
+import {simulation} from '../src/index.ts';
 
-let basePort = 3330;
-let host = "http://localhost";
-let url = `${host}:${basePort}`;
+type SimulationServer = Awaited<ReturnType<ReturnType<typeof simulation>['listen']>>;
 
-describe.sequential("GET user endpoints", () => {
-  let server;
+const basePort = 3330;
+const host = 'http://localhost';
+const url = `${host}:${basePort}`;
+
+describe('GET user endpoints', () => {
+  let server: SimulationServer;
   beforeAll(async () => {
-    let app = simulation({
+    const app = simulation({
       initialState: {
         users: [],
-        organizations: [{ login: "lovely-org" }],
-        repositories: [{ owner: "lovely-org", name: "awesome-repo" }],
-        branches: [{ name: "main" }],
-        blobs: [],
-      },
+        organizations: [{login: 'lovely-org'}],
+        repositories: [{owner: 'lovely-org', name: 'awesome-repo'}],
+        branches: [{name: 'main'}],
+        blobs: []
+      }
     });
     server = await app.listen(basePort);
   });
@@ -23,16 +25,16 @@ describe.sequential("GET user endpoints", () => {
     await server.ensureClose();
   });
 
-  describe("/user/memberships/orgs", () => {
-    it("validates with 200 response", async () => {
-      let request = await fetch(`${url}/user/memberships/orgs`);
-      let response = await request.json();
+  describe('/user/memberships/orgs', () => {
+    it('validates with 200 response', async () => {
+      const request = await fetch(`${url}/user/memberships/orgs`);
+      const response = await request.json();
       expect(response.err).toBe(undefined);
       expect(request.status).toEqual(200);
       expect(response).toEqual([
         expect.objectContaining({
-          organization: expect.objectContaining({ login: "lovely-org" }),
-        }),
+          organization: expect.objectContaining({login: 'lovely-org'})
+        })
       ]);
     });
   });

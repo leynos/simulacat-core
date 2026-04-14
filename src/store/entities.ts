@@ -1,25 +1,25 @@
-import { z } from "zod";
-import { convertObjToProp } from "@simulacrum/foundation-simulator";
-import { faker } from "@faker-js/faker";
+import {z} from 'zod';
+import {convertObjToProp} from '@simulacrum/foundation-simulator';
+import {faker} from '@faker-js/faker';
 
 export const githubUserSchema = z
   .object({
-    id: z.number().default(() => faker.number.int({ min: 1000 })),
+    id: z.number().default(() => faker.number.int({min: 1000})),
     login: z.string(),
     name: z.string().optional(),
-    bio: z.string().default(""),
+    bio: z.string().default(''),
     email: z.string().optional(),
     url: z.string().url().optional(),
-    avatar_url: z.string().optional().default("https://github.com/images/error/octocat_happy.gif"),
+    avatar_url: z.string().optional().default('https://github.com/images/error/octocat_happy.gif'),
     organizations: z.array(z.string()),
     created_at: z
       .string()
       .default(() => faker.date.recent().toISOString())
-      .optional(),
+      .optional()
   })
   .transform((user) => {
     if (!user.name) user.name = user.login;
-    if (!user.email) user.email = faker.internet.email({ firstName: user.name });
+    if (!user.email) user.email = faker.internet.email({firstName: user.name});
     return user;
   });
 export type GitHubUser = z.infer<typeof githubUserSchema>;
@@ -28,23 +28,23 @@ const githubEntityPermissionSchema = z
   .object({
     admin: z.boolean().optional().default(false),
     push: z.boolean().optional().default(false),
-    pull: z.boolean().optional().default(true),
+    pull: z.boolean().optional().default(true)
   })
   .optional()
-  .default({ admin: false, push: false, pull: true });
+  .default({admin: false, push: false, pull: true});
 
 export const githubAppInstallationSchema = z
   .object({
     id: z.number().default(2000),
     account: z.string(),
-    repository_selection: z.enum(["all", "selected"]).optional().default("all"),
+    repository_selection: z.enum(['all', 'selected']).optional().default('all'),
     app_id: z.number().default(1),
     access_tokens_url: z.string().optional(),
     repositories_url: z.string().optional(),
     html_url: z.string().optional(),
-    client_id: z.string().optional().default("Iv1.ab1112223334445c"),
+    client_id: z.string().optional().default('Iv1.ab1112223334445c'),
     target_id: z.number().optional(),
-    target_type: z.enum(["Organization", "User"]).optional(),
+    target_type: z.enum(['Organization', 'User']).optional(),
     permissions: githubEntityPermissionSchema,
     events: z.array(z.any()).optional().default([]),
     updated_at: z
@@ -55,17 +55,17 @@ export const githubAppInstallationSchema = z
       .string()
       .optional()
       .default(() => faker.date.recent().toISOString()),
-    single_file_name: z.string().optional().default("config.yml"),
+    single_file_name: z.string().optional().default('config.yml'),
     has_multiple_single_files: z.boolean().optional().default(true),
     single_file_paths: z.array(z.string()).optional().default([]),
-    app_slug: z.string().optional().default("simulator-app"),
+    app_slug: z.string().optional().default('simulator-app'),
     suspended_at: z.nullable(z.string()).optional().default(null),
-    suspended_by: z.nullable(z.string()).optional().default(null),
+    suspended_by: z.nullable(z.string()).optional().default(null)
   })
   .transform((install) => {
-    install.id = faker.number.int({ min: 2000 });
+    install.id = faker.number.int({min: 2000});
 
-    const host = "localhost:3300";
+    const host = 'localhost:3300';
     // api endpoint
     install.access_tokens_url = `https://${host}/app/installations/1/access_tokens`;
     install.repositories_url = `https://${host}/installation/repositories`;
@@ -81,9 +81,9 @@ export const githubRepositorySchema = z
     id: z.number().default(3000),
     node_id: z.string().optional(),
     name: z.string(),
-    description: z.string().optional().default("Generic repository description"),
+    description: z.string().optional().default('Generic repository description'),
     owner: z.string(),
-    full_name: z.string().optional().default(""),
+    full_name: z.string().optional().default(''),
     packages: z.array(z.string()).optional(),
 
     pushed_at: z
@@ -145,8 +145,8 @@ export const githubRepositorySchema = z
 
     homepage: z.string().optional(),
     language: z.nullable(z.string()).optional().default(null),
-    default_branch: z.string().optional().default("main"),
-    visibility: z.enum(["public", "private"]).default("public"),
+    default_branch: z.string().optional().default('main'),
+    visibility: z.enum(['public', 'private']).default('public'),
     private: z.boolean().optional().default(false),
     license: z.nullable(z.record(z.string(), z.string())).default(null),
     fork: z.boolean().optional().default(false),
@@ -175,42 +175,33 @@ export const githubRepositorySchema = z
     permissions: githubEntityPermissionSchema,
     security_and_analysis: z
       .object({
-        advanced_security: z
-          .object({ status: z.string() })
-          .optional()
-          .default({ status: "enabled" }),
-        secret_scanning: z.object({ status: z.string() }).optional().default({ status: "enabled" }),
-        secret_scanning_push_protection: z
-          .object({ status: z.string() })
-          .optional()
-          .default({ status: "enabled" }),
-        secret_scanning_non_provider_patterns: z
-          .object({ status: z.string() })
-          .optional()
-          .default({ status: "enabled" }),
+        advanced_security: z.object({status: z.string()}).optional().default({status: 'enabled'}),
+        secret_scanning: z.object({status: z.string()}).optional().default({status: 'enabled'}),
+        secret_scanning_push_protection: z.object({status: z.string()}).optional().default({status: 'enabled'}),
+        secret_scanning_non_provider_patterns: z.object({status: z.string()}).optional().default({status: 'enabled'})
       })
       .optional()
       .default({
         advanced_security: {
-          status: "enabled",
+          status: 'enabled'
         },
         secret_scanning: {
-          status: "enabled",
+          status: 'enabled'
         },
         secret_scanning_push_protection: {
-          status: "disabled",
+          status: 'disabled'
         },
         secret_scanning_non_provider_patterns: {
-          status: "disabled",
-        },
-      }),
+          status: 'disabled'
+        }
+      })
   })
   .transform((repo) => {
-    repo.id = faker.number.int({ min: 3000 });
+    repo.id = faker.number.int({min: 3000});
     repo.node_id = repo.name;
     repo.full_name = `${repo.owner}/${repo.name}`;
 
-    const host = "localhost:3300";
+    const host = 'localhost:3300';
     repo.url = `http://${host}/repos/${repo.full_name}`;
     repo.html_url = `http://${host}/repos/${repo.full_name}`;
     repo.archive_url = `http://${host}/repos/${repo.full_name}/{archive_format}{/ref}`;
@@ -256,25 +247,25 @@ export const githubRepositorySchema = z
     repo.svn_url = `http://svn.github.com/${repo.full_name}`;
 
     repo.homepage = `http://${host}`;
-    repo.topics = ["octocat", "boilerplate", "tauri", "api"];
+    repo.topics = ['octocat', 'boilerplate', 'tauri', 'api'];
 
     return repo;
   });
 export type GitHubRepository = z.infer<typeof githubRepositorySchema>;
 
 export const githubBranchSchema = z.object({
-  name: z.string().optional().default("main"),
-  commit: z.object({ sha: z.string().optional(), url: z.string().optional() }).default({
+  name: z.string().optional().default('main'),
+  commit: z.object({sha: z.string().optional(), url: z.string().optional()}).default({
     sha: faker.git.commitSha(),
     // @ts-expect-error
-    url: `https://api.github.com/repos/octocat/Hello-World/commits/${this?.sha}`,
+    url: `https://api.github.com/repos/octocat/Hello-World/commits/${this?.sha}`
   }),
   protected: z.boolean().optional().default(true),
   protection: z.any().optional(),
   protection_url: z
     .string()
     .optional()
-    .default("https://api.github.com/repos/octocat/hello-world/branches/master/protection"),
+    .default('https://api.github.com/repos/octocat/hello-world/branches/master/protection')
 });
 export type GitHubBranch = z.infer<typeof githubBranchSchema>;
 
@@ -285,16 +276,16 @@ export const githubOrganizationSchema = z
     name: z.string().optional(),
     email: z.string().optional(),
     node_id: z.string().optional(),
-    type: z.enum(["User", "Organization"]).default("Organization"),
-    description: z.string().optional().default("Generic org description"),
+    type: z.enum(['User', 'Organization']).default('Organization'),
+    description: z.string().optional().default('Generic org description'),
     created_at: z
       .string()
       .default(() => faker.date.recent().toISOString())
       .optional(),
 
     teams: z.union([z.array(z.string()), z.undefined()]),
-    avatar_url: z.string().optional().default("https://github.com/images/error/octocat_happy.gif"),
-    gravatar_id: z.string().optional().default(""),
+    avatar_url: z.string().optional().default('https://github.com/images/error/octocat_happy.gif'),
+    gravatar_id: z.string().optional().default(''),
     site_admin: z.boolean().optional().default(true),
     url: z.string().url().optional(),
     html_url: z.string().optional(),
@@ -310,18 +301,18 @@ export const githubOrganizationSchema = z
     hooks_url: z.string().optional(),
     issues_url: z.string().optional(),
     members_url: z.string().optional(),
-    public_members_url: z.string().optional(),
+    public_members_url: z.string().optional()
   })
   .transform((org) => {
-    org.id = faker.number.int({ min: 4000 });
+    org.id = faker.number.int({min: 4000});
     if (!org?.name) org.name = org.login;
     if (!org.email)
       org.email = faker.internet.email({
-        firstName: "org",
-        lastName: org.login,
+        firstName: 'org',
+        lastName: org.login
       });
 
-    const host = "localhost:3300";
+    const host = 'localhost:3300';
     org.url = `http://${host}/orgs/${org.login}`;
     org.html_url = `http://github.com/${org.login}`;
     org.followers_url = `http://${host}/users/${org.login}/followers`;
@@ -341,7 +332,7 @@ export const githubOrganizationSchema = z
     org.members_url = `${org.url}/members{/member}`;
     org.public_members_url = `${org.url}/public_members{/member}`;
 
-    org.node_id = "MDQ6VXNlcjE=";
+    org.node_id = 'MDQ6VXNlcjE=';
 
     return org;
   });
@@ -350,18 +341,18 @@ export type GitHubOrganization = z.infer<typeof githubOrganizationSchema>;
 export const githubBlobSchema = z
   .object({
     content: z.string().optional().default(faker.lorem.paragraphs),
-    encoding: z.union([z.literal("string"), z.literal("base64")]).default("string"),
+    encoding: z.union([z.literal('string'), z.literal('base64')]).default('string'),
     owner: z.string(),
     repo: z.string(),
     // below we ensure that one of these is specified, but the other is then optional
     path: z.string(),
-    sha: z.string(),
+    sha: z.string()
   })
   .transform((blob, ctx) => {
     if (!blob.path && !blob.sha) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "Specify the path or sha of the blob",
+        message: 'Specify the path or sha of the blob'
       });
       return z.NEVER;
     }
@@ -377,14 +368,14 @@ export const gitubInitialStoreSchema = z
     organizations: z.array(githubOrganizationSchema),
     repositories: z.array(githubRepositorySchema),
     branches: z.array(githubBranchSchema),
-    blobs: z.array(githubBlobSchema),
+    blobs: z.array(githubBlobSchema)
   })
   .transform((initialStore) => {
     initialStore.installations = initialStore.organizations.map((org) => {
       return githubAppInstallationSchema.parse({
         account: org.login,
         target_id: org.id,
-        target_type: org.type,
+        target_type: org.type
       });
     });
     return initialStore;
@@ -395,12 +386,12 @@ export type GitHubInitialStore = z.input<typeof gitubInitialStoreSchema>;
 export const convertInitialStateToStoreState = (initialState: GitHubStore | undefined) => {
   if (!initialState) return undefined;
   const storeObject = {
-    users: convertObjToProp(initialState.users, "login"),
-    installations: convertObjToProp(initialState.installations, "id"),
-    repositories: convertObjToProp(initialState.repositories, "name"),
-    branches: convertObjToProp(initialState.branches, "name"),
-    organizations: convertObjToProp(initialState.organizations, "login"),
-    blobs: convertObjToProp(initialState.blobs),
+    users: convertObjToProp(initialState.users, 'login'),
+    installations: convertObjToProp(initialState.installations, 'id'),
+    repositories: convertObjToProp(initialState.repositories, 'name'),
+    branches: convertObjToProp(initialState.branches, 'name'),
+    organizations: convertObjToProp(initialState.organizations, 'login'),
+    blobs: convertObjToProp(initialState.blobs)
   };
 
   return storeObject;

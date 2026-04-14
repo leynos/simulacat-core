@@ -1,21 +1,23 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { simulation } from "../src/index.ts";
+import {afterAll, beforeAll, describe, expect, it} from 'bun:test';
+import {simulation} from '../src/index.ts';
 
-let basePort = 3320;
-let host = "http://localhost";
-let url = `${host}:${basePort}`;
+type SimulationServer = Awaited<ReturnType<ReturnType<typeof simulation>['listen']>>;
 
-describe.sequential("GET repo endpoints", () => {
-  let server;
+const basePort = 3320;
+const host = 'http://localhost';
+const url = `${host}:${basePort}`;
+
+describe('GET repo endpoints', () => {
+  let server: SimulationServer;
   beforeAll(async () => {
-    let app = simulation({
+    const app = simulation({
       initialState: {
         users: [],
-        organizations: [{ login: "lovely-org" }, { login: "empty-org" }],
-        repositories: [{ owner: "lovely-org", name: "awesome-repo" }],
-        branches: [{ name: "main" }],
-        blobs: [],
-      },
+        organizations: [{login: 'lovely-org'}, {login: 'empty-org'}],
+        repositories: [{owner: 'lovely-org', name: 'awesome-repo'}],
+        branches: [{name: 'main'}],
+        blobs: []
+      }
     });
     server = await app.listen(basePort);
   });
@@ -23,33 +25,33 @@ describe.sequential("GET repo endpoints", () => {
     await server.ensureClose();
   });
 
-  describe("/orgs/{org}/repos", () => {
-    it("validates with 200 response", async () => {
-      let request = await fetch(`${url}/orgs/lovely-org/repos`);
-      let response = await request.json();
+  describe('/orgs/{org}/repos', () => {
+    it('validates with 200 response', async () => {
+      const request = await fetch(`${url}/orgs/lovely-org/repos`);
+      const response = await request.json();
       expect(request.status).toEqual(200);
-      expect(response).toEqual([expect.objectContaining({ name: "awesome-repo" })]);
+      expect(response).toEqual([expect.objectContaining({name: 'awesome-repo'})]);
     });
 
-    it("handles org with no repos", async () => {
-      let request = await fetch(`${url}/orgs/empty-org/repos`);
-      let response = await request.json();
+    it('handles org with no repos', async () => {
+      const request = await fetch(`${url}/orgs/empty-org/repos`);
+      const response = await request.json();
       expect(request.status).toEqual(200);
       expect(response).toEqual([]);
     });
 
-    it("handles non-existant org", async () => {
-      let request = await fetch(`${url}/orgs/nope-org/repos`);
+    it('handles non-existant org', async () => {
+      const request = await fetch(`${url}/orgs/nope-org/repos`);
       expect(request.status).toEqual(404);
     });
   });
 
-  describe("/repos/{org}/{repo}/branches", () => {
-    it("validates with 200 response", async () => {
-      let request = await fetch(`${url}/repos/lovely-org/awesome-repo/branches`);
-      let response = await request.json();
+  describe('/repos/{org}/{repo}/branches', () => {
+    it('validates with 200 response', async () => {
+      const request = await fetch(`${url}/repos/lovely-org/awesome-repo/branches`);
+      const response = await request.json();
       expect(request.status).toEqual(200);
-      expect(response).toEqual([expect.objectContaining({ name: "main" })]);
+      expect(response).toEqual([expect.objectContaining({name: 'main'})]);
     });
   });
 });

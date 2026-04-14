@@ -1,21 +1,23 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { simulation } from "../src/index.ts";
+import {afterAll, beforeAll, describe, expect, it} from 'bun:test';
+import {simulation} from '../src/index.ts';
 
-let basePort = 3310;
-let host = "http://localhost";
-let url = `${host}:${basePort}`;
+type SimulationServer = Awaited<ReturnType<ReturnType<typeof simulation>['listen']>>;
 
-describe.sequential("GET repo endpoints", () => {
-  let server;
+const basePort = 3310;
+const host = 'http://localhost';
+const url = `${host}:${basePort}`;
+
+describe('GET repo endpoints', () => {
+  let server: SimulationServer;
   beforeAll(async () => {
-    let app = simulation({
+    const app = simulation({
       initialState: {
         users: [],
-        organizations: [{ login: "lovely-org" }],
-        repositories: [{ owner: "lovely-org", name: "awesome-repo" }],
-        branches: [{ name: "main" }],
-        blobs: [],
-      },
+        organizations: [{login: 'lovely-org'}],
+        repositories: [{owner: 'lovely-org', name: 'awesome-repo'}],
+        branches: [{name: 'main'}],
+        blobs: []
+      }
     });
     server = await app.listen(basePort);
   });
@@ -23,60 +25,60 @@ describe.sequential("GET repo endpoints", () => {
     await server.ensureClose();
   });
 
-  describe("/installation/repositories", () => {
-    it("validates with 200 response", async () => {
-      let request = await fetch(`${url}/installation/repositories`);
-      let response = await request.json();
+  describe('/installation/repositories', () => {
+    it('validates with 200 response', async () => {
+      const request = await fetch(`${url}/installation/repositories`);
+      const response = await request.json();
       expect(response.err).toBe(undefined);
       expect(request.status).toEqual(200);
-      expect(response.repositories).toEqual([expect.objectContaining({ name: "awesome-repo" })]);
+      expect(response.repositories).toEqual([expect.objectContaining({name: 'awesome-repo'})]);
     });
   });
 
-  describe("/orgs/{org}/installation", () => {
-    it("validates with 200 response", async () => {
-      let request = await fetch(`${url}/orgs/lovely-org/installation`);
-      let response = await request.json();
+  describe('/orgs/{org}/installation', () => {
+    it('validates with 200 response', async () => {
+      const request = await fetch(`${url}/orgs/lovely-org/installation`);
+      const response = await request.json();
       expect(response.err).toBe(undefined);
       expect(request.status).toEqual(200);
       expect(response).toEqual(
         expect.objectContaining({
-          account: expect.objectContaining({ login: "lovely-org" }),
-        }),
+          account: expect.objectContaining({login: 'lovely-org'})
+        })
       );
     });
 
-    it("handles non-existant org", async () => {
-      let request = await fetch(`${url}/orgs/doesnt-exist/installation`);
+    it('handles non-existant org', async () => {
+      const request = await fetch(`${url}/orgs/doesnt-exist/installation`);
       expect(request.status).toEqual(404);
     });
   });
 
-  describe("/repos/{owner}/{repo}/installation", () => {
-    it("validates with 200 response", async () => {
-      let request = await fetch(`${url}/repos/lovely-org/awesome-repo/installation`);
-      let response = await request.json();
+  describe('/repos/{owner}/{repo}/installation', () => {
+    it('validates with 200 response', async () => {
+      const request = await fetch(`${url}/repos/lovely-org/awesome-repo/installation`);
+      const response = await request.json();
       expect(response.err).toBe(undefined);
       expect(request.status).toEqual(200);
       expect(response).toEqual(
         expect.objectContaining({
-          account: expect.objectContaining({ login: "lovely-org" }),
-        }),
+          account: expect.objectContaining({login: 'lovely-org'})
+        })
       );
     });
 
-    it("handles non-existant org", async () => {
-      let request = await fetch(`${url}/repos/an-org/awesome-repo/installation`);
+    it('handles non-existant org', async () => {
+      const request = await fetch(`${url}/repos/an-org/awesome-repo/installation`);
       expect(request.status).toEqual(404);
     });
 
-    it("handles non-existant repo", async () => {
-      let request = await fetch(`${url}/repos/lovely-org/not-awesome-repo/installation`);
+    it('handles non-existant repo', async () => {
+      const request = await fetch(`${url}/repos/lovely-org/not-awesome-repo/installation`);
       expect(request.status).toEqual(404);
     });
 
-    it("handles non-existant org and repo", async () => {
-      let request = await fetch(`${url}/repos/lovely-but-not/awesome/installation`);
+    it('handles non-existant org and repo', async () => {
+      const request = await fetch(`${url}/repos/lovely-but-not/awesome/installation`);
       expect(request.status).toEqual(404);
     });
   });

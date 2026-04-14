@@ -1,32 +1,34 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { simulation } from "../src/index.ts";
-import { graphql } from "@octokit/graphql";
+import {afterAll, beforeAll, describe, expect, it} from 'bun:test';
+import {simulation} from '../src/index.ts';
+import {graphql} from '@octokit/graphql';
 
-let basePort = 3400;
-let host = "http://localhost";
-let url = `${host}:${basePort}`;
+type SimulationServer = Awaited<ReturnType<ReturnType<typeof simulation>['listen']>>;
+
+const basePort = 3400;
+const host = 'http://localhost';
+const url = `${host}:${basePort}`;
 
 // for syntax highlighting
 const gql = String.raw;
 const headers = {
-  authorization: "Bearer [REDACTED]",
-  "Content-Type": "application/json",
+  authorization: 'Bearer [REDACTED]',
+  'Content-Type': 'application/json'
 };
 const client = graphql.defaults({
-  baseUrl: url,
+  baseUrl: url
 });
 
-describe.sequential("graphql queries", () => {
-  let server;
+describe('graphql queries', () => {
+  let server: SimulationServer;
   beforeAll(async () => {
-    let app = simulation({
+    const app = simulation({
       initialState: {
-        users: [{ login: "frontsidejack", organizations: ["lovel-org"] }],
-        organizations: [{ login: "lovely-org" }],
-        repositories: [{ owner: "lovely-org", name: "awesome-repo" }],
-        branches: [{ name: "main" }],
-        blobs: [],
-      },
+        users: [{login: 'frontsidejack', organizations: ['lovel-org']}],
+        organizations: [{login: 'lovely-org'}],
+        repositories: [{owner: 'lovely-org', name: 'awesome-repo'}],
+        branches: [{name: 'main'}],
+        blobs: []
+      }
     });
     server = await app.listen(basePort);
   });
@@ -34,9 +36,9 @@ describe.sequential("graphql queries", () => {
     await server.ensureClose();
   });
 
-  it("validates with 200 response", async () => {
-    let request = await fetch(`${url}/graphql`, {
-      method: "POST",
+  it('validates with 200 response', async () => {
+    const request = await fetch(`${url}/graphql`, {
+      method: 'POST',
       headers,
       body: JSON.stringify({
         query: gql`
@@ -53,15 +55,15 @@ describe.sequential("graphql queries", () => {
             }
           }
         `,
-        variables: { org: "lovely-org" },
-      }),
+        variables: {org: 'lovely-org'}
+      })
     });
-    let response = await request.json();
+    const response = await request.json();
     expect(request.status).toEqual(200);
     expect(response.errors).toBe(undefined);
   });
 
-  describe("getOrganizationUsers", () => {
+  describe('getOrganizationUsers', () => {
     const query = gql`
       query users($org: String!, $email: Boolean!, $cursor: String) {
         organization(login: $org) {
@@ -82,27 +84,27 @@ describe.sequential("graphql queries", () => {
         }
       }
     `;
-    const variables = { org: "lovely-org", email: true };
-    it("responds successfully to fetch", async () => {
-      let request = await fetch(`${url}/graphql`, {
-        method: "POST",
+    const variables = {org: 'lovely-org', email: true};
+    it('responds successfully to fetch', async () => {
+      const request = await fetch(`${url}/graphql`, {
+        method: 'POST',
         headers,
         body: JSON.stringify({
           query,
-          variables,
-        }),
+          variables
+        })
       });
-      let response = await request.json();
+      const response = await request.json();
       expect(request.status).toEqual(200);
       expect(response.errors).toBe(undefined);
     });
-    it("responds successfully to graphql client", async () => {
-      let request = await client(query, variables);
+    it('responds successfully to graphql client', async () => {
+      const request = await client(query, variables);
       expect(request).toBeDefined();
     });
   });
 
-  describe("getOrganizationTeams", () => {
+  describe('getOrganizationTeams', () => {
     const query = gql`
       query teams($org: String!, $cursor: String) {
         organization(login: $org) {
@@ -139,27 +141,27 @@ describe.sequential("graphql queries", () => {
         }
       }
     `;
-    const variables = { org: "lovely-org" };
-    it("responds successfully to fetch", async () => {
-      let request = await fetch(`${url}/graphql`, {
-        method: "POST",
+    const variables = {org: 'lovely-org'};
+    it('responds successfully to fetch', async () => {
+      const request = await fetch(`${url}/graphql`, {
+        method: 'POST',
         headers,
         body: JSON.stringify({
           query,
-          variables,
-        }),
+          variables
+        })
       });
-      let response = await request.json();
+      const response = await request.json();
       expect(request.status).toEqual(200);
       expect(response.errors).toBe(undefined);
     });
-    it("responds successfully to graphql client", async () => {
-      let request = await client(query, variables);
+    it('responds successfully to graphql client', async () => {
+      const request = await client(query, variables);
       expect(request).toBeDefined();
     });
   });
 
-  describe("getOrganizationTeamsFromUsers", () => {
+  describe('getOrganizationTeamsFromUsers', () => {
     const query = gql`
       query teams($org: String!, $cursor: String, $userLogins: [String!] = "") {
         organization(login: $org) {
@@ -196,27 +198,27 @@ describe.sequential("graphql queries", () => {
         }
       }
     `;
-    const variables = { org: "lovely-org", userLogins: ["frontsidejack"] };
-    it("responds successfully to fetch", async () => {
-      let request = await fetch(`${url}/graphql`, {
-        method: "POST",
+    const variables = {org: 'lovely-org', userLogins: ['frontsidejack']};
+    it('responds successfully to fetch', async () => {
+      const request = await fetch(`${url}/graphql`, {
+        method: 'POST',
         headers,
         body: JSON.stringify({
           query,
-          variables,
-        }),
+          variables
+        })
       });
-      let response = await request.json();
+      const response = await request.json();
       expect(request.status).toEqual(200);
       expect(response.errors).toBe(undefined);
     });
-    it("responds successfully to graphql client", async () => {
-      let request = await client(query, variables);
+    it('responds successfully to graphql client', async () => {
+      const request = await client(query, variables);
       expect(request).toBeDefined();
     });
   });
 
-  describe("getOrganizationsFromUser", () => {
+  describe('getOrganizationsFromUser', () => {
     const query = gql`
       query orgs($user: String!) {
         user(login: $user) {
@@ -232,27 +234,27 @@ describe.sequential("graphql queries", () => {
         }
       }
     `;
-    const variables = { user: "frontsidejack" };
-    it("responds successfully to fetch", async () => {
-      let request = await fetch(`${url}/graphql`, {
-        method: "POST",
+    const variables = {user: 'frontsidejack'};
+    it('responds successfully to fetch', async () => {
+      const request = await fetch(`${url}/graphql`, {
+        method: 'POST',
         headers,
         body: JSON.stringify({
           query,
-          variables,
-        }),
+          variables
+        })
       });
-      let response = await request.json();
+      const response = await request.json();
       expect(request.status).toEqual(200);
       expect(response.errors).toBe(undefined);
     });
-    it("responds successfully to graphql client", async () => {
-      let request = await client(query, variables);
+    it('responds successfully to graphql client', async () => {
+      const request = await client(query, variables);
       expect(request).toBeDefined();
     });
   });
 
-  describe("getOrganizationTeam", () => {
+  describe('getOrganizationTeam', () => {
     const query = gql`
       query teams($org: String!, $teamSlug: String!) {
         organization(login: $org) {
@@ -278,27 +280,27 @@ describe.sequential("graphql queries", () => {
         }
       }
     `;
-    const variables = { org: "lovely-org", teamSlug: "boop" };
-    it("responds successfully to fetch", async () => {
-      let request = await fetch(`${url}/graphql`, {
-        method: "POST",
+    const variables = {org: 'lovely-org', teamSlug: 'boop'};
+    it('responds successfully to fetch', async () => {
+      const request = await fetch(`${url}/graphql`, {
+        method: 'POST',
         headers,
         body: JSON.stringify({
           query,
-          variables,
-        }),
+          variables
+        })
       });
-      let response = await request.json();
+      const response = await request.json();
       expect(request.status).toEqual(200);
       expect(response.errors).toBe(undefined);
     });
-    it("responds successfully to graphql client", async () => {
-      let request = await client(query, variables);
+    it('responds successfully to graphql client', async () => {
+      const request = await client(query, variables);
       expect(request).toBeDefined();
     });
   });
 
-  describe("getOrganizationRepositories", () => {
+  describe('getOrganizationRepositories', () => {
     const query = gql`
       query repositories($org: String!, $catalogPathRef: String!, $cursor: String) {
         repositoryOwner(login: $org) {
@@ -339,34 +341,34 @@ describe.sequential("graphql queries", () => {
       }
     `;
     const variables = {
-      org: "lovely-org",
-      catalogPathRef: "HEAD:catalog-info.yaml",
-      cursor: undefined,
+      org: 'lovely-org',
+      catalogPathRef: 'HEAD:catalog-info.yaml',
+      cursor: undefined
     };
-    it("responds successfully to fetch", async () => {
-      let request = await fetch(`${url}/graphql`, {
-        method: "POST",
+    it('responds successfully to fetch', async () => {
+      const request = await fetch(`${url}/graphql`, {
+        method: 'POST',
         headers,
         body: JSON.stringify({
           query,
-          variables,
-        }),
+          variables
+        })
       });
-      let response = await request.json();
+      const response = await request.json();
       expect(request.status).toEqual(200);
       expect(response.errors).toBe(undefined);
-      expect(response.data.repositoryOwner.login).toBe("lovely-org");
+      expect(response.data.repositoryOwner.login).toBe('lovely-org');
       expect(response.data.repositoryOwner.repositories.nodes.length).toBe(1);
       expect(response.data.repositoryOwner.repositories.pageInfo).toBeDefined();
       expect(response.data.repositoryOwner.repositories.pageInfo.hasNextPage).toBe(false);
     });
-    it("responds successfully to graphql client", async () => {
-      let request = await client(query, variables);
+    it('responds successfully to graphql client', async () => {
+      const request = await client(query, variables);
       expect(request).toBeDefined();
     });
   });
 
-  describe("getOrganizationRepository", () => {
+  describe('getOrganizationRepository', () => {
     const query = gql`
       query repository($org: String!, $repoName: String!, $catalogPathRef: String!) {
         repositoryOwner(login: $org) {
@@ -400,30 +402,30 @@ describe.sequential("graphql queries", () => {
       }
     `;
     const variables = {
-      org: "lovely-org",
-      repoName: "awesome-repo",
-      catalogPathRef: "./catalog-info.yaml",
+      org: 'lovely-org',
+      repoName: 'awesome-repo',
+      catalogPathRef: './catalog-info.yaml'
     };
-    it("responds successfully to fetch", async () => {
-      let request = await fetch(`${url}/graphql`, {
-        method: "POST",
+    it('responds successfully to fetch', async () => {
+      const request = await fetch(`${url}/graphql`, {
+        method: 'POST',
         headers,
         body: JSON.stringify({
           query,
-          variables,
-        }),
+          variables
+        })
       });
-      let response = await request.json();
+      const response = await request.json();
       expect(request.status).toEqual(200);
       expect(response.errors).toBe(undefined);
     });
-    it("responds successfully to graphql client", async () => {
-      let request = await client(query, variables);
+    it('responds successfully to graphql client', async () => {
+      const request = await client(query, variables);
       expect(request).toBeDefined();
     });
   });
 
-  describe("getOrganizationRepository With Fragment", () => {
+  describe('getOrganizationRepository With Fragment', () => {
     const query = gql`
       fragment RepositoryNode on Repository {
         url
@@ -480,28 +482,28 @@ describe.sequential("graphql queries", () => {
       }
     `;
     const variables = {
-      org: "lovely-org",
+      org: 'lovely-org'
     };
-    it("responds successfully to fetch", async () => {
-      let request = await fetch(`${url}/graphql`, {
-        method: "POST",
+    it('responds successfully to fetch', async () => {
+      const request = await fetch(`${url}/graphql`, {
+        method: 'POST',
         headers,
         body: JSON.stringify({
           query,
-          variables,
-        }),
+          variables
+        })
       });
-      let response = await request.json();
+      const response = await request.json();
       expect(request.status).toEqual(200);
       expect(response.errors).toBe(undefined);
     });
-    it("responds successfully to graphql client", async () => {
-      let request = await client(query, variables);
+    it('responds successfully to graphql client', async () => {
+      const request = await client(query, variables);
       expect(request).toBeDefined();
     });
   });
 
-  describe("getTeamMembers", () => {
+  describe('getTeamMembers', () => {
     const query = gql`
       query members($org: String!, $teamSlug: String!, $cursor: String) {
         organization(login: $org) {
@@ -520,24 +522,24 @@ describe.sequential("graphql queries", () => {
       }
     `;
     const variables = {
-      org: "lovely-org",
-      teamSlug: "boop",
+      org: 'lovely-org',
+      teamSlug: 'boop'
     };
-    it("responds successfully to fetch", async () => {
-      let request = await fetch(`${url}/graphql`, {
-        method: "POST",
+    it('responds successfully to fetch', async () => {
+      const request = await fetch(`${url}/graphql`, {
+        method: 'POST',
         headers,
         body: JSON.stringify({
           query,
-          variables,
-        }),
+          variables
+        })
       });
-      let response = await request.json();
+      const response = await request.json();
       expect(request.status).toEqual(200);
       expect(response.errors).toBe(undefined);
     });
-    it("responds successfully to graphql client", async () => {
-      let request = await client(query, variables);
+    it('responds successfully to graphql client', async () => {
+      const request = await client(query, variables);
       expect(request).toBeDefined();
     });
   });
