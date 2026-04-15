@@ -40,7 +40,7 @@ jobs:
         run: make all
 
       - name: Audit dependencies
-        run: bun x pnpm@latest audit
+        run: bun audit
 
       - name: Build package
         run: make build

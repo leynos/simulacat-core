@@ -277,7 +277,7 @@ Keep docs close to code.
   (`~x.y.z`) only with a documented justification.
 - **Lockfile**: Commit `bun.lock`. Recreate on major tool upgrades; keep
   `bun.lockb` ignored.
-- **Audit**: Run `bun x pnpm@latest audit` locally and in automation. Track
+- **Audit**: Run `bun audit` locally and in automation. Track
   exceptions with explicit expiry dates.
 - **Culling**: Prefer small, actively maintained packages. Remove unmaintained
   or risky dependencies swiftly.
