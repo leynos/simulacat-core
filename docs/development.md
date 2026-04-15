@@ -31,6 +31,10 @@ The normal contributor gate is:
 `make all` runs format checking, linting, type-checking, and the test suite in
 the repository's preferred order.
 
+The package publishes an ESM library surface, but the build intentionally keeps
+`dist/index.cjs` because `bin/start.cjs` requires that artifact to start the
+simulator under plain Node without a transpilation step.
+
 ## Testing expectations
 
 Changes to behaviour should come with a targeted regression test.

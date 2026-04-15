@@ -51,8 +51,8 @@
 ## Tooling Defaults
 
 - Use `bun` for JavaScript/TypeScript script invocations (including shebangs)
-  unless there is a known reason not to. Any exception must be explicitly
-  noted alongside the invocation or in this file.
+  unless there is a known reason not to. Any exception must be explicitly noted
+  alongside the invocation or in this file.
 - AVA does not run reliably under Bun (missing `node:v8` coverage hooks), so
   `test:unit` and the AVA bridge test intentionally invoke `node`.
 
@@ -147,9 +147,12 @@ browser‑only runtime.
 
 ### Toolchain & Project Shape
 
-- **ESM‑only**: Source and build outputs are ES Modules. No CommonJS. Configure
-  Vite accordingly; package publishes only ESM (for libraries) or static assets
-  (for apps).
+- **ESM‑first with a documented CLI exception**: Source modules and the
+  published library surface are expected to be ESM. This repository
+  intentionally retains a CommonJS build artifact for the Node CLI because
+  `bin/start.cjs` requires `../dist/index.cjs` so it can run under Node without
+  transpilation. Treat that CommonJS output as a narrow operational exception,
+  not as a general publishing target for the library API.
 - **Runtime targets**: Target modern evergreen browsers. Use `browserslist` to
   define the support matrix; drop legacy where feasible. Prefer native Web APIs
   (Fetch, URL, AbortController, Streams).
