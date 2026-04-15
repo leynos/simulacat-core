@@ -1,8 +1,8 @@
 # GitHub API scriptability roadmap
 
-This roadmap reprioritises `@simulacrum/github-api-simulator` around the
-current consumer portfolio rather than generic GitHub collaboration parity.
-The delivery order now follows three primary drivers:
+This roadmap reprioritizes `@simulacrum/github-api-simulator` around the
+current consumer portfolio rather than generic GitHub collaboration parity. The
+delivery order now follows three primary drivers:
 
 - Concordat drives the control-plane and administration model.
 - Ghillie drives the read-heavy GraphQL model.
@@ -15,9 +15,9 @@ file semantics than on deep GitHub REST or GraphQL behaviour.
 The roadmap still uses a vertical-slice approach. The difference is that the
 first useful slices now reflect the products that consume the simulator today.
 
-## Scope and prioritisation principles
+## Scope and prioritization principles
 
-- Prioritise scriptable behaviours that unlock real repository governance and
+- Prioritize scriptable behaviours that unlock real repository governance and
   control-plane automation before richer collaboration theatre.
 - Treat REST and GraphQL as parallel views over the same state, with GraphQL
   read parity landing early where portfolio consumers already depend on it.
@@ -42,7 +42,7 @@ first useful slices now reflect the products that consume the simulator today.
 | 10      | App integrations               | Webhooks and delivery inspection.                                       |
 | 11      | Concordat follow-on work       | Governance extras such as Projects v2 and code scanning.                |
 
-_Table 1: Delivery tranches after reprioritisation._
+_Table 1: Delivery tranches after reprioritization._
 
 ## 1. Canonical identities and actor-aware foundations
 
@@ -65,7 +65,7 @@ unreliable.
     selectors.
 - [ ] 1.4. Deliver `1.3.1` and `1.3.3`: add shared domain actions and fixture
       builders.
-  - Centralise write behaviour in reducers and shared actions.
+  - Centralize write behaviour in reducers and shared actions.
   - Publish builders that can create repositories, refs, issues, and pull
     requests without hand-editing store state.
 
@@ -79,9 +79,8 @@ Completion criteria:
 
 ## 2. GraphQL read model slice
 
-This tranche moves ahead of full issue mutation because Ghillie is a
-read-heavy GraphQL consumer and shared-actions already depends on pull request
-read state.
+This tranche moves ahead of full issue mutation because Ghillie is a read-heavy
+GraphQL consumer and shared-actions already depends on pull request read state.
 
 - [ ] 2.1. Deliver `2.1.1` for repository refs, commit history, and basic tree
       traversal.
@@ -147,7 +146,7 @@ access control.
     repository administration and protected-branch behaviour.
   - Defer a broader permission matrix until it is justified by later slices.
 - [ ] 4.4. Add teams, team membership, and team-repository permissions.
-  - Replace the current empty organisation team and membership placeholders
+  - Replace the current empty organization team and membership placeholders
     with store-backed behaviour.
   - Support the repository permission states Concordat manages.
 

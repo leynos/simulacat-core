@@ -13,7 +13,7 @@ import {
 } from './store/index.ts';
 import {extendRouter} from './extend-api.ts';
 import {openapi} from './rest/index.ts';
-import {type GitHubInitialStore, gitubInitialStoreSchema} from './store/entities.ts';
+import {type GitHubInitialStore, githubInitialStoreSchema} from './store/entities.ts';
 import type {SchemaFile} from './utils.ts';
 
 export type InitialState = GitHubInitialStore;
@@ -52,14 +52,14 @@ type _GitHubSelectors =
  *     users: [{login: 'octocat', organizations: []}],
  *     organizations: [{login: 'frontside'}],
  *     repositories: [{owner: 'frontside', name: 'simulacat'}],
- *     branches: [{name: 'main'}],
+ *     branches: [{owner: 'frontside', repo: 'simulacat', name: 'main'}],
  *     blobs: []
  *   }
  * });
  * ```
  */
 export const simulation = (args: GitHubSimulatorArgs = {}): FoundationSimulator<ExtendedSimulationStore> => {
-  const parsedInitialState = !args?.initialState ? undefined : gitubInitialStoreSchema.parse(args?.initialState);
+  const parsedInitialState = !args?.initialState ? undefined : githubInitialStoreSchema.parse(args?.initialState);
   const extendStoreConfig = mergeStoreConfig(parsedInitialState, args?.extend?.extendStore);
 
   return createFoundationSimulationServer<_GitHubSchema, _GitHubActions, _GitHubSelectors>({

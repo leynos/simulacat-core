@@ -1,4 +1,10 @@
-/** @file Express router extension hooks for OAuth, health, and GraphQL routes. */
+/**
+ * @file Express router extension hooks for the simulation server.
+ *
+ * This module composes caller-provided router extensions with the built-in
+ * routes supplied to `createFoundationSimulationServer`, wiring in GraphQL via
+ * `createHandler` and exposing the shared `ExtendedSimulationStore`.
+ */
 import type {createFoundationSimulationServer} from '@simulacrum/foundation-simulator';
 import {stringify} from 'querystring';
 import {createHandler} from './graphql/handler.ts';
@@ -56,13 +62,11 @@ export const extendRouter =
       const token = 'dev_token';
       const refresh_token = 'dev_refresh_token';
       const repository_selection = 'all';
-      response.json({
+      response.status(200).json({
         access_token,
         refresh_token,
         token,
         repository_selection
       });
-      response.status(200);
-      response.end();
     });
   };

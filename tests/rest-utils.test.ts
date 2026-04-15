@@ -46,6 +46,29 @@ describe('blobAsBase64', () => {
     });
 
     expect(payload.content).toBe('aGVsbG8=');
+    expect(payload.size).toBe(5);
+  });
+
+  it('uses git blob URLs when requested', () => {
+    const payload = blobAsBase64({
+      blob: {
+        owner: 'lovely-org',
+        repo: 'awesome-repo',
+        path: 'README.md',
+        sha: 'abc123',
+        content: 'hello world',
+        encoding: 'string'
+      },
+      host: 'http://localhost:3300',
+      owner: 'lovely-org',
+      repo: 'awesome-repo',
+      ref: 'abc123',
+      kind: 'git-blob'
+    });
+
+    expect(payload.url).toBe('http://localhost:3300/repos/lovely-org/awesome-repo/git/blobs/abc123');
+    expect(payload.sha).toBe('abc123');
+    expect(payload.size).toBe(11);
   });
 });
 
@@ -71,7 +94,7 @@ describe('gitTrees', () => {
     expect(payload).toEqual(
       expect.objectContaining({
         sha: 'tree-sha',
-        url: 'http://localhost:3300/repos/lovely-org/awesome-repo/trees/tree-sha',
+        url: 'http://localhost:3300/repos/lovely-org/awesome-repo/git/trees/tree-sha',
         truncated: false,
         tree: [
           expect.objectContaining({
@@ -95,6 +118,7 @@ describe('commitStatusResponse', () => {
     });
 
     expect(payload.sha).toBe('main');
+    expect(payload.total_count).toBe(0);
     expect(payload.repository.full_name).toBe('lovely-org/awesome-repo');
     expect(payload.repository.trees_url).toContain('/repos/lovely-org/awesome-repo/git/trees');
   });

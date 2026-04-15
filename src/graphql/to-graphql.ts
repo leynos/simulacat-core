@@ -1,4 +1,10 @@
-/** @file Converters from stored GitHub entities to GraphQL resolver objects. */
+/**
+ * @file Converters from stored GitHub entities to GraphQL resolver objects.
+ *
+ * This module maps seeded store entities into generated GraphQL types and
+ * connection helpers, composing `applyRelayPagination` with the generated
+ * `User`, `Repository`, `Organization`, and `Team` resolver shapes.
+ */
 import type {PageArgs} from './relay.ts';
 import {applyRelayPagination} from './relay.ts';
 import type {ExtendedSimulationStore} from '../store/index.ts';
@@ -121,7 +127,8 @@ export function toGraphql<T extends keyof (DataSchemas | GraphQLData)>(
         get owner() {
           return deriveOwner(simulationStore, repo.owner);
         },
-        // @ts-expect-error
+        // @ts-expect-error GraphQL expects a richer ref object than the stored
+        // branch name string can currently provide.
         defaultBranchRef: {
           id: repo.default_branch,
           name: repo.default_branch
@@ -146,7 +153,7 @@ export function toGraphql<T extends keyof (DataSchemas | GraphQLData)>(
       console.error(`toGraphql: unhandled __typename ${__typename}`, {
         entity
       });
-      throw new Error('derp');
+      throw new Error(`toGraphql: unhandled __typename ${__typename} for entity ${JSON.stringify(entity)}`);
   }
 }
 

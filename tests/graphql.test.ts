@@ -41,15 +41,25 @@ type TeamsQuery = {
   };
 };
 
+type UserOrganizationsQuery = {
+  user: {
+    organizations: {
+      nodes: Array<{
+        login: string;
+      }>;
+    };
+  };
+};
+
 describe('graphql queries', () => {
   let server: SimulationServer;
   beforeAll(async () => {
     const app = simulation({
       initialState: {
-        users: [{login: 'frontsidejack', organizations: ['lovel-org']}],
+        users: [{login: 'frontsidejack', organizations: ['lovely-org']}],
         organizations: [{login: 'lovely-org'}],
         repositories: [{owner: 'lovely-org', name: 'awesome-repo'}],
-        branches: [{name: 'main'}],
+        branches: [{owner: 'lovely-org', repo: 'awesome-repo', name: 'main'}],
         blobs: []
       }
     });
@@ -284,8 +294,10 @@ describe('graphql queries', () => {
       expect(response.errors).toBe(undefined);
     });
     it('responds successfully to graphql client', async () => {
-      const request = await client(query, variables);
+      const request = await client<UserOrganizationsQuery>(query, variables);
       expect(request).toBeDefined();
+      expect(request.user.organizations.nodes.length).toBeGreaterThan(0);
+      expect(request.user.organizations.nodes).toEqual([expect.objectContaining({login: 'lovely-org'})]);
     });
   });
 

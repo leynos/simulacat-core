@@ -16,7 +16,7 @@ GitHub-heavy tests usually rot in one of two ways: they either hit the real API
 and become brittle, or they rely on static fixtures that cannot express
 stateful behaviour.
 
-- **Model GitHub as a testable system**: Seed users, organisations,
+- **Model GitHub as a testable system**: Seed users, organizations,
   repositories, branches, blobs, and installations, then query them through
   REST and GraphQL.
 - **Stay deterministic**: Run the same simulation locally and in CI without
@@ -45,7 +45,7 @@ const initialState: InitialState = {
   users: [{login: 'test', organizations: ['frontside']}],
   organizations: [{login: 'frontside'}],
   repositories: [{owner: 'frontside', name: 'test-repo'}],
-  branches: [{name: 'main'}],
+  branches: [{owner: 'frontside', repo: 'test-repo', name: 'main'}],
   blobs: [{owner: 'frontside', repo: 'test-repo', path: 'README.md'}]
 };
 
@@ -65,8 +65,8 @@ ______________________________________________________________________
 
 `simulation()` accepts a single `GitHubSimulatorArgs` object.
 
-- `initialState`: Seeds users, organisations, repositories, branches, and
-  blobs. Organisations also generate installation fixtures automatically.
+- `initialState`: Seeds users, organizations, repositories, branches, and
+  blobs. Organizations also generate installation fixtures automatically.
 - `apiUrl`: Changes the mounted REST API root. The default is `/`.
 - `apiSchema`: Uses a bundled schema such as `api.github.com.json` or a custom
   schema path on disk.
@@ -91,7 +91,7 @@ const initialState: InitialState = {
   users: [{login: 'test', organizations: []}],
   organizations: [{login: 'frontside'}],
   repositories: [{owner: 'frontside', name: 'test-repo'}],
-  branches: [{name: 'main'}],
+  branches: [{owner: 'frontside', repo: 'test-repo', name: 'main'}],
   blobs: []
 };
 
@@ -127,7 +127,7 @@ ______________________________________________________________________
 | --- | --- | --- |
 | REST routes | Installations, repository lists, branches, blobs, trees, commit status, authenticated user, and org memberships | See [`docs/api-reference.md`](docs/api-reference.md) for the exact route list. |
 | GraphQL root queries | `viewer`, `organization`, `organizations`, `repository`, and `repositoryOwner` | Connection pagination uses Relay-style cursors. |
-| GraphQL nested fields | Repository owners, repository topics, languages, and user organisations | Some connections are intentionally stubbed with empty results for now. |
+| GraphQL nested fields | Repository owners, repository topics, languages, and user organizations | Some connections are intentionally stubbed with empty results for now. |
 | Platform routes | `/health`, `/graphql`, OAuth authorize, and OAuth access token endpoints | Useful for local harness bootstrapping and login flows. |
 
 ______________________________________________________________________
@@ -140,7 +140,7 @@ seed fixtures.
 - `InitialState`: Alias for the input shape accepted by `simulation()`.
 - `githubUserSchema`: Seeds GitHub users and fills in default names, emails,
   avatars, and timestamps.
-- `githubOrganizationSchema`: Seeds organisations and derives GitHub-style URLs
+- `githubOrganizationSchema`: Seeds organizations and derives GitHub-style URLs
   plus default metadata.
 - `githubRepositorySchema`: Seeds repositories and expands them with canonical
   REST-style URLs and default visibility metadata.
@@ -196,4 +196,5 @@ ______________________________________________________________________
 ## Contributing
 
 Contributions are welcome. Please read [AGENTS.md](AGENTS.md) before making
-changes so your work matches the repository's build, testing, and commit rules.
+changes, so your work matches the repository's build, testing, and commit
+rules.

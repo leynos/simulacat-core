@@ -8,7 +8,7 @@ const basePort = 2999;
 const host = 'http://localhost';
 const url = `${host}:${basePort}`;
 
-describe('GET user endpoints', () => {
+describe('router extension tests', () => {
   let server: SimulationServer;
   beforeAll(async () => {
     const app = simulation({
@@ -16,7 +16,7 @@ describe('GET user endpoints', () => {
         users: [],
         organizations: [{login: 'lovely-org'}],
         repositories: [{owner: 'lovely-org', name: 'awesome-repo'}],
-        branches: [{name: 'main'}],
+        branches: [{owner: 'lovely-org', repo: 'awesome-repo', name: 'main'}],
         blobs: []
       },
       extend: {

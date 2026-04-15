@@ -11,4 +11,4 @@ The REST API is generated through an OpenAPI spec published and updated at
 
 ## GraphQL
 
-We hold two versions: the github.com version and the enterprise version.
+We hold two versions: the GitHub.com version and the enterprise version.

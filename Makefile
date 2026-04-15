@@ -1,4 +1,4 @@
-.PHONY: all check-fmt typecheck lint test build generate markdownlint nixie
+.PHONY: all check-fmt typecheck lint test build clean generate markdownlint nixie
 
 MDLINT ?= markdownlint-cli2
 XARGS_R := $(shell if xargs --help 2>&1 | grep -q '\\-r'; then printf -- '-r'; fi)
@@ -19,6 +19,9 @@ test:
 
 build:
 	bun run build
+
+clean:
+	rm -rf dist src/__generated__/resolvers-types.ts
 
 generate:
 	bun run generate

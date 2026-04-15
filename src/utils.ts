@@ -16,11 +16,29 @@ export type SchemaFile = (typeof schemaDefaults)[number];
  */
 export function getSchema(schemaFile: SchemaFile | string) {
   const root = path.join(import.meta.dirname, '..');
+  const schemaPath = (schemaDefaults as readonly string[]).includes(schemaFile)
+    ? path.join(root, 'schema', schemaFile)
+    : schemaFile;
 
-  const fileString = fs.readFileSync(
-    (schemaDefaults as unknown as string[]).includes(schemaFile) ? path.join(root, 'schema', schemaFile) : schemaFile,
-    'utf-8'
-  );
+  try {
+    const fileString = fs.readFileSync(schemaPath, 'utf-8');
 
-  return schemaFile.endsWith('.json') ? JSON.parse(fileString) : fileString;
+    if (!schemaFile.endsWith('.json')) {
+      return fileString;
+    }
+
+    try {
+      return JSON.parse(fileString);
+    } catch (error) {
+      throw new Error(
+        `Failed to parse JSON schema from ${schemaPath}: ${error instanceof Error ? error.message : String(error)}`,
+        {cause: error}
+      );
+    }
+  } catch (error) {
+    throw new Error(
+      `Failed to load schema ${schemaFile} from ${schemaPath}: ${error instanceof Error ? error.message : String(error)}`,
+      {cause: error}
+    );
+  }
 }

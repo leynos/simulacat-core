@@ -32,6 +32,19 @@ export interface RelayPagingOptions {
 
 const identity = <A>(a: A): A => a;
 
+const parseCursor = (name: 'before' | 'after', cursor: string | undefined, defaultValue: number) => {
+  if (cursor == null) {
+    return defaultValue;
+  }
+
+  const value = Number(cursor);
+  if (!Number.isInteger(value) || value < 0) {
+    throw new Error(`value of '${name}' must be a non-negative integer, was ${cursor}`);
+  }
+
+  return value;
+};
+
 /**
  * Slices a node list into a Relay-compatible page response.
  *
@@ -95,8 +108,8 @@ export function applyRelayPagination<T, R>(
  * ```
  */
 function applyCursorsToEdges<T>(nodes: T[], before?: string, after?: string) {
-  const afterIdx = after ? Number(after) : -1;
-  const beforeIdx = before ? Number(before) : nodes.length;
+  const afterIdx = parseCursor('after', after, -1);
+  const beforeIdx = parseCursor('before', before, nodes.length);
 
   const edges = nodes.slice(afterIdx + 1, beforeIdx).map((node, i) => ({
     node,
@@ -128,7 +141,7 @@ function edgesToReturn<T>(edges: T[], first?: number, last?: number) {
   }
   if (last != null) {
     if (last < 0) {
-      throw new Error(`value of 'after' must be greater than 0, was ${last}`);
+      throw new Error(`value of 'last' must be greater than 0, was ${last}`);
     }
     newEdges = edges.slice(-last);
   }

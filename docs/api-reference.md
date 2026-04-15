@@ -12,7 +12,7 @@ state, REST handlers, GraphQL resolvers, and a few convenience routes.
 
 - `initialState?: InitialState`
   Seeds the built-in GitHub tables. This is parsed through
-  `gitubInitialStoreSchema`, so defaults and transforms are applied before the
+  `githubInitialStoreSchema`, so defaults and transforms are applied before the
   store is built.
 - `apiUrl?: string`
   Changes the mounted REST API root. Use this when a harness expects the API to
@@ -48,7 +48,7 @@ The package exports the schemas needed to validate and build seeded state:
 ### `InitialState`
 
 `InitialState` is an alias for `GitHubInitialStore`, the input side of
-`gitubInitialStoreSchema`.
+`githubInitialStoreSchema`.
 
 Required top-level collections:
 
@@ -92,6 +92,7 @@ The package currently wires the following operations:
 Root queries implemented by the generated resolver map:
 
 - `viewer`
+- `user(login: String!)`
 - `organization(login: String!)`
 - `organizations(...)`
 - `repository(owner: String!, name: String!)`

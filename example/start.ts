@@ -5,13 +5,16 @@ const initialState: InitialState = {
   users: [{login: 'test', organizations: ['frontside']}],
   repositories: [{name: 'test-repo', owner: 'frontside'}],
   organizations: [{login: 'frontside'}],
-  branches: [{name: 'main'}],
+  branches: [{owner: 'frontside', repo: 'test-repo', name: 'main'}],
   blobs: []
 };
 
 const app = simulation({initialState});
-app.listen(3300, () =>
+const {PORT} = process.env;
+const port = Number(PORT) || 3300;
+
+app.listen(port, () =>
   console.log(
-    `GitHub API Simulation server started at http://localhost:3300\nVisit http://localhost:3300/simulation to view all available routes.`
+    `GitHub API Simulation server started at http://localhost:${port}\nVisit http://localhost:${port}/simulation to view all available routes.`
   )
 );

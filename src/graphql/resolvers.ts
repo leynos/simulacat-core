@@ -1,4 +1,10 @@
-/** @file Root GraphQL resolvers backed by the simulation store. */
+/**
+ * @file Root GraphQL resolvers backed by the simulation store.
+ *
+ * This module binds generated `Resolvers` types to the in-memory simulation
+ * store, using `applyRelayPagination`, `toGraphql`, and `deriveOwner` to serve
+ * GraphQL queries.
+ */
 import type {PageArgs} from './relay.ts';
 import {applyRelayPagination} from './relay.ts';
 import type {Resolvers} from '../__generated__/resolvers-types.ts';
@@ -18,10 +24,15 @@ export function createResolvers(simulationStore: ExtendedSimulationStore): Resol
   return {
     Query: {
       viewer() {
-        const user = simulationStore.schema.users.selectById(simulationStore.store.getState(), {
-          id: 'user:1' as any
-        });
+        const [user] = simulationStore.schema.users.selectTableAsList(simulationStore.store.getState());
         assert(!!user, `no logged in user`);
+        return toGraphql(simulationStore, 'User', user);
+      },
+      user(_: unknown, {login}: {login: string}) {
+        const user = simulationStore.schema.users
+          .selectTableAsList(simulationStore.store.getState())
+          .find((u) => u.login === login);
+        assert(!!user, `no user found for ${login}`);
         return toGraphql(simulationStore, 'User', user);
       },
       organization(_: unknown, {login}: {login: string}) {
@@ -37,7 +48,11 @@ export function createResolvers(simulationStore: ExtendedSimulationStore): Resol
       repository(_root: unknown, {owner, name}: {owner: string; name: string}) {
         const repo = simulationStore.schema.repositories
           .selectTableAsList(simulationStore.store.getState())
-          .find((r) => r.name.toLowerCase() === name && r.full_name.toLowerCase() === `${owner}/${name}`.toLowerCase());
+          .find(
+            (r) =>
+              r.name.toLowerCase() === name.toLowerCase() &&
+              r.full_name.toLowerCase() === `${owner}/${name}`.toLowerCase()
+          );
         assert(!!repo, `no repository found for ${name}`);
         return toGraphql(simulationStore, 'Repository', repo);
       },
@@ -45,5 +60,7 @@ export function createResolvers(simulationStore: ExtendedSimulationStore): Resol
         return deriveOwner(simulationStore, login);
       }
     }
+    // The generated `Resolvers` signatures do not line up exactly with the
+    // lightweight callback shapes used here for the simulated root fields.
   } as unknown as Resolvers;
 }

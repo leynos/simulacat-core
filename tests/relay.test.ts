@@ -52,13 +52,28 @@ describe('applyRelayPagination', () => {
           before: fc.option(fc.integer({min: 0, max: 12}).map(String), {nil: undefined})
         }),
         async (nodes, args) => {
-          const page = applyRelayPagination(nodes, args);
+          const pageArgs = {
+            ...(args.first === undefined ? {} : {first: args.first}),
+            ...(args.last === undefined ? {} : {last: args.last}),
+            ...(args.after === undefined ? {} : {after: args.after}),
+            ...(args.before === undefined ? {} : {before: args.before})
+          };
+          const page = applyRelayPagination(nodes, pageArgs);
           const cursors = page.edges.map((edge) => Number(edge.cursor));
 
           expect(page.totalCount).toBe(nodes.length);
           expect(page.edges.length).toBe(page.nodes.length);
           expect(page.edges.map((edge) => edge.node)).toEqual(page.nodes);
-          expect(cursors.every((cursor, index) => index === 0 || cursor === cursors[index - 1] + 1)).toBe(true);
+          expect(
+            cursors.every((cursor, index) => {
+              if (index === 0) {
+                return true;
+              }
+
+              const previousCursor = cursors[index - 1];
+              return previousCursor !== undefined && cursor === previousCursor + 1;
+            })
+          ).toBe(true);
           expect(page.pageInfo.startCursor).toBe(page.edges[0]?.cursor);
           expect(page.pageInfo.endCursor).toBe(page.edges.at(-1)?.cursor);
         }
@@ -71,6 +86,6 @@ describe('applyRelayPagination', () => {
   });
 
   it('rejects negative last values', () => {
-    expect(() => applyRelayPagination(['a'], {last: -1})).toThrow("value of 'after' must be greater than 0");
+    expect(() => applyRelayPagination(['a'], {last: -1})).toThrow("value of 'last' must be greater than 0");
   });
 });

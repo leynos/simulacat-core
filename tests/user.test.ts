@@ -16,7 +16,7 @@ describe('GET user endpoints', () => {
         users: [],
         organizations: [{login: 'lovely-org'}],
         repositories: [{owner: 'lovely-org', name: 'awesome-repo'}],
-        branches: [{name: 'main'}],
+        branches: [{owner: 'lovely-org', repo: 'awesome-repo', name: 'main'}],
         blobs: []
       }
     });
@@ -30,7 +30,6 @@ describe('GET user endpoints', () => {
     it('validates with 200 response', async () => {
       const request = await fetch(`${url}/user/memberships/orgs`);
       const response = await request.json();
-      expect(response.err).toBe(undefined);
       expect(request.status).toEqual(200);
       expect(response).toEqual([
         expect.objectContaining({

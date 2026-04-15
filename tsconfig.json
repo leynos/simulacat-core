@@ -2,18 +2,23 @@
   "compilerOptions": {
     "allowImportingTsExtensions": true,
     "esModuleInterop": true,
+    "exactOptionalPropertyTypes": true,
     "ignoreDeprecations": "6.0",
     "lib": ["DOM", "ES2022"],
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
     "noEmit": true,
+    "noImplicitOverride": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "noUncheckedIndexedAccess": true,
     "outDir": "dist",
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "strict": true,
     "target": "ES2022",
     "types": ["bun-types", "node"],
-    "verbatimModuleSyntax": false
+    "useUnknownInCatchVariables": true,
+    "verbatimModuleSyntax": true
   },
   "exclude": ["dist", "node_modules"],
   "include": ["codegen.ts", "src/**/*.ts", "tests/**/*.ts", "example/**/*.ts", "sync.ts", "tsdown.config.ts"]

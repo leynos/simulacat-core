@@ -1,13 +1,13 @@
 /** @file Unit tests for fixture schemas and state-table conversion helpers. */
 import {describe, expect, it} from 'bun:test';
-import {convertInitialStateToStoreState, githubBlobSchema, gitubInitialStoreSchema} from '../src/store/entities.ts';
+import {convertInitialStateToStoreState, githubBlobSchema, githubInitialStoreSchema} from '../src/store/entities.ts';
 
 const minimalInitialState = (userOverrides = {}) =>
-  gitubInitialStoreSchema.parse({
+  githubInitialStoreSchema.parse({
     users: [{login: 'dev', organizations: [], ...userOverrides}],
     organizations: [{login: 'test-org'}],
     repositories: [{owner: 'test-org', name: 'test-repo'}],
-    branches: [{name: 'main'}],
+    branches: [{owner: 'test-org', repo: 'test-repo', name: 'main'}],
     blobs: []
   });
 
@@ -19,9 +19,12 @@ describe('initialState user fields', () => {
       email: 'dev@example.io'
     });
     const store = convertInitialStateToStoreState(parsed)!;
-    const user = store.users['dev'];
+    const {dev: user} = store.users;
 
     expect(user).toBeDefined();
+    if (!user) {
+      throw new Error('expected seeded user to be present');
+    }
     expect(user.id).toBe(99887766);
     expect(user.login).toBe('dev');
     expect(user.name).toBe('dev User');
@@ -31,8 +34,11 @@ describe('initialState user fields', () => {
   it('generates defaults for omitted fields', () => {
     const parsed = minimalInitialState();
     const store = convertInitialStateToStoreState(parsed)!;
-    const user = store.users['dev'];
+    const {dev: user} = store.users;
 
+    if (!user) {
+      throw new Error('expected seeded user to be present');
+    }
     expect(user.id).toBeGreaterThanOrEqual(1000);
     expect(user.email).toContain('@');
   });
@@ -73,11 +79,11 @@ describe('githubBlobSchema', () => {
 
 describe('initialState blob fields', () => {
   it('stores path-only blobs using a stable fallback key', () => {
-    const parsed = gitubInitialStoreSchema.parse({
+    const parsed = githubInitialStoreSchema.parse({
       users: [{login: 'dev', organizations: []}],
       organizations: [{login: 'test-org'}],
       repositories: [{owner: 'test-org', name: 'test-repo'}],
-      branches: [{name: 'main'}],
+      branches: [{owner: 'test-org', repo: 'test-repo', name: 'main'}],
       blobs: [{owner: 'test-org', repo: 'test-repo', path: 'README.md'}]
     });
     const store = convertInitialStateToStoreState(parsed)!;
@@ -106,10 +112,41 @@ describe('initialState schema transforms', () => {
     );
   });
 
+  it('preserves caller-supplied installation fields', () => {
+    const parsed = githubInitialStoreSchema.parse({
+      users: [{login: 'dev', organizations: []}],
+      installations: [
+        {
+          id: 4242,
+          account: 'test-org',
+          access_tokens_url: 'https://example.test/custom/access_tokens',
+          repositories_url: 'https://example.test/custom/repositories',
+          html_url: 'https://example.test/custom/html'
+        }
+      ],
+      organizations: [{login: 'test-org'}],
+      repositories: [{owner: 'test-org', name: 'test-repo'}],
+      branches: [{owner: 'test-org', repo: 'test-repo', name: 'main'}],
+      blobs: []
+    });
+
+    expect(parsed.installations).toEqual([
+      expect.objectContaining({
+        id: 4242,
+        access_tokens_url: 'https://example.test/custom/access_tokens',
+        repositories_url: 'https://example.test/custom/repositories',
+        html_url: 'https://example.test/custom/html'
+      })
+    ]);
+  });
+
   it('normalizes repository fields needed by REST and GraphQL responses', () => {
     const parsed = minimalInitialState();
     const repository = parsed.repositories[0];
 
+    if (!repository) {
+      throw new Error('expected seeded repository to be present');
+    }
     expect(repository.full_name).toBe('test-org/test-repo');
     expect(repository.url).toContain('/repos/test-org/test-repo');
     expect(repository.visibility).toBe('public');

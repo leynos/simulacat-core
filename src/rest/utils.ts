@@ -14,19 +14,24 @@ export const blobAsBase64 = ({
   host,
   owner,
   repo,
-  ref
+  ref,
+  kind = 'contents'
 }: {
   blob: GitHubBlob;
   host: string;
   owner: string;
   repo: string;
   ref: string;
+  kind?: 'contents' | 'git-blob';
 }) => ({
   content: blob.encoding === 'base64' ? blob.content : Buffer.from(blob.content).toString('base64'),
   encoding: 'base64',
-  url: `${host}/repos/${owner}/${repo}/contents/${ref}`,
-  sha: '-------',
-  size: 9999,
+  url:
+    kind === 'git-blob'
+      ? `${host}/repos/${owner}/${repo}/git/blobs/${blob.sha ?? ref}`
+      : `${host}/repos/${owner}/${repo}/contents/${ref}`,
+  sha: blob.sha,
+  size: blob.encoding === 'base64' ? Buffer.from(blob.content, 'base64').byteLength : Buffer.byteLength(blob.content),
   node_id: 'node_id'
 });
 
@@ -64,7 +69,7 @@ export const gitTrees = ({
 
   return {
     sha: ref,
-    url: `${host}/repos/${owner}/${repo}/trees/${ref}`,
+    url: `${host}/repos/${owner}/${repo}/git/trees/${ref}`,
     tree,
     truncated: false
   };
@@ -88,26 +93,30 @@ export const commitStatusResponse = ({
   owner: string;
   repo: string;
   ref: string;
-}) => ({
-  state: 'success',
-  statuses: [],
-  sha: ref,
-  total_count: 2,
-  repository: {
-    id: 1296269,
-    node_id: 'MDEwOlJlcG9zaXRvcnkxMjk2MjY5',
-    name: repo,
-    full_name: `${owner}/${repo}`,
-    owner: {
-      login: 'octocat',
-      id: 1,
-      type: 'User',
-      site_admin: false
-    },
-    private: false,
-    description: 'This your first repo!',
-    fork: false,
-    trees_url: `${host}/repos/${owner}/${repo}/git/trees{/sha}`,
-    archive_url: `${host}/repos/${owner}/${repo}/{archive_format}{/ref}`
-  }
-});
+}) => {
+  const statuses: never[] = [];
+
+  return {
+    state: 'success',
+    statuses,
+    sha: ref,
+    total_count: statuses.length,
+    repository: {
+      id: 1296269,
+      node_id: 'MDEwOlJlcG9zaXRvcnkxMjk2MjY5',
+      name: repo,
+      full_name: `${owner}/${repo}`,
+      owner: {
+        login: 'octocat',
+        id: 1,
+        type: 'User',
+        site_admin: false
+      },
+      private: false,
+      description: 'This your first repo!',
+      fork: false,
+      trees_url: `${host}/repos/${owner}/${repo}/git/trees{/sha}`,
+      archive_url: `${host}/repos/${owner}/${repo}/{archive_format}{/ref}`
+    }
+  };
+};

@@ -57,7 +57,7 @@ export type GitHubRepoOwner = Omit<GitHubOrganization, 'name' | 'email'> & {
 
 export type GitHubRepositoryWithOrganizationOwner = Omit<GitHubRepository, 'id' | 'owner'> & {
   id: number;
-  owner: GitHubRepoOwner;
+  owner: GitHubRepoOwner | string | null;
 };
 
 /** Creates the base store schema and seeds it from parsed initial state. */
@@ -154,14 +154,17 @@ const inputSelectors = ({createSelector, schema}: ExtendSimulationSelectors<Exte
         if (org && !orgMap?.[org]) return undefined;
         const repos = !org ? allRepos : allRepos.filter((r) => r.owner === org);
         return repos.map((repo) => {
+          const ownerOrg = orgMap?.[repo.owner];
           const linkedRepo = {
             ...repo,
             id: Number(repo.id),
-            owner: {...orgMap[repo.owner], id: Number(orgMap[repo.owner].id)}
+            owner: ownerOrg ? {...ownerOrg, id: Number(ownerOrg.id)} : repo.owner
           };
-          // TODO better option than delete?
-          delete linkedRepo.owner.name;
-          delete linkedRepo.owner.email;
+          if (linkedRepo.owner && typeof linkedRepo.owner !== 'string') {
+            // TODO better option than delete?
+            delete linkedRepo.owner.name;
+            delete linkedRepo.owner.email;
+          }
           return linkedRepo;
         });
       }
@@ -170,12 +173,10 @@ const inputSelectors = ({createSelector, schema}: ExtendSimulationSelectors<Exte
   const getBlob: (state: AnyState, owner: string, repo: string, sha_or_path: string) => GitHubBlob | undefined =
     createSelector(
       schema.blobs.selectTableAsList,
-      (_state: AnyState, owner: string, repo: string, sha_or_path: string) => ({
-        owner,
-        repo,
-        sha_or_path
-      }),
-      (blobs, {owner, repo, sha_or_path}) => {
+      (_state: AnyState, owner: string) => owner,
+      (_state: AnyState, _owner: string, repo: string) => repo,
+      (_state: AnyState, _owner: string, _repo: string, sha_or_path: string) => sha_or_path,
+      (blobs, owner, repo, sha_or_path) => {
         const blob = blobs.find(
           (blob) =>
             blob.owner === owner && blob.repo === repo && (blob.path === sha_or_path || blob.sha === sha_or_path)
@@ -186,11 +187,9 @@ const inputSelectors = ({createSelector, schema}: ExtendSimulationSelectors<Exte
 
   const getBlobAtOwnerRepo: (state: AnyState, owner: string, repo: string) => GitHubBlob[] = createSelector(
     schema.blobs.selectTableAsList,
-    (_state: AnyState, owner: string, repo: string) => ({
-      owner,
-      repo
-    }),
-    (blobs, {owner, repo}) => {
+    (_state: AnyState, owner: string) => owner,
+    (_state: AnyState, _owner: string, repo: string) => repo,
+    (blobs, owner, repo) => {
       const blob = blobs.filter((blob) => blob.owner === owner && blob.repo === repo);
       return blob;
     }
@@ -238,5 +237,6 @@ export const extendStore = (
 } => ({
   actions: extendActions(extended?.actions),
   selectors: extendSelectors(extended?.selectors),
-  schema: inputSchema(initialState, extended?.schema)
+  schema: inputSchema(initialState, extended?.schema),
+  ...(extended?.logs === undefined ? {} : {logs: extended.logs})
 });

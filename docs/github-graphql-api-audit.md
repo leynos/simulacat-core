@@ -2,7 +2,8 @@
 
 ## Scope
 
-This audit compares `packages/github-api` to the public GitHub GraphQL schema at:
+This audit compares `packages/github-api` to the public GitHub GraphQL schema
+at:
 
 - `https://docs.github.com/public/fpt/schema.docs.graphql`
 
@@ -14,47 +15,60 @@ The question here is not only "does the schema exist", but:
 
 ## Executive Summary
 
-The GraphQL simulator exposes a very large schema surface but only a small amount of real behavior.
+The GraphQL simulator exposes a very large schema surface but only a small
+amount of real behaviour.
 
 There are three important layers:
 
 1. The package loads a full SDL file into GraphQL Yoga.
 2. It provides a very small custom resolver map on top of that schema.
-3. Anything else depends on GraphQL default field resolution, which usually means `null`, empty connections, or raw object properties if they happen to exist.
+3. Anything else depends on GraphQL default field resolution, which usually
+   means `null`, empty connections, or raw object properties if they happen to
+   exist.
 
 Relative to the public GitHub schema:
 
-- the loaded runtime schema is already a mismatch, because the simulator uses the bundled enterprise schema, not the public dotcom schema
-- explicit top-level coverage is tiny: 5 query resolvers and 0 mutation resolvers
-- meaningful scriptability exists mostly for users, organizations, repositories, pagination, repo topics, and a few repository metadata fields
-- much of the apparent breadth is schema-shaped only, not behaviorally mocked
+- the loaded runtime schema is already a mismatch, because the simulator uses
+  the bundled enterprise schema, not the public dotcom schema
+- explicit top-level coverage is tiny: 6 query resolvers and 0 mutation
+  resolvers
+- meaningful scriptability exists mostly for users, organizations,
+  repositories, pagination, repo topics, and a few repository metadata fields
+- much of the apparent breadth is schema-shaped only, not behaviourally mocked
 
 ## Key Findings
 
 ### 1. The runtime schema does not match the audited public schema
 
-The GraphQL handler loads `schema.docs-enterprise.graphql`, not `schema.docs.graphql` and not the public docs URL directly.
+The GraphQL handler loads `schema.docs-enterprise.graphql`, not
+`schema.docs.graphql` and not the public docs URL directly.
 
-- `packages/github-api/src/graphql/handler.ts` loads `schema.docs-enterprise.graphql`
-- `packages/github-api/schema/README.md` confirms the package carries both a github.com schema and an enterprise schema
+- `packages/github-api/src/graphql/handler.ts` loads
+  `schema.docs-enterprise.graphql`
+- `packages/github-api/schema/README.md` confirms the package carries both a
+  GitHub.com schema and an enterprise schema
 
-That matters because the public schema and the loaded enterprise schema differ materially.
+That matters because the public schema and the loaded enterprise schema differ
+materially.
 
 Observed counts:
 
 | Schema                                                              | Query root fields | Mutation root fields |
 | ------------------------------------------------------------------- | ----------------: | -------------------: |
-| Public schema from `docs.github.com/public/fpt/schema.docs.graphql` |                31 |                  264 |
-| Bundled `schema.docs.graphql`                                       |                28 |                  225 |
-| Runtime-loaded `schema.docs-enterprise.graphql`                     |                23 |                  147 |
+| Public schema from `docs.github.com/public/fpt/schema.docs.graphql` | 31                | 264                  |
+| Bundled `schema.docs.graphql`                                       | 28                | 225                  |
+| Runtime-loaded `schema.docs-enterprise.graphql`                     | 23                | 147                  |
 
-So before resolver coverage is even considered, the simulator is already running against a smaller, different schema than the one used for this audit.
+So before resolver coverage is even considered, the simulator is already
+running against a smaller, different schema than the one used for this audit.
 
 ### 2. Explicit resolver coverage is very small
 
-The only explicit top-level GraphQL resolvers are in `packages/github-api/src/graphql/resolvers.ts`:
+The only explicit top-level GraphQL resolvers are in
+`packages/github-api/src/graphql/resolvers.ts`:
 
 - `Query.viewer`
+- `Query.user`
 - `Query.organization`
 - `Query.organizations`
 - `Query.repository`
@@ -62,21 +76,23 @@ The only explicit top-level GraphQL resolvers are in `packages/github-api/src/gr
 
 There are:
 
-- 5 explicit query resolvers
+- 6 explicit query resolvers
 - 0 explicit mutation resolvers
 
 Relative to the public schema, that is roughly:
 
-- `5 / 31` query entry points explicitly implemented
+- `6 / 31` query entry points explicitly implemented
 - `0 / 264` mutations explicitly implemented
 
 ### 3. What is actually scriptable is a thin user/org/repo slice
 
-The real GraphQL behavior comes from the in-memory store plus the translation layer in `packages/github-api/src/graphql/to-graphql.ts`.
+The real GraphQL behaviour comes from the in-memory store plus the translation
+layer in `packages/github-api/src/graphql/to-graphql.ts`.
 
 Store-backed and meaningfully scriptable pieces include:
 
 - `repositoryOwner(login)` resolving to an org or user
+- `user(login)`
 - `RepositoryOwner.repositories(...)`
 - `organization(login)`
 - `organizations(...)`
@@ -106,30 +122,36 @@ Large parts of the GraphQL surface are not actually modeled:
 - `Organization.membersWithRole(...)` always returns an empty connection
 - `Repository.collaborators(...)` always returns an empty connection
 
-Other fields are not explicitly resolved at all. They only work if GraphQL can fall back to a matching property on the translated object, or if returning `null` is acceptable for the field type.
+Other fields are not explicitly resolved at all. They only work if GraphQL can
+fall back to a matching property on the translated object, or if returning
+`null` is acceptable for the field type.
 
 Important examples from the tests:
 
-- queries against `organization.team(slug: ...)` are considered passing if they produce no GraphQL errors, but there is no explicit `team` resolver in the package
-- queries against `repository.object(expression: ...)` similarly have no explicit object/blob resolver in the GraphQL layer
+- queries against `organization.team(slug: ...)` are considered passing if they
+  produce no GraphQL errors, but there is no explicit `team` resolver in the
+  package
+- queries against `repository.object(expression: ...)` similarly have no
+  explicit object/blob resolver in the GraphQL layer
 - most GraphQL tests assert only "no errors", not meaningful returned data
 
-So the package is not a deep GitHub GraphQL mock. It is a narrow store-backed graph embedded inside a very large schema.
+So the package is not a deep GitHub GraphQL mock. It is a narrow store-backed
+graph embedded inside a very large schema.
 
 ## Explicit Coverage
 
 ### Top-level queries
 
-| Field                     | Status                        | Notes                                                                                                 |
-| ------------------------- | ----------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `viewer`                  | Fragile/partially implemented | Explicit resolver exists, but it looks up a hard-coded `"user:1"` id rather than a real auth context. |
-| `organization(login)`     | Implemented                   | Store-backed lookup by org login.                                                                     |
-| `organizations(...)`      | Implemented                   | Store-backed list with relay pagination.                                                              |
-| `repository(owner, name)` | Implemented                   | Store-backed repo lookup.                                                                             |
-| `repositoryOwner(login)`  | Implemented                   | Resolves to org or user from store.                                                                   |
-| `user(login)`             | Not explicitly implemented    | Present in schema, but not in the resolver map.                                                       |
-| `users(...)`              | Not explicitly implemented    | Present in the enterprise schema, but not in the resolver map.                                        |
-| Other public query roots  | Not explicitly implemented    | Most of the public schema entry points have no package resolver.                                      |
+| Field                     | Status                        | Notes                                                                                                        |
+| ------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `viewer`                  | Fragile/partially implemented | Explicit resolver exists, but it still resolves to the first seeded user rather than a real auth context.    |
+| `user(login)`             | Implemented                   | Store-backed lookup by user login.                                                                           |
+| `organization(login)`     | Implemented                   | Store-backed lookup by org login.                                                                            |
+| `organizations(...)`      | Implemented                   | Store-backed list with relay pagination.                                                                     |
+| `repository(owner, name)` | Implemented                   | Store-backed repo lookup.                                                                                    |
+| `repositoryOwner(login)`  | Implemented                   | Resolves to org or user from store.                                                                          |
+| `users(...)`              | Not explicitly implemented    | Present in the enterprise schema, but not in the resolver map.                                               |
+| Other public query roots  | Not explicitly implemented    | Most of the public schema entry points have no package resolver.                                             |
 
 ### Nested fields with real scripting
 
@@ -159,7 +181,8 @@ So the package is not a deep GitHub GraphQL mock. It is a narrow store-backed gr
 
 ## Public Schema vs Runtime Behavior
 
-Relative to `https://docs.github.com/public/fpt/schema.docs.graphql`, the package falls into four buckets:
+Relative to `https://docs.github.com/public/fpt/schema.docs.graphql`, the
+package falls into four buckets:
 
 ### A. Present in schema and meaningfully scriptable
 
@@ -174,7 +197,8 @@ This is the strongest part of the implementation:
 
 ### B. Present in schema but returning empty placeholder data
 
-These are "safe" mocks for UI rendering, but not useful for behavior-heavy tests:
+These are "safe" mocks for UI rendering, but not useful for behaviour-heavy
+tests:
 
 - teams
 - org members
@@ -182,7 +206,8 @@ These are "safe" mocks for UI rendering, but not useful for behavior-heavy tests
 
 ### C. Present in schema but usually resolving to `null`
 
-This is the largest bucket. The schema advertises many fields the package does not resolve. Queries may still succeed because:
+This is the largest bucket. The schema advertises many fields the package does
+not resolve. Queries may still succeed because:
 
 - the field is nullable
 - an ancestor field resolves to `null`
@@ -190,7 +215,9 @@ This is the largest bucket. The schema advertises many fields the package does n
 
 ### D. Not even present at runtime when auditing against the public schema
 
-Because the runtime loads the enterprise schema instead of the public dotcom schema, part of the public docs surface is absent before custom logic is considered.
+Because the runtime loads the enterprise schema instead of the public dotcom
+schema, part of the public docs surface is absent before custom logic is
+considered.
 
 Notable gap size:
 
@@ -199,32 +226,38 @@ Notable gap size:
 
 ## Test Coverage Observed
 
-The GraphQL tests are useful for proving the endpoint starts and basic queries parse, but they are weak evidence of deep behavior.
+The GraphQL tests are useful for proving the endpoint starts and basic queries
+parse, but they are weak evidence of deep behaviour.
 
 Patterns in `packages/github-api/tests/graphql.test.ts`:
 
 - most tests only check `response.errors === undefined`
-- only the repository-owner repository listing test asserts meaningful data such as repo count and pagination
-- queries exercise fields like `team(...)` and `object(expression: ...)` without asserting that the returned payload is non-null or accurate
+- only the repository-owner repository listing test asserts meaningful data
+  such as repo count and pagination
+- queries exercise fields like `team(...)` and `object(expression: ...)`
+  without asserting that the returned payload is non-null or accurate
 
 So current tests overstate functional coverage if read as a capability matrix.
 
 ## Extensibility
 
-The package does not expose a first-class GraphQL extension API similar to `extend.openapiHandlers` on the REST side.
+The package does not expose a first-class GraphQL extension API similar to
+`extend.openapiHandlers` on the REST side.
 
 What exists:
 
-- you can change the backing store with `extend.extendStore`
-- you can add routes with `extend.extendRouter`
+- the backing store can be changed with `extend.extendStore`
+- routes can be added with `extend.extendRouter`
 
 What does not exist:
 
 - no documented resolver injection point for GraphQL
 - no package-level mutation framework
-- no direct way to extend the GraphQL schema/resolver map without replacing or intercepting `/graphql` yourself
+- no direct way to extend the GraphQL schema/resolver map without replacing or
+  intercepting `/graphql` yourself
 
-That makes GraphQL less scriptable than the REST side from a consumer-extension standpoint.
+That makes GraphQL less scriptable than the REST side from a consumer-extension
+standpoint.
 
 ## Assessment
 
@@ -233,22 +266,28 @@ Relative to the public GitHub GraphQL API, `packages/github-api` is:
 - broad in exposed schema shape
 - narrow in explicit resolver coverage
 - moderately scriptable for a small read-only repository graph
-- weak for teams, members, collaborators, blobs/objects, and essentially all mutations
+- weak for teams, members, collaborators, blobs/objects, and essentially all
+  mutations
 
 The most accurate short description is:
 
-> The GraphQL simulator is mostly a thin store-backed read model for users, organizations, and repositories layered onto a much larger schema, not a comprehensive mock of the GitHub GraphQL API.
+> The GraphQL simulator is mostly a thin store-backed read model for users,
+> organizations, and repositories layered onto a much larger schema, not a
+> comprehensive mock of the GitHub GraphQL API.
 
 ## Recommended Follow-Ups
 
-1. Decide whether GraphQL should be audited and documented against the public dotcom schema or the enterprise schema actually loaded at runtime.
+1. Decide whether GraphQL should be audited and documented against the public
+   dotcom schema or the enterprise schema actually loaded at runtime.
 2. Add a supported-field matrix that distinguishes:
    - explicitly resolved fields
    - placeholder empty fields
    - schema-present but unresolved fields
-3. Add explicit resolvers for high-value fields already referenced in tests, especially:
+3. Add explicit resolvers for high-value fields already referenced in tests,
+   especially:
    - `Query.user`
    - `Organization.team`
    - `Repository.object`
-4. Add mutation support only where there is a backing store model to make it scriptable rather than purely decorative.
+4. Add mutation support only where there is a backing store model to make it
+   scriptable rather than purely decorative.
 5. Strengthen tests to assert returned data, not just absence of GraphQL errors.

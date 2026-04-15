@@ -36,7 +36,7 @@ const githubEntityPermissionSchema = z
 
 export const githubAppInstallationSchema = z
   .object({
-    id: z.number().default(2000),
+    id: z.number().optional(),
     account: z.string(),
     repository_selection: z.enum(['all', 'selected']).optional().default('all'),
     app_id: z.number().default(1),
@@ -64,14 +64,14 @@ export const githubAppInstallationSchema = z
     suspended_by: z.nullable(z.string()).optional().default(null)
   })
   .transform((install) => {
-    install.id = faker.number.int({min: 2000});
+    install.id ??= faker.number.int({min: 2000});
 
     const host = 'localhost:3300';
     // api endpoint
-    install.access_tokens_url = `https://${host}/app/installations/1/access_tokens`;
-    install.repositories_url = `https://${host}/installation/repositories`;
+    install.access_tokens_url ??= `https://${host}/app/installations/${install.id}/access_tokens`;
+    install.repositories_url ??= `https://${host}/installation/repositories`;
     // main site
-    install.html_url = `https://${host}/organizations/github/settings/installations/1`;
+    install.html_url ??= `https://${host}/organizations/${install.account}/settings/installations/${install.id}`;
 
     return install;
   });
@@ -254,20 +254,33 @@ export const githubRepositorySchema = z
   });
 export type GitHubRepository = z.infer<typeof githubRepositorySchema>;
 
-export const githubBranchSchema = z.object({
-  name: z.string().optional().default('main'),
-  commit: z.object({sha: z.string().optional(), url: z.string().optional()}).default({
-    sha: faker.git.commitSha(),
-    // @ts-expect-error
-    url: `https://api.github.com/repos/octocat/Hello-World/commits/${this?.sha}`
-  }),
-  protected: z.boolean().optional().default(true),
-  protection: z.any().optional(),
-  protection_url: z
-    .string()
-    .optional()
-    .default('https://api.github.com/repos/octocat/hello-world/branches/master/protection')
-});
+export const githubBranchSchema = z
+  .object({
+    owner: z.string(),
+    repo: z.string(),
+    name: z.string().optional().default('main'),
+    commit: z
+      .object({
+        sha: z.string().optional(),
+        url: z.string().optional()
+      })
+      .optional()
+      .default({}),
+    protected: z.boolean().optional().default(true),
+    protection: z.any().optional(),
+    protection_url: z.string().optional()
+  })
+  .transform((branch) => {
+    const sha = branch.commit.sha ?? faker.git.commitSha();
+
+    branch.commit = {
+      sha,
+      url: branch.commit.url ?? `https://api.github.com/repos/${branch.owner}/${branch.repo}/commits/${sha}`
+    };
+    branch.protection_url ??= `https://api.github.com/repos/${branch.owner}/${branch.repo}/branches/${branch.name}/protection`;
+
+    return branch;
+  });
 export type GitHubBranch = z.infer<typeof githubBranchSchema>;
 
 export const githubOrganizationSchema = z
@@ -362,7 +375,7 @@ export const githubBlobSchema = z
   });
 export type GitHubBlob = z.infer<typeof githubBlobSchema>;
 
-export const gitubInitialStoreSchema = z
+export const githubInitialStoreSchema = z
   .object({
     users: z.array(githubUserSchema),
     installations: z.array(githubAppInstallationSchema).optional().default([]),
@@ -372,17 +385,29 @@ export const gitubInitialStoreSchema = z
     blobs: z.array(githubBlobSchema)
   })
   .transform((initialStore) => {
-    initialStore.installations = initialStore.organizations.map((org) => {
-      return githubAppInstallationSchema.parse({
-        account: org.login,
-        target_id: org.id,
-        target_type: org.type
+    const existingAccounts = new Set(initialStore.installations.map((installation) => installation.account));
+
+    const generatedInstallations = initialStore.organizations
+      .filter((org) => !existingAccounts.has(org.login))
+      .map((org) => {
+        return githubAppInstallationSchema.parse({
+          account: org.login,
+          target_id: org.id,
+          target_type: org.type
+        });
       });
-    });
+
+    initialStore.installations = [...initialStore.installations, ...generatedInstallations];
     return initialStore;
   });
-export type GitHubStore = z.output<typeof gitubInitialStoreSchema>;
-export type GitHubInitialStore = z.input<typeof gitubInitialStoreSchema>;
+export type GitHubStore = z.output<typeof githubInitialStoreSchema>;
+export type GitHubInitialStore = z.input<typeof githubInitialStoreSchema>;
+
+const convertObjByKey = <T>(objects: T[], key: (object: T) => string) =>
+  Object.fromEntries(objects.map((object) => [key(object), object])) as Record<string, T>;
+
+const repositoryStoreKey = (repository: GitHubRepository) => `${repository.owner}/${repository.name}`;
+const branchStoreKey = (branch: GitHubBranch) => `${branch.owner}/${branch.repo}:${branch.name}`;
 
 /**
  * Selects the stable key used to store blob fixtures in the state table.
@@ -409,15 +434,15 @@ export const convertInitialStateToStoreState = (initialState: GitHubStore | unde
   const storeObject = {
     users: convertObjToProp(initialState.users, 'login'),
     installations: convertObjToProp(initialState.installations, 'id'),
-    repositories: convertObjToProp(initialState.repositories, 'name'),
-    branches: convertObjToProp(initialState.branches, 'name'),
+    repositories: convertObjByKey(initialState.repositories, repositoryStoreKey),
+    branches: convertObjByKey(initialState.branches, branchStoreKey),
     organizations: convertObjToProp(initialState.organizations, 'login'),
-    blobs: convertObjToProp(
+    blobs: convertObjByKey(
       initialState.blobs.map((blob) => ({
         ...blob,
         sha: blobStoreKey(blob)
       })),
-      'sha'
+      (blob) => blob.sha
     )
   };
 

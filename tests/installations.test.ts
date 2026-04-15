@@ -8,7 +8,7 @@ const basePort = 3310;
 const host = 'http://localhost';
 const url = `${host}:${basePort}`;
 
-describe('GET repo endpoints', () => {
+describe('GET installation endpoints', () => {
   let server: SimulationServer;
   beforeAll(async () => {
     const app = simulation({
@@ -16,7 +16,7 @@ describe('GET repo endpoints', () => {
         users: [],
         organizations: [{login: 'lovely-org'}],
         repositories: [{owner: 'lovely-org', name: 'awesome-repo'}],
-        branches: [{name: 'main'}],
+        branches: [{owner: 'lovely-org', repo: 'awesome-repo', name: 'main'}],
         blobs: []
       }
     });
@@ -49,7 +49,7 @@ describe('GET repo endpoints', () => {
       );
     });
 
-    it('handles non-existant org', async () => {
+    it('handles non-existent org', async () => {
       const request = await fetch(`${url}/orgs/doesnt-exist/installation`);
       expect(request.status).toEqual(404);
     });
@@ -68,17 +68,17 @@ describe('GET repo endpoints', () => {
       );
     });
 
-    it('handles non-existant org', async () => {
+    it('handles non-existent org', async () => {
       const request = await fetch(`${url}/repos/an-org/awesome-repo/installation`);
       expect(request.status).toEqual(404);
     });
 
-    it('handles non-existant repo', async () => {
+    it('handles non-existent repo', async () => {
       const request = await fetch(`${url}/repos/lovely-org/not-awesome-repo/installation`);
       expect(request.status).toEqual(404);
     });
 
-    it('handles non-existant org and repo', async () => {
+    it('handles non-existent org and repo', async () => {
       const request = await fetch(`${url}/repos/lovely-but-not/awesome/installation`);
       expect(request.status).toEqual(404);
     });

@@ -1,4 +1,9 @@
-/** @file GraphQL Yoga handler construction for the simulated GitHub schema. */
+/**
+ * @file GraphQL Yoga handler creation for the simulated GitHub schema.
+ *
+ * This module loads the bundled GraphQL SDL, creates the Yoga schema, and
+ * applies the REST-compatible media-type processor used by the simulator.
+ */
 import {createSchema, createYoga, processRegularResult} from 'graphql-yoga';
 import {isAsyncIterable} from '@graphql-tools/utils';
 import {createResolvers} from './resolvers.ts';

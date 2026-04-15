@@ -67,8 +67,8 @@
 - [`95bc2cf`](https://github.com/thefrontside/simulacrum/commit/95bc2cf102839e7f869498f0bf9d7e3f0dce7d84)
    ([#323](https://github.com/thefrontside/simulacrum/pull/323) by
   [@jbolda](https://github.com/thefrontside/simulacrum/../../jbolda)) POSSIBLY
-  BREAKING: Update the express v5. If you are using the extended router, you
-  may need to confirm your routes against the express v5 migration guide.
+  BREAKING: Update Express v5. Routes using the extended router may need
+  verification against the Express v5 migration guide.
 - [`33efe53`](https://github.com/thefrontside/simulacrum/commit/33efe53806407c2b36d6c3c927301473bcf6fd31)
    ([#329](https://github.com/thefrontside/simulacrum/pull/329) by
   [@jbolda](https://github.com/thefrontside/simulacrum/../../jbolda)) Add
@@ -207,7 +207,7 @@
 
 ## \[0.3.0]
 
-- Allow extenstion of github api simulator with new endpoints and middleware
+- Allow extension of GitHub API simulator with new endpoints and middleware
   - [b065a10](https://github.com/thefrontside/simulacrum/commit/b065a10ad6f5cb53a70453f1e8d3f0065b5e2210)
      Add changeset on 2023-05-05
 
@@ -220,9 +220,9 @@
 
 ## \[0.2.3]
 
-- add repository mock data to github-api-simulator
+- add repository mock data to GitHub API simulator
   - [62e3948](https://github.com/thefrontside/simulacrum/commit/62e394877d4e726dca692b4dcfc8af2bcf6d03e1)
-     add repository mock data to github-api-simulator
+     add repository mock data to GitHub API simulator
     ([#247](https://github.com/thefrontside/simulacrum/pull/247)) on 2022-12-05
 
 ## \[0.2.2]
@@ -234,9 +234,9 @@
 
 ## \[0.2.1]
 
-- Fix path resolution to github api schema
+- Fix path resolution to GitHub API schema
   - [995b6bb](https://github.com/thefrontside/simulacrum/commit/995b6bbea77480ac3233926f1c9b046130fdeac2)
-     Fix path resolution to github api schema
+     Fix path resolution to GitHub API schema
     ([#243](https://github.com/thefrontside/simulacrum/pull/243)) on 2022-11-30
 
 ## \[0.2.0]
