@@ -1,3 +1,4 @@
+/** @file Example entry point that starts a seeded simulation server locally. */
 import {type InitialState, simulation} from '../src/index.ts';
 
 const initialState: InitialState = {

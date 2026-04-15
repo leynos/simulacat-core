@@ -1,3 +1,4 @@
+/** @file Build configuration for publishing the package as ESM and CJS. */
 import {defineConfig} from 'tsdown';
 
 export default defineConfig({

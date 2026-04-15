@@ -1,3 +1,4 @@
+/** @file Integration tests for GitHub App installation REST endpoints. */
 import {afterAll, beforeAll, describe, expect, it} from 'bun:test';
 import {simulation} from '../src/index.ts';
 

@@ -1,8 +1,13 @@
+/** @file OpenAPI-backed REST handlers for the simulated GitHub API. */
 import type {SimulationHandlers} from '@simulacrum/foundation-simulator';
 import type {ExtendedSimulationStore} from '../store/index.ts';
 import {getSchema, type SchemaFile} from '../utils.ts';
 import {blobAsBase64, commitStatusResponse, gitTrees} from './utils.ts';
 
+/**
+ * Creates the REST handler table consumed by the foundation simulator's
+ * OpenAPI adapter.
+ */
 const handlers =
   (
     initialState: Record<string, any> | undefined,
@@ -188,6 +193,14 @@ const handlers =
     };
   };
 
+/**
+ * Builds the OpenAPI configuration array for the simulated REST server.
+ *
+ * @example
+ * ```ts
+ * const config = openapi(initialState, '/', 'api.github.com.json', undefined);
+ * ```
+ */
 export const openapi = (
   initialState: Record<string, any> | undefined,
   apiRoot: string,

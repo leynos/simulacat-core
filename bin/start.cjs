@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/** @file CommonJS CLI entry point for launching the built package. */
 const githubAPIsimulator = require('../dist/index.cjs');
 
 const app = githubAPIsimulator.simulation();

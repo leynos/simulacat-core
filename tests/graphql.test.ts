@@ -1,3 +1,4 @@
+/** @file Integration tests for the simulated GraphQL API surface. */
 import {afterAll, beforeAll, describe, expect, it} from 'bun:test';
 import {simulation} from '../src/index.ts';
 import {graphql} from '@octokit/graphql';
@@ -17,6 +18,28 @@ const headers = {
 const client = graphql.defaults({
   baseUrl: url
 });
+
+type MembersWithRoleQuery = {
+  organization: {
+    membersWithRole: {
+      nodes: unknown[];
+      pageInfo: {
+        hasNextPage: boolean;
+      };
+    };
+  };
+};
+
+type TeamsQuery = {
+  organization: {
+    teams: {
+      nodes: unknown[];
+      pageInfo: {
+        hasNextPage: boolean;
+      };
+    };
+  };
+};
 
 describe('graphql queries', () => {
   let server: SimulationServer;
@@ -61,6 +84,12 @@ describe('graphql queries', () => {
     const response = await request.json();
     expect(request.status).toEqual(200);
     expect(response.errors).toBe(undefined);
+    expect(response.data.repositoryOwner.login).toBe('lovely-org');
+    expect(response.data.repositoryOwner.repositories.edges).toEqual([
+      expect.objectContaining({
+        node: expect.objectContaining({name: 'awesome-repo'})
+      })
+    ]);
   });
 
   describe('getOrganizationUsers', () => {
@@ -99,8 +128,10 @@ describe('graphql queries', () => {
       expect(response.errors).toBe(undefined);
     });
     it('responds successfully to graphql client', async () => {
-      const request = await client(query, variables);
+      const request = await client<MembersWithRoleQuery>(query, variables);
       expect(request).toBeDefined();
+      expect(request.organization.membersWithRole.nodes).toEqual([]);
+      expect(request.organization.membersWithRole.pageInfo.hasNextPage).toBe(false);
     });
   });
 
@@ -156,8 +187,10 @@ describe('graphql queries', () => {
       expect(response.errors).toBe(undefined);
     });
     it('responds successfully to graphql client', async () => {
-      const request = await client(query, variables);
+      const request = await client<TeamsQuery>(query, variables);
       expect(request).toBeDefined();
+      expect(request.organization.teams.nodes).toEqual([]);
+      expect(request.organization.teams.pageInfo.hasNextPage).toBe(false);
     });
   });
 
@@ -213,8 +246,10 @@ describe('graphql queries', () => {
       expect(response.errors).toBe(undefined);
     });
     it('responds successfully to graphql client', async () => {
-      const request = await client(query, variables);
+      const request = await client<TeamsQuery>(query, variables);
       expect(request).toBeDefined();
+      expect(request.organization.teams.nodes).toEqual([]);
+      expect(request.organization.teams.pageInfo.hasNextPage).toBe(false);
     });
   });
 

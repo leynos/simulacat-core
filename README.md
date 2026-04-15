@@ -17,11 +17,12 @@ and become brittle, or they rely on static fixtures that cannot express
 stateful behaviour.
 
 - **Model GitHub as a testable system**: Seed users, organisations,
-  repositories, branches, and blobs, then query them through REST and GraphQL.
+  repositories, branches, blobs, and installations, then query them through
+  REST and GraphQL.
 - **Stay deterministic**: Run the same simulation locally and in CI without
   rewriting production code around "test mode" flags.
-- **Extend where you need to**: Add store slices, OpenAPI handlers, and
-  Express routes for product-specific behaviour.
+- **Extend where you need to**: Add store slices, OpenAPI handlers, and Express
+  routes for product-specific behaviour.
 - **Share one engine across languages**: Use the same simulator core from
   Python fixtures today and Rust fixtures tomorrow.
 
@@ -45,7 +46,7 @@ const initialState: InitialState = {
   organizations: [{login: 'frontside'}],
   repositories: [{owner: 'frontside', name: 'test-repo'}],
   branches: [{name: 'main'}],
-  blobs: []
+  blobs: [{owner: 'frontside', repo: 'test-repo', path: 'README.md'}]
 };
 
 const app = simulation({initialState});
@@ -57,6 +58,95 @@ app.listen(3300, () => {
 
 Point your GitHub client at `http://localhost:3300`, then visit
 `http://localhost:3300/simulation` to inspect the available routes.
+
+______________________________________________________________________
+
+## Configuration
+
+`simulation()` accepts a single `GitHubSimulatorArgs` object.
+
+- `initialState`: Seeds users, organisations, repositories, branches, and
+  blobs. Organisations also generate installation fixtures automatically.
+- `apiUrl`: Changes the mounted REST API root. The default is `/`.
+- `apiSchema`: Uses a bundled schema such as `api.github.com.json` or a custom
+  schema path on disk.
+- `extend.extendStore`: Adds store schema, actions, or selectors alongside the
+  built-in GitHub slices.
+- `extend.openapiHandlers`: Registers extra OpenAPI operation handlers that can
+  read from the shared simulation store.
+- `extend.extendRouter`: Adds plain Express routes next to the built-in health,
+  OAuth, and GraphQL routes.
+
+______________________________________________________________________
+
+## Extending the simulation
+
+You can layer custom routes and handlers on top of the core GitHub behaviour
+without forking the package:
+
+```ts
+import {simulation, type InitialState} from 'simulacat-core';
+
+const initialState: InitialState = {
+  users: [{login: 'test', organizations: []}],
+  organizations: [{login: 'frontside'}],
+  repositories: [{owner: 'frontside', name: 'test-repo'}],
+  branches: [{name: 'main'}],
+  blobs: []
+};
+
+const app = simulation({
+  initialState,
+  extend: {
+    extendRouter: (router) => {
+      router.get('/hello-world', (_request, response) => {
+        response.json({message: 'hello from simulacat-core'});
+      });
+    },
+    openapiHandlers: (simulationStore) => ({
+      'repos/list-tags': async () => ({
+        status: 200,
+        json: [
+          {
+            name: `v${simulationStore.schema.repositories.selectTableAsList(
+              simulationStore.store.getState()
+            ).length}.0.0`
+          }
+        ]
+      })
+    })
+  }
+});
+```
+
+______________________________________________________________________
+
+## Supported API surface
+
+| Surface | Coverage today | Notes |
+| --- | --- | --- |
+| REST routes | Installations, repository lists, branches, blobs, trees, commit status, authenticated user, and org memberships | See [`docs/api-reference.md`](docs/api-reference.md) for the exact route list. |
+| GraphQL root queries | `viewer`, `organization`, `organizations`, `repository`, and `repositoryOwner` | Connection pagination uses Relay-style cursors. |
+| GraphQL nested fields | Repository owners, repository topics, languages, and user organisations | Some connections are intentionally stubbed with empty results for now. |
+| Platform routes | `/health`, `/graphql`, OAuth authorize, and OAuth access token endpoints | Useful for local harness bootstrapping and login flows. |
+
+______________________________________________________________________
+
+## Type reference
+
+The package exports both the simulation factory and the schema helpers used to
+seed fixtures.
+
+- `InitialState`: Alias for the input shape accepted by `simulation()`.
+- `githubUserSchema`: Seeds GitHub users and fills in default names, emails,
+  avatars, and timestamps.
+- `githubOrganizationSchema`: Seeds organisations and derives GitHub-style URLs
+  plus default metadata.
+- `githubRepositorySchema`: Seeds repositories and expands them with canonical
+  REST-style URLs and default visibility metadata.
+- `githubBranchSchema`: Seeds branch data, defaulting to `main`.
+- `githubBlobSchema`: Seeds repository contents. A blob must specify either
+  `path` or `sha`; either lookup style is supported.
 
 ______________________________________________________________________
 
@@ -73,6 +163,12 @@ ______________________________________________________________________
 
 ## Learn more
 
+- [API reference](docs/api-reference.md) — simulation arguments, exported
+  schemas, and supported API operations.
+- [Architecture guide](docs/architecture.md) — how seeded state flows through
+  the store, REST, and GraphQL layers.
+- [Development guide](docs/development.md) — local workflows, quality gates, and
+  schema regeneration.
 - [GitHub REST API audit](docs/github-rest-api-audit.md) — current REST
   coverage, scriptability, and gaps.
 - [GitHub GraphQL API audit](docs/github-graphql-api-audit.md) — current

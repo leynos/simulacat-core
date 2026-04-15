@@ -1,12 +1,22 @@
+/** @file Utility script for refreshing the bundled GitHub REST schema. */
 import {main, type Operation, until} from 'effection';
 import fs from 'fs/promises';
 import path from 'path';
 
+/** Runs the schema synchronisation task from the command line. */
 main(function* sync() {
   // Sync the REST API schema
   yield* syncSchemaRest();
 });
 
+/**
+ * Downloads the canonical GitHub REST schema and writes it into `schema/`.
+ *
+ * @example
+ * ```bash
+ * bun run sync:schema:rest
+ * ```
+ */
 function* syncSchemaRest(): Operation<void> {
   const url =
     'https://raw.githubusercontent.com/github/rest-api-description/main/descriptions/api.github.com/api.github.com.json';

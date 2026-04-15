@@ -1,3 +1,4 @@
+/** @file Express router extension hooks for OAuth, health, and GraphQL routes. */
 import type {createFoundationSimulationServer} from '@simulacrum/foundation-simulator';
 import {stringify} from 'querystring';
 import {createHandler} from './graphql/handler.ts';
@@ -5,6 +6,17 @@ import type {ExtendedSimulationStore} from './store/index.ts';
 
 type FoundationExtendRouter = NonNullable<Parameters<typeof createFoundationSimulationServer>[0]['extendRouter']>;
 
+/**
+ * Wraps a caller-provided router extension with Simulacat Core's built-in
+ * routes.
+ *
+ * @example
+ * ```ts
+ * const router = extendRouter((app) => {
+ *   app.get('/hello', (_request, response) => response.json({ok: true}));
+ * });
+ * ```
+ */
 export const extendRouter =
   (
     extend:

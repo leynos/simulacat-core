@@ -1,5 +1,14 @@
+/** @file Small REST payload builders shared by the OpenAPI handlers. */
 import type {GitHubBlob} from '../store/entities.ts';
 
+/**
+ * Converts a stored blob into GitHub's base64 content response shape.
+ *
+ * @example
+ * ```ts
+ * const payload = blobAsBase64({blob, host, owner, repo, ref: 'README.md'});
+ * ```
+ */
 export const blobAsBase64 = ({
   blob,
   host,
@@ -21,6 +30,14 @@ export const blobAsBase64 = ({
   node_id: 'node_id'
 });
 
+/**
+ * Builds a Git tree response from all blobs in a repository fixture.
+ *
+ * @example
+ * ```ts
+ * const tree = gitTrees({blobs, host, owner, repo, ref: 'tree-sha'});
+ * ```
+ */
 export const gitTrees = ({
   blobs,
   host,
@@ -53,6 +70,14 @@ export const gitTrees = ({
   };
 };
 
+/**
+ * Returns a fixed successful combined-status payload for a commit reference.
+ *
+ * @example
+ * ```ts
+ * const status = commitStatusResponse({host, owner, repo, ref: 'abc123'});
+ * ```
+ */
 export const commitStatusResponse = ({
   host,
   owner,

@@ -1,3 +1,4 @@
+/** @file GraphQL code generation config for resolver type output. */
 import type {CodegenConfig} from '@graphql-codegen/cli';
 
 const config: CodegenConfig = {

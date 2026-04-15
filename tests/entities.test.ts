@@ -1,3 +1,4 @@
+/** @file Unit tests for fixture schemas and state-table conversion helpers. */
 import {describe, expect, it} from 'bun:test';
 import {convertInitialStateToStoreState, githubBlobSchema, gitubInitialStoreSchema} from '../src/store/entities.ts';
 
@@ -89,5 +90,28 @@ describe('initialState blob fields', () => {
         sha: 'README.md'
       })
     );
+  });
+});
+
+describe('initialState schema transforms', () => {
+  it('creates installation fixtures for each seeded organisation', () => {
+    const parsed = minimalInitialState();
+
+    expect(parsed.installations).toHaveLength(1);
+    expect(parsed.installations[0]).toEqual(
+      expect.objectContaining({
+        account: 'test-org',
+        target_type: 'Organization'
+      })
+    );
+  });
+
+  it('normalizes repository fields needed by REST and GraphQL responses', () => {
+    const parsed = minimalInitialState();
+    const repository = parsed.repositories[0];
+
+    expect(repository.full_name).toBe('test-org/test-repo');
+    expect(repository.url).toContain('/repos/test-org/test-repo');
+    expect(repository.visibility).toBe('public');
   });
 });

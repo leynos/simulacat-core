@@ -1,3 +1,4 @@
+/** @file Root GraphQL resolvers backed by the simulation store. */
 import type {PageArgs} from './relay.ts';
 import {applyRelayPagination} from './relay.ts';
 import type {Resolvers} from '../__generated__/resolvers-types.ts';
@@ -5,6 +6,14 @@ import {toGraphql, deriveOwner} from './to-graphql.ts';
 import {assert} from 'assert-ts';
 import type {ExtendedSimulationStore} from '../store/index.ts';
 
+/**
+ * Creates the root resolver map for the simulated GitHub GraphQL API.
+ *
+ * @example
+ * ```ts
+ * const resolvers = createResolvers(simulationStore);
+ * ```
+ */
 export function createResolvers(simulationStore: ExtendedSimulationStore): Resolvers {
   return {
     Query: {

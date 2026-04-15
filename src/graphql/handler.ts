@@ -1,3 +1,4 @@
+/** @file GraphQL Yoga handler construction for the simulated GitHub schema. */
 import {createSchema, createYoga, processRegularResult} from 'graphql-yoga';
 import {isAsyncIterable} from '@graphql-tools/utils';
 import {createResolvers} from './resolvers.ts';
@@ -6,8 +7,10 @@ import type {ExtendedSimulationStore} from '../store/index.ts';
 
 import type {Plugin} from 'graphql-yoga';
 
-// custom media type parser, we handle some and will continue to add support on an as needed basis
-//  see https://docs.github.com/en/rest/using-the-rest-api/getting-started-with-the-rest-api?apiVersion=2022-11-28#media-types
+/**
+ * Normalizes GitHub's custom media type to Yoga's regular JSON result
+ * processor.
+ */
 const customMediaTypeParser: Plugin = {
   onResultProcess({request, result, setResultProcessor}) {
     const acceptHeader = request.headers.get('accept');
@@ -17,6 +20,14 @@ const customMediaTypeParser: Plugin = {
   }
 };
 
+/**
+ * Creates the GraphQL handler mounted under `/graphql`.
+ *
+ * @example
+ * ```ts
+ * router.use('/graphql', createHandler(simulationStore));
+ * ```
+ */
 export function createHandler(simulationStore: ExtendedSimulationStore) {
   const schema = getSchema('schema.docs-enterprise.graphql');
   const resolvers = createResolvers(simulationStore);

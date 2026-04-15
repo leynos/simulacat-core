@@ -1,3 +1,4 @@
+/** @file Integration tests for repository-oriented REST endpoints. */
 import {afterAll, beforeAll, describe, expect, it} from 'bun:test';
 import {simulation} from '../src/index.ts';
 
@@ -80,6 +81,7 @@ describe('GET repo endpoints', () => {
           truncated: false
         })
       );
+      expect(response.url).toContain('/repos/lovely-org/awesome-repo/trees/tree-sha-123');
     });
   });
 });

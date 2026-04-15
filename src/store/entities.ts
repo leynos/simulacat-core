@@ -1,3 +1,4 @@
+/** @file Zod schemas and store conversion helpers for seeded GitHub fixtures. */
 import {z} from 'zod';
 import {convertObjToProp} from '@simulacrum/foundation-simulator';
 import {faker} from '@faker-js/faker';
@@ -383,8 +384,26 @@ export const gitubInitialStoreSchema = z
 export type GitHubStore = z.output<typeof gitubInitialStoreSchema>;
 export type GitHubInitialStore = z.input<typeof gitubInitialStoreSchema>;
 
+/**
+ * Selects the stable key used to store blob fixtures in the state table.
+ *
+ * @example
+ * ```ts
+ * const key = blobStoreKey({owner: 'frontside', repo: 'simulacat', path: 'README.md'});
+ * // => 'README.md'
+ * ```
+ */
 const blobStoreKey = (blob: GitHubBlob) => blob.sha ?? blob.path!;
 
+/**
+ * Converts parsed initial state into the keyed tables expected by the
+ * foundation simulator.
+ *
+ * @example
+ * ```ts
+ * const tables = convertInitialStateToStoreState(parsedInitialState);
+ * ```
+ */
 export const convertInitialStateToStoreState = (initialState: GitHubStore | undefined) => {
   if (!initialState) return undefined;
   const storeObject = {

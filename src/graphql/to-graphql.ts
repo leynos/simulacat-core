@@ -1,3 +1,4 @@
+/** @file Converters from stored GitHub entities to GraphQL resolver objects. */
 import type {PageArgs} from './relay.ts';
 import {applyRelayPagination} from './relay.ts';
 import type {ExtendedSimulationStore} from '../store/index.ts';
@@ -23,6 +24,14 @@ interface DataSchemas {
   Organization: GitHubOrganization;
 }
 
+/**
+ * Resolves a login to either an organisation or a user GraphQL owner.
+ *
+ * @example
+ * ```ts
+ * const owner = deriveOwner(simulationStore, 'frontside');
+ * ```
+ */
 export function deriveOwner(simulationStore: ExtendedSimulationStore, login: string) {
   const [org] = simulationStore.schema.organizations
     .selectTableAsList(simulationStore.store.getState())
@@ -37,6 +46,14 @@ export function deriveOwner(simulationStore: ExtendedSimulationStore, login: str
   return toGraphql(simulationStore, 'User', userAccount) as GraphQLData['User'];
 }
 
+/**
+ * Converts a stored entity into the corresponding GraphQL resolver shape.
+ *
+ * @example
+ * ```ts
+ * const gqlRepo = toGraphql(simulationStore, 'Repository', repository);
+ * ```
+ */
 export function toGraphql<T extends keyof (DataSchemas | GraphQLData)>(
   simulationStore: ExtendedSimulationStore,
   __typename: T,
@@ -133,9 +150,14 @@ export function toGraphql<T extends keyof (DataSchemas | GraphQLData)>(
   }
 }
 
-/*
-  Represents the RepositoryOwner interface
-*/
+/**
+ * Builds the shared GraphQL fields for the `RepositoryOwner` interface.
+ *
+ * @example
+ * ```ts
+ * const owner = toGithubRepositoryOwner(simulationStore, 'User', user);
+ * ```
+ */
 function toGithubRepositoryOwner(
   simulationStore: ExtendedSimulationStore,
   __typename: string,

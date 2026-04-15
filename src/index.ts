@@ -1,3 +1,4 @@
+/** @file Public entry point for building and seeding a Simulacat Core server. */
 import {
   createFoundationSimulationServer,
   type SimulationHandlers,
@@ -40,6 +41,23 @@ type _GitHubActions =
 type _GitHubSelectors =
   ExtendedSimulationStore extends FoundationSimulationStore<infer _S, infer _A, infer Sel> ? Sel : never;
 
+/**
+ * Builds a GitHub API simulation server from seeded state and optional
+ * extensions.
+ *
+ * @example
+ * ```ts
+ * const app = simulation({
+ *   initialState: {
+ *     users: [{login: 'octocat', organizations: []}],
+ *     organizations: [{login: 'frontside'}],
+ *     repositories: [{owner: 'frontside', name: 'simulacat'}],
+ *     branches: [{name: 'main'}],
+ *     blobs: []
+ *   }
+ * });
+ * ```
+ */
 export const simulation = (args: GitHubSimulatorArgs = {}): FoundationSimulator<ExtendedSimulationStore> => {
   const parsedInitialState = !args?.initialState ? undefined : gitubInitialStoreSchema.parse(args?.initialState);
   const extendStoreConfig = mergeStoreConfig(parsedInitialState, args?.extend?.extendStore);

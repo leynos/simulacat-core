@@ -1,3 +1,4 @@
+/** @file Relay pagination helpers shared by GraphQL connections. */
 export interface PageArgs {
   first?: number;
   before?: string;
@@ -31,6 +32,15 @@ export interface RelayPagingOptions {
 
 const identity = <A>(a: A): A => a;
 
+/**
+ * Slices a node list into a Relay-compatible page response.
+ *
+ * @example
+ * ```ts
+ * const page = applyRelayPagination(['a', 'b', 'c'], {first: 2});
+ * // => nodes ['a', 'b'], startCursor '0', endCursor '1'
+ * ```
+ */
 export function applyRelayPagination<T, R>(
   nodes: T[],
   args: PageArgs,
@@ -75,6 +85,15 @@ export function applyRelayPagination<T, R>(
   };
 }
 
+/**
+ * Applies the `before` and `after` cursors before size-based pagination.
+ *
+ * @example
+ * ```ts
+ * const edges = applyCursorsToEdges(['a', 'b', 'c'], undefined, '0');
+ * // => edges for ['b', 'c']
+ * ```
+ */
 function applyCursorsToEdges<T>(nodes: T[], before?: string, after?: string) {
   const afterIdx = after ? Number(after) : -1;
   const beforeIdx = before ? Number(before) : nodes.length;
@@ -87,6 +106,15 @@ function applyCursorsToEdges<T>(nodes: T[], before?: string, after?: string) {
   return edges;
 }
 
+/**
+ * Applies `first` or `last` limits to an edge collection.
+ *
+ * @example
+ * ```ts
+ * const edges = edgesToReturn([1, 2, 3], 2);
+ * // => [1, 2]
+ * ```
+ */
 function edgesToReturn<T>(edges: T[], first?: number, last?: number) {
   let newEdges: T[] = [];
   if (first == null && last == null) {

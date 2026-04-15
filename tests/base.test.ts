@@ -1,3 +1,4 @@
+/** @file Integration tests for top-level router extension hooks. */
 import {afterAll, beforeAll, describe, expect, it} from 'bun:test';
 import {simulation} from '../src/index.ts';
 
@@ -34,6 +35,8 @@ describe('GET user endpoints', () => {
 
   it('allows extending the router', async () => {
     const res: Response = await fetch(`${url}/hello-world`);
+    const body = await res.json();
     expect(res.ok).toBe(true);
+    expect(body).toEqual({message: 'Hello from GitHub API simulator!'});
   });
 });

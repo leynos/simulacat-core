@@ -1,3 +1,4 @@
+/** @file Store schema, selectors, and extension wiring for GitHub fixtures. */
 import type {
   SimulationStore,
   ExtendSimulationSchema,
@@ -59,6 +60,7 @@ export type GitHubRepositoryWithOrganizationOwner = Omit<GitHubRepository, 'id' 
   owner: GitHubRepoOwner;
 };
 
+/** Creates the base store schema and seeds it from parsed initial state. */
 const inputSchema =
   <T>(initialState?: GitHubStore, extendedSchema?: ExtendSimulationSchemaInput<T>) =>
   ({slice}: ExtendSimulationSchema) => {
@@ -82,10 +84,12 @@ const inputSchema =
     return slices;
   };
 
+/** Returns the package's built-in action set before caller extensions. */
 const inputActions = (_args: ExtendSimulationActions<ExtendedSchema>): ExtendSimulationActions<ExtendedSchema> => {
   return {} as ExtendSimulationActions<ExtendedSchema>;
 };
 
+/** Merges built-in actions with caller-provided extensions. */
 const extendActions =
   (extendedActions?: ExtendSimulationActionsInputLoose<GitHubActions, GitHubSchema>) =>
   (args: ExtendSimulationActions<ExtendedSchema>) => {
@@ -98,6 +102,7 @@ const extendActions =
     } as GitHubActions;
   };
 
+/** Creates the built-in selector suite used by REST and GraphQL handlers. */
 const inputSelectors = ({createSelector, schema}: ExtendSimulationSelectors<ExtendedSchema>) => {
   const allGithubOrganizations: (state: AnyState) => GitHubOrganizationWithRepositories[] = createSelector(
     schema.organizations.selectTableAsList,
@@ -200,6 +205,7 @@ const inputSelectors = ({createSelector, schema}: ExtendSimulationSelectors<Exte
   };
 };
 
+/** Merges built-in selectors with caller-provided selector extensions. */
 const extendSelectors =
   (extendedSelectors?: ExtendSimulationSelectorsInputLoose<GitHubSelectors, GitHubSchema>) =>
   (args: ExtendSimulationSelectors<ExtendedSchema>) => {
@@ -212,6 +218,15 @@ const extendSelectors =
     } as GitHubSelectors;
   };
 
+/**
+ * Builds the store extension configuration consumed by the foundation
+ * simulator.
+ *
+ * @example
+ * ```ts
+ * const storeConfig = extendStore(parsedInitialState);
+ * ```
+ */
 export const extendStore = (
   initialState: GitHubStore | undefined,
   extended?: GitHubExtendStoreInput
