@@ -15,7 +15,7 @@ import {githubRepositorySchema, repositoryStoreKey, type GitHubRepository} from 
 
 export const githubUserSchema = z
   .object({
-    id: z.number().default(() => faker.number.int({min: 1000})),
+    id: z.number().optional(),
     login: z.string(),
     name: z.string().optional(),
     bio: z.string().default(''),
@@ -29,6 +29,7 @@ export const githubUserSchema = z
       .default(() => faker.date.recent().toISOString())
   })
   .transform((user) => {
+    user.id ??= faker.number.int({min: 1000});
     if (!user.name) {
       user.name = user.login;
     }
