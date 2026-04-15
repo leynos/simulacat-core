@@ -5,21 +5,19 @@ automation.*
 
 Simulacat Core extends The Frontside's Simulacrum GitHub API example into a
 reusable library for higher-level test harnesses. It is the engine behind
-[Simulacat](https://github.com/leynos/simulacat), a Python `pytest` fixture
-for stateful GitHub API mocking, and the planned Rust companion
-Rentaneko.
+[Simulacat](https://github.com/leynos/simulacat), a Python `pytest` fixture for
+stateful GitHub API mocking, and the planned Rust companion Rentaneko.
 
 ______________________________________________________________________
 
 ## Why Simulacat Core?
 
-GitHub-heavy tests usually rot in one of two ways: they either hit the real
-API and become brittle, or they rely on static fixtures that cannot express
+GitHub-heavy tests usually rot in one of two ways: they either hit the real API
+and become brittle, or they rely on static fixtures that cannot express
 stateful behaviour.
 
 - **Model GitHub as a testable system**: Seed users, organisations,
-  repositories, branches, and blobs, then query them through REST and
-  GraphQL.
+  repositories, branches, and blobs, then query them through REST and GraphQL.
 - **Stay deterministic**: Run the same simulation locally and in CI without
   rewriting production code around "test mode" flags.
 - **Extend where you need to**: Add store slices, OpenAPI handlers, and
@@ -34,13 +32,13 @@ ______________________________________________________________________
 ### Installation
 
 ```bash
-bun add @simulacrum/github-api-simulator
+bun add simulacat-core
 ```
 
 ### Basic usage
 
 ```ts
-import {simulation, type InitialState} from '@simulacrum/github-api-simulator';
+import {simulation, type InitialState} from 'simulacat-core';
 
 const initialState: InitialState = {
   users: [{login: 'test', organizations: ['frontside']}],
@@ -102,5 +100,4 @@ ______________________________________________________________________
 ## Contributing
 
 Contributions are welcome. Please read [AGENTS.md](AGENTS.md) before making
-changes so your work matches the repository's build, testing, and commit
-rules.
+changes so your work matches the repository's build, testing, and commit rules.

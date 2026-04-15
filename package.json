@@ -1,5 +1,5 @@
 {
-  "name": "@simulacrum/github-api-simulator",
+  "name": "simulacat-core",
   "version": "0.6.4",
   "description": "Provides common functionality to frontend app and plugins.",
   "keywords": [
