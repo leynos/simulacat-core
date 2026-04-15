@@ -45,6 +45,60 @@ The package exports the schemas needed to validate and build seeded state:
 - `githubBranchSchema`
 - `githubBlobSchema`
 
+### `githubUserSchema`
+
+| Field | Type | Required | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `login` | `string` | Yes | None | Canonical user key in the seeded store. |
+| `id` | `number` | No | Generated integer `>= 1000` | Preserved when supplied explicitly. |
+| `name` | `string` | No | Falls back to `login` | Used for GraphQL `User.name` and REST `/user` payloads. |
+| `email` | `string` | No | Generated email address | Falls back to a Faker-generated address when omitted. |
+
+### `githubOrganizationSchema`
+
+| Field | Type | Required | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `login` | `string` | Yes | None | Canonical organization key in the seeded store. |
+| `id` | `number` | No | `4000` | Preserved when supplied explicitly. |
+| `type` | `'User' \| 'Organization'` | No | `'Organization'` | Controls generated installation `target_type`. |
+| `description` | `string` | No | `'Generic org description'` | Used in GraphQL organization payloads. |
+| `avatar_url` | `string` | No | GitHub octocat error image | Exposed through GraphQL owner fields. |
+| `name` | `string` | No | Falls back to `login` | Human-readable display name. |
+| `email` | `string` | No | Generated email address | Falls back to a Faker-generated address when omitted. |
+
+### `githubRepositorySchema`
+
+| Field | Type | Required | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `owner` | `string` | Yes | None | Used with `name` to form the canonical `owner/name` key. |
+| `name` | `string` | Yes | None | Repository name within the owner namespace. |
+| `id` | `number` | No | Generated from a resettable counter seeded at `3000` | Preserved when supplied explicitly. |
+| `full_name` | `string` | No | Derived as `${owner}/${name}` | Recomputed during schema transform. |
+| `visibility` | `'public' \| 'private'` | No | `'public'` | Mapped into GraphQL repository visibility. |
+| `default_branch` | `string` | No | `'main'` | Used for the placeholder `defaultBranchRef`. |
+| `url` | `string` | No | Derived simulator URL | Recomputed as a simulator-local repository URL. |
+
+### `githubBranchSchema`
+
+| Field | Type | Required | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `owner` | `string` | Yes | None | Used with `repo` and `name` to form the canonical branch key. |
+| `repo` | `string` | Yes | None | Repository component of the canonical branch key. |
+| `name` | `string` | No | `'main'` | Branch or ref name. |
+| `protected` | `boolean` | No | `true` | Mirrors the REST branch payload field. |
+| `commit` | `{ sha?: string; url?: string }` | No | `{}` | `commit.sha` is generated when absent, and `commit.url` is derived from that SHA when omitted. |
+
+### `githubBlobSchema`
+
+| Field | Type | Required | Default | Notes |
+| --- | --- | --- | --- | --- |
+| `owner` | `string` | Yes | None | Used with `repo` and the blob key in REST lookups. |
+| `repo` | `string` | Yes | None | Repository component for blob lookup and tree generation. |
+| `path` | `string` | Conditionally | None | Must be non-empty when present. At least one of `path` or `sha` must be present. |
+| `sha` | `string` | Conditionally | None | Must be non-empty when present. At least one of `path` or `sha` must be present. |
+| `content` | `string` | No | Faker-generated paragraphs | Returned through contents and git-blob payload builders. |
+| `encoding` | `'string' \| 'base64'` | No | `'string'` | Determines whether `content` is re-encoded before REST responses. |
+
 ### `InitialState`
 
 `InitialState` is an alias for `GitHubInitialStore`, the input side of

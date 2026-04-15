@@ -35,6 +35,26 @@ The package publishes an ESM library surface, but the build intentionally keeps
 `dist/index.cjs` because `bin/start.cjs` requires that artifact to start the
 simulator under plain Node without a transpilation step.
 
+### Running the simulator directly
+
+The simulator can be started directly from the CLI entry point after the build
+artifacts exist:
+
+```bash
+node bin/start.cjs
+```
+
+`bun bin/start.cjs` works too when Bun is preferred as the launcher.
+
+The listening port defaults to `3300`. That value can be overridden with the
+`PORT` environment variable:
+
+```bash
+PORT=8080 node bin/start.cjs
+```
+
+`bin/start.cjs` loads `dist/index.cjs`, so `make build` must run first.
+
 ## Testing expectations
 
 Changes to behaviour should come with a targeted regression test.
