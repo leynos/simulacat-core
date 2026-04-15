@@ -15,7 +15,7 @@ The package expects Bun to run scripts, tests, and formatting commands.
 
 Prefer the Makefile targets where available:
 
-- `make fmt`
+- `make check-fmt`
 - `make lint`
 - `make test`
 - `make all`
@@ -28,8 +28,8 @@ The normal contributor gate is:
 3. `bun check:types`
 4. `bun test`
 
-`make all` runs the formatter, linter, type-check, and test suite in the
-repository's preferred order.
+`make all` runs format checking, linting, type-checking, and the test suite in
+the repository's preferred order.
 
 ## Testing expectations
 
@@ -62,8 +62,8 @@ This downloads the latest upstream REST description into `schema/`.
 
 ## Documentation expectations
 
-When you change public APIs or behaviour, update the matching documentation in
-the same branch:
+When public APIs or behaviour change, update the matching documentation in the
+same branch:
 
 - `README.md` for user-facing guidance
 - `docs/api-reference.md` for surface-level API details

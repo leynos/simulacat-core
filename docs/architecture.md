@@ -12,8 +12,8 @@ state store, then exposes that state through REST and GraphQL surfaces.
    store tables and registers selectors used by the handlers.
 3. `openapi()` in `src/rest/index.ts` mounts REST handlers against the chosen
    OpenAPI schema.
-4. `extendRouter()` in `src/extend-api.ts` mounts GraphQL, health, and OAuth
-   helper routes, then applies caller-provided routes.
+4. `extendRouter()` in `src/extend-api.ts` applies caller-provided routes
+   first, then mounts the built-in GraphQL, health, and OAuth helper routes.
 5. `createHandler()` and `createResolvers()` expose the same store state through
    GraphQL Yoga.
 
@@ -48,8 +48,8 @@ The built-in store contains the following slices:
 
 Selectors provide the higher-level joins the handlers need:
 
-- installations joined to owning organisations and repositories
-- repositories decorated with organisation owners
+- installations joined to owning organizations and repositories
+- repositories decorated with organization owners
 - blob lookup by `path` or `sha`
 - repository tree lookup across all blobs in an owner/repository pair
 

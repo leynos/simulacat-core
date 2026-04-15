@@ -27,7 +27,8 @@ function* syncSchemaRest(): Operation<void> {
   const url =
     'https://raw.githubusercontent.com/github/rest-api-description/main/descriptions/api.github.com/api.github.com.json';
   const {SIMULACAT_SYNC_TIMEOUT_MS} = process.env;
-  const timeoutMs = Number(SIMULACAT_SYNC_TIMEOUT_MS ?? '15000') || 15000;
+  const parsedTimeoutMs = Number(SIMULACAT_SYNC_TIMEOUT_MS ?? '15000');
+  const timeoutMs = Number.isFinite(parsedTimeoutMs) && parsedTimeoutMs > 0 ? parsedTimeoutMs : 15000;
   console.log('[syncSchemaRest] fetching schema from', url);
 
   const controller = new AbortController();

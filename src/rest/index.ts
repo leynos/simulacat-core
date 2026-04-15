@@ -1,5 +1,5 @@
 /** @file OpenAPI-backed REST handlers for the simulated GitHub API. */
-import type {SimulationHandlers} from '@simulacrum/foundation-simulator';
+import type {Document, SimulationHandlers} from '@simulacrum/foundation-simulator';
 import type {ExtendedSimulationStore} from '../store/index.ts';
 import {getSchema, type SchemaFile} from '../utils.ts';
 import {blobAsBase64, commitStatusResponse, gitTrees} from './utils.ts';
@@ -117,9 +117,15 @@ const handlers =
           'repos/list-branches': async (
             context: Parameters<SimulationHandler>[0],
             _request: Parameters<SimulationHandler>[1],
-            _response: Parameters<SimulationHandler>[2]
+            response: Parameters<SimulationHandler>[2]
           ) => {
             const {owner, repo} = context.request.params;
+            const repository = simulationStore.schema.repositories
+              .selectTableAsList(getState())
+              .find((candidate) => candidate.owner === owner && candidate.name === repo);
+            if (!repository) {
+              return response.status(404).send('Not Found');
+            }
             const branches = simulationStore.schema.branches
               .selectTableAsList(getState())
               .filter((branch) => branch.owner === owner && branch.repo === repo);
@@ -196,7 +202,7 @@ const handlers =
             const repo = Array.isArray(repoParam) ? repoParam[0] : repoParam;
             const treeSha = Array.isArray(treeShaParam) ? treeShaParam[0] : treeShaParam;
             const blobs = simulationStore.selectors.getBlobAtOwnerRepo(simulationStore.store.getState(), owner, repo);
-            if (!blobs || !owner || !repo || !treeSha) {
+            if (!owner || !repo || !treeSha || blobs.length === 0) {
               response.status(404).send('fixture does not exist');
             } else {
               const tree = gitTrees({
@@ -218,11 +224,14 @@ const handlers =
           ) => {
             const users = simulationStore.schema.users.selectTableAsList(simulationStore.store.getState());
             const user = users[0];
+            if (!user) {
+              return response.status(401).json({message: 'Authentication required'});
+            }
             const data = {
-              id: parseInt(user?.id?.toString() ?? '1', 10) as number,
-              login: user?.login,
-              email: user?.email,
-              name: user?.name
+              id: parseInt(user.id.toString(), 10) as number,
+              login: user.login,
+              email: user.email,
+              name: user.name
             };
             response.status(200).json(data);
           },
@@ -273,7 +282,7 @@ export const openapi = (
   openapiHandlers: ((simulationStore: ExtendedSimulationStore) => SimulationHandlers) | undefined
 ) => [
   {
-    document: getSchema(apiSchema),
+    document: getSchema(apiSchema) as unknown as Document,
     handlers: handlers(initialState, openapiHandlers),
     apiRoot,
     additionalOptions: {

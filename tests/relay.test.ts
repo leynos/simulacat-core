@@ -31,6 +31,13 @@ describe('applyRelayPagination', () => {
     expect(page.pageInfo.hasPreviousPage).toBe(true);
   });
 
+  it('applies last to the already-trimmed first window', () => {
+    const page = applyRelayPagination(['a', 'b', 'c', 'd'], {first: 3, last: 1});
+
+    expect(page.nodes).toEqual(['c']);
+    expect(page.edges).toEqual([{node: 'c', cursor: '2'}]);
+  });
+
   it('maps nodes before returning them', () => {
     const page = applyRelayPagination([{name: 'a'}, {name: 'b'}], {first: 2}, (node) => node.name.toUpperCase());
 

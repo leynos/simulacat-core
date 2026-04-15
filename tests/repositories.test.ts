@@ -78,6 +78,12 @@ describe('GET repo endpoints', () => {
       ]);
       expect(response).not.toEqual(expect.arrayContaining([expect.objectContaining({name: 'release'})]));
     });
+
+    it('returns 404 for unknown repositories', async () => {
+      const request = await fetch(`${url}/repos/lovely-org/missing-repo/branches`);
+
+      expect(request.status).toEqual(404);
+    });
   });
 
   describe('/repos/{owner}/{repo}/git/trees/{tree_sha}', () => {
@@ -98,6 +104,12 @@ describe('GET repo endpoints', () => {
         })
       );
       expect(response.url).toContain('/repos/lovely-org/awesome-repo/git/trees/tree-sha-123');
+    });
+
+    it('returns 404 when the repository has no blobs', async () => {
+      const request = await fetch(`${url}/repos/empty-org/other-repo/git/trees/tree-sha-123`);
+
+      expect(request.status).toEqual(404);
     });
   });
 });

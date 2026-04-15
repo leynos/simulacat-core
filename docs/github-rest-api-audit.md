@@ -253,12 +253,16 @@ The best practical description is:
 ## Recommended Follow-Ups
 
 1. Decide whether the package should be audited against GHES 3.20 or against
-   the bundled dotcom schema, then make the default explicit in docs.
-2. Remove the `initialState` gate around `extend.openapiHandlers`, or document
-   it as a hard requirement.
-3. Fix `git/get-tree` to read `tree_sha` and add coverage for that route.
-4. Add owner-aware keys for repositories and branches if deeper multi-repo
-   scripting is a goal.
+   the bundled dotcom schema, then make the default explicit in docs. The
+   bundled dotcom schema should remain the documented default unless runtime
+   behaviour changes.
+2. Keep documenting that `extend.openapiHandlers` stays active without seeded
+   `initialState`, because that extension seam now works independently of the
+   built-in handler guard.
+3. Keep documenting `git/get-tree` as only partially scriptable: the route now
+   reads `tree_sha` and has coverage, but it still maps all blobs in the
+   repository instead of modelling real tree objects.
+4. Add real tree and status models if deeper git scripting is a goal.
 5. Add a support matrix to package docs that separates:
    - schema-stubbed operations
    - built-in stateful operations

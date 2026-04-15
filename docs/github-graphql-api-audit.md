@@ -285,7 +285,6 @@ The most accurate short description is:
    - schema-present but unresolved fields
 3. Add explicit resolvers for high-value fields already referenced in tests,
    especially:
-   - `Query.user`
    - `Organization.team`
    - `Repository.object`
 4. Add mutation support only where there is a backing store model to make it

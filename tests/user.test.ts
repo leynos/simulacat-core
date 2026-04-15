@@ -38,4 +38,14 @@ describe('GET user endpoints', () => {
       ]);
     });
   });
+
+  describe('/user', () => {
+    it('returns 401 when no authenticated user is seeded', async () => {
+      const request = await fetch(`${url}/user`);
+      const response = await request.json();
+
+      expect(request.status).toEqual(401);
+      expect(response).toEqual({message: 'Authentication required'});
+    });
+  });
 });

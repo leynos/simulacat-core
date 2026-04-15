@@ -100,7 +100,7 @@ describe('initialState blob fields', () => {
 });
 
 describe('initialState schema transforms', () => {
-  it('creates installation fixtures for each seeded organisation', () => {
+  it('creates installation fixtures for each seeded organization', () => {
     const parsed = minimalInitialState();
 
     expect(parsed.installations).toHaveLength(1);

@@ -29,7 +29,6 @@
     "repository-mock-data"
   ],
   "type": "module",
-  "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.cts",
   "typesVersions": {
@@ -66,7 +65,7 @@
     "lint": "bunx @biomejs/biome lint .",
     "prepack": "bun run generate && bun run build",
     "start": "node --experimental-transform-types --watch ./example/start.ts",
-    "start:bin": "node ./bin/start.js",
+    "start:bin": "node ./bin/start.cjs",
     "sync:schema:rest": "node --experimental-transform-types ./sync.ts",
     "test": "bun test --max-concurrency=1 tests",
     "test:watch": "bun test --watch tests",
@@ -96,5 +95,9 @@
     "publint": "^0.3.18",
     "tsdown": "^0.21.8",
     "typescript": "^6.0.2"
+  },
+  "main": "./dist/index.cjs",
+  "inlinedDependencies": {
+    "starfx": "0.15.0"
   }
 }

@@ -182,8 +182,7 @@ function toGithubRepositoryOwner(
         (repository: DataSchemas['Repository']) => toGraphql(simulationStore, 'Repository', repository)
       );
     },
-    // @ts-expect-error TODO fill in data properly
-    resourcePath: entity.resourcePath,
+    resourcePath: `/${entity.login}`,
     url: entity.url
   };
 }

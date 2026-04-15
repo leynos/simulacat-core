@@ -18,11 +18,11 @@ afterEach(async () => {
 
 describe('getSchema', () => {
   it('loads JSON files as parsed objects', async () => {
-    const tempFile = path.join(os.tmpdir(), `simulacat-schema-${Date.now()}.json`);
+    const tempFile = path.join(os.tmpdir(), `simulacat-schema-${Date.now()}.json`) as `${string}.json`;
     tempPaths.push(tempFile);
-    await fs.writeFile(tempFile, JSON.stringify({hello: 'world'}), 'utf8');
+    await fs.writeFile(tempFile, JSON.stringify({openapi: '3.1.0', paths: {}}), 'utf8');
 
-    expect(getSchema(tempFile)).toEqual({hello: 'world'});
+    expect(getSchema(tempFile)).toEqual({openapi: '3.1.0', paths: {}});
   });
 
   it('loads GraphQL schema files as strings', async () => {
@@ -35,6 +35,14 @@ describe('getSchema', () => {
 
   it('throws when the schema path does not exist', () => {
     expect(() => getSchema('/tmp/this-file-does-not-exist.graphql')).toThrow();
+  });
+
+  it('throws when a JSON schema does not match the expected OpenAPI shape', async () => {
+    const tempFile = path.join(os.tmpdir(), `simulacat-schema-${Date.now()}.json`) as `${string}.json`;
+    tempPaths.push(tempFile);
+    await fs.writeFile(tempFile, JSON.stringify({hello: 'world'}), 'utf8');
+
+    expect(() => getSchema(tempFile)).toThrow('Failed to parse JSON schema');
   });
 
   it('loads bundled schema defaults by name', () => {

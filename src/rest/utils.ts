@@ -60,7 +60,7 @@ export const gitTrees = ({
     path: blob.path,
     mode: '100644',
     type: 'blob',
-    size: 9999,
+    size: blob.encoding === 'base64' ? Buffer.from(blob.content, 'base64').byteLength : Buffer.byteLength(blob.content),
     sha: blob.sha,
     // should be like /git/blobs/44b4fc6d56897b048c772eb4087f854f46256132,
     //  but just need to return a file with content in base64
@@ -107,7 +107,7 @@ export const commitStatusResponse = ({
       name: repo,
       full_name: `${owner}/${repo}`,
       owner: {
-        login: 'octocat',
+        login: owner,
         id: 1,
         type: 'User',
         site_admin: false
