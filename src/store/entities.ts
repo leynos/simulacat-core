@@ -345,8 +345,8 @@ export const githubBlobSchema = z
     owner: z.string(),
     repo: z.string(),
     // below we ensure that one of these is specified, but the other is then optional
-    path: z.string(),
-    sha: z.string()
+    path: z.string().optional(),
+    sha: z.string().optional()
   })
   .transform((blob, ctx) => {
     if (!blob.path && !blob.sha) {
@@ -383,6 +383,8 @@ export const gitubInitialStoreSchema = z
 export type GitHubStore = z.output<typeof gitubInitialStoreSchema>;
 export type GitHubInitialStore = z.input<typeof gitubInitialStoreSchema>;
 
+const blobStoreKey = (blob: GitHubBlob) => blob.sha ?? blob.path!;
+
 export const convertInitialStateToStoreState = (initialState: GitHubStore | undefined) => {
   if (!initialState) return undefined;
   const storeObject = {
@@ -391,7 +393,13 @@ export const convertInitialStateToStoreState = (initialState: GitHubStore | unde
     repositories: convertObjToProp(initialState.repositories, 'name'),
     branches: convertObjToProp(initialState.branches, 'name'),
     organizations: convertObjToProp(initialState.organizations, 'login'),
-    blobs: convertObjToProp(initialState.blobs, 'sha')
+    blobs: convertObjToProp(
+      initialState.blobs.map((blob) => ({
+        ...blob,
+        sha: blobStoreKey(blob)
+      })),
+      'sha'
+    )
   };
 
   return storeObject;
