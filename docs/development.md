@@ -28,8 +28,8 @@ The normal contributor gate is:
 3. `bun check:types`
 4. `bun test`
 
-`make all` runs format checking, linting, type-checking, and the test suite in
-the repository's preferred order.
+`make all` runs `check-fmt`, `typecheck`, `lint`, and `test` in the
+repository's preferred order.
 
 The package publishes an ESM library surface, but the build intentionally keeps
 `dist/index.cjs` because `bin/start.cjs` requires that artifact to start the

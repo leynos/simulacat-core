@@ -94,19 +94,15 @@ describe('GET installation endpoints', () => {
       );
     });
 
-    it('handles non-existent org', async () => {
-      const request = await fetch(`${url}/repos/an-org/awesome-repo/installation`);
-      expect(request.status).toEqual(404);
-    });
-
-    it('handles non-existent repo', async () => {
-      const request = await fetch(`${url}/repos/lovely-org/not-awesome-repo/installation`);
-      expect(request.status).toEqual(404);
-    });
-
-    it('handles non-existent org and repo', async () => {
-      const request = await fetch(`${url}/repos/lovely-but-not/awesome/installation`);
-      expect(request.status).toEqual(404);
-    });
+    for (const path of [
+      '/repos/an-org/awesome-repo/installation',
+      '/repos/lovely-org/not-awesome-repo/installation',
+      '/repos/lovely-but-not/awesome/installation'
+    ]) {
+      it(`returns 404 for ${path}`, async () => {
+        const request = await fetch(`${url}${path}`);
+        expect(request.status).toEqual(404);
+      });
+    }
   });
 });

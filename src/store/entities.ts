@@ -95,20 +95,14 @@ export const convertInitialStateToStoreState = (initialState: GitHubStore | unde
     repositories: convertObjByKey(initialState.repositories, repositoryStoreKey),
     branches: convertObjByKey(initialState.branches, branchStoreKey),
     organizations: convertObjToProp(initialState.organizations, 'login'),
-    blobs: convertObjByKey(
-      initialState.blobs.map((blob) => {
-        const key = blobStoreKey(blob);
-        if (!key) {
-          throw new Error(`Blob fixture for ${blob.owner}/${blob.repo} is missing both path and sha`);
-        }
+    blobs: convertObjByKey(initialState.blobs, (blob) => {
+      const key = blobStoreKey(blob);
+      if (!key) {
+        throw new Error(`Blob fixture for ${blob.owner}/${blob.repo} is missing both path and sha`);
+      }
 
-        return {
-          ...blob,
-          sha: key
-        };
-      }),
-      (blob) => blob.sha
-    )
+      return key;
+    })
   };
 };
 

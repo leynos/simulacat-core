@@ -66,8 +66,8 @@ describe('blobAsBase64', () => {
       kind: 'git-blob'
     });
 
-    expect(payload.url).toBe('http://localhost:3300/repos/lovely-org/awesome-repo/git/blobs/README.md');
-    expect(payload.sha).toBe('README.md');
+    expect(payload.url).toBe('http://localhost:3300/repos/lovely-org/awesome-repo/git/blobs/abc123');
+    expect(payload.sha).toBe('abc123');
     expect(payload.size).toBe(11);
   });
 
@@ -118,8 +118,8 @@ describe('gitTrees', () => {
         tree: [
           expect.objectContaining({
             path: 'README.md',
-            sha: 'README.md',
-            url: 'http://localhost:3300/repos/lovely-org/awesome-repo/git/blobs/README.md'
+            sha: 'abc123',
+            url: 'http://localhost:3300/repos/lovely-org/awesome-repo/git/blobs/abc123'
           })
         ]
       })

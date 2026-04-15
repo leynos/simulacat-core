@@ -22,7 +22,7 @@ export const githubAppInstallationSchema = z
     target_id: z.number().optional(),
     target_type: z.enum(['Organization', 'User']).optional(),
     permissions: githubEntityPermissionSchema,
-    events: z.array(z.any()).optional().default([]),
+    events: z.array(z.string()).optional().default([]),
     updated_at: z
       .string()
       .optional()
@@ -38,10 +38,9 @@ export const githubAppInstallationSchema = z
     suspended_at: z.nullable(z.string()).optional().default(null),
     suspended_by: z.nullable(z.string()).optional().default(null)
   })
-  .transform((install) => {
-    install.id ??= faker.number.int({min: 2000, max: 9_999_999});
-
-    return install;
-  });
+  .transform((install) => ({
+    ...install,
+    id: install.id ?? faker.number.int({min: 2000, max: 9_999_999})
+  }));
 
 export type GitHubAppInstallation = z.infer<typeof githubAppInstallationSchema>;

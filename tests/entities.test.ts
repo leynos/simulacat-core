@@ -93,10 +93,10 @@ describe('initialState blob fields', () => {
       expect.objectContaining({
         owner: 'test-org',
         repo: 'test-repo',
-        path: 'README.md',
-        sha: 'README.md'
+        path: 'README.md'
       })
     );
+    expect(store.blobs['README.md']?.sha).toBeUndefined();
   });
 });
 

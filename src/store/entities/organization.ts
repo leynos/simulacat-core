@@ -18,8 +18,8 @@ export const githubOrganizationSchema = z
     description: z.string().optional().default('Generic org description'),
     created_at: z
       .string()
-      .default(() => faker.date.recent().toISOString())
-      .optional(),
+      .optional()
+      .default(() => faker.date.recent().toISOString()),
     teams: z.array(z.string()).optional(),
     avatar_url: z.string().optional().default('https://github.com/images/error/octocat_happy.gif'),
     gravatar_id: z.string().optional().default(''),
@@ -71,7 +71,7 @@ export const githubOrganizationSchema = z
       issues_url: `${url}/issues`,
       members_url: `${url}/members{/member}`,
       public_members_url: `${url}/public_members{/member}`,
-      node_id: Buffer.from(`Organization:${org.login}`).toString('base64')
+      node_id: org.node_id || Buffer.from(`Organization:${org.login}`).toString('base64')
     };
   });
 

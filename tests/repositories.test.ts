@@ -97,7 +97,7 @@ describe('GET repo endpoints', () => {
           tree: [
             expect.objectContaining({
               path: 'README.md',
-              sha: 'README.md'
+              sha: 'tree-sha-123'
             })
           ],
           truncated: false

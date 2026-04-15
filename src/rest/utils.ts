@@ -24,7 +24,7 @@ export const blobAsBase64 = ({
   ref: string;
   kind?: 'contents' | 'git-blob';
 }) => {
-  const effectiveSha = blobStoreKey(blob);
+  const effectiveSha = blob.sha ?? blobStoreKey(blob);
 
   return {
     content: blob.encoding === 'base64' ? blob.content : Buffer.from(blob.content).toString('base64'),
@@ -60,16 +60,21 @@ export const gitTrees = ({
   repo: string;
   ref: string;
 }) => {
-  const tree = blobs.map((blob) => ({
-    path: blob.path ?? blob.sha,
-    mode: '100644',
-    type: 'blob',
-    size: blob.encoding === 'base64' ? Buffer.from(blob.content, 'base64').byteLength : Buffer.byteLength(blob.content),
-    sha: blobStoreKey(blob),
-    // should be like /git/blobs/44b4fc6d56897b048c772eb4087f854f46256132,
-    //  but just need to return a file with content in base64
-    url: `${host}/repos/${blob.owner}/${blob.repo}/git/blobs/${blobStoreKey(blob)}`
-  }));
+  const tree = blobs.map((blob) => {
+    const effectiveSha = blob.sha ?? blobStoreKey(blob);
+
+    return {
+      path: blob.path ?? blob.sha,
+      mode: '100644',
+      type: 'blob',
+      size:
+        blob.encoding === 'base64' ? Buffer.from(blob.content, 'base64').byteLength : Buffer.byteLength(blob.content),
+      sha: effectiveSha,
+      // should be like /git/blobs/44b4fc6d56897b048c772eb4087f854f46256132,
+      //  but just need to return a file with content in base64
+      url: `${host}/repos/${blob.owner}/${blob.repo}/git/blobs/${effectiveSha}`
+    };
+  });
 
   return {
     sha: ref,

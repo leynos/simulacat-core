@@ -126,7 +126,7 @@
 
 ## Markdown Guidance
 
-- Validate Markdown files using `bunx markdownlint-cli2 \"docs/**/*.md\"`.
+- Validate Markdown files using `bunx markdownlint-cli2 "docs/**/*.md"`.
 - Run `bun fmt` after any documentation changes to format all Markdown
   files and fix table markup.
 - Validate Mermaid diagrams in Markdown files by running `nixie --no-sandbox`.
@@ -202,7 +202,7 @@ Use a strict `tsconfig.json` suitable for browser builds:
 - `noPropertyAccessFromIndexSignature: true`
 - `verbatimModuleSyntax: true` (and use `import type` / `export type`)
 - `moduleResolution: "bundler"` (lets Vite resolve modern packages)
-- `lib`: include only what you need (e.g., `dom`, `dom.iterable`, `es2022`)
+- `lib`: include only necessary items (e.g., `dom`, `dom.iterable`, `es2022`)
 - Do not emit from `tsgo` in app packages (`noEmit: true`); Vite handles
   emission.
 

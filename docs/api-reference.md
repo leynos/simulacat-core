@@ -15,8 +15,8 @@ state, REST handlers, GraphQL resolvers, and a few convenience routes.
   `githubInitialStoreSchema`, so defaults and transforms are applied before the
   store is built.
 - `apiUrl?: string`
-  Changes the mounted REST API root. Use this when a harness expects the API to
-  live under `/api/v3` rather than `/`.
+  Changes the mounted REST API root. Applicable when a harness expects the API
+  to reside under `/api/v3` instead of `/`.
 - `apiSchema?: SchemaFile | string`
   Loads one of the bundled schemas (`api.github.com.json`,
   `schema.docs.graphql`, or `schema.docs-enterprise.graphql`) or a custom file
