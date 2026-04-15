@@ -111,4 +111,20 @@ describe('applyRelayPagination', () => {
   it('rejects negative last values', () => {
     expect(() => applyRelayPagination(['a'], {last: -1})).toThrow("value of 'last' must be greater than 0");
   });
+
+  it('rejects malformed after cursors', () => {
+    expect(() => applyRelayPagination(['a'], {after: 'not-an-int'})).toThrow(
+      "value of 'after' must be a non-negative integer"
+    );
+    expect(() => applyRelayPagination(['a'], {after: '-1'})).toThrow("value of 'after' must be a non-negative integer");
+  });
+
+  it('rejects malformed before cursors', () => {
+    expect(() => applyRelayPagination(['a'], {before: 'not-an-int'})).toThrow(
+      "value of 'before' must be a non-negative integer"
+    );
+    expect(() => applyRelayPagination(['a'], {before: '-1'})).toThrow(
+      "value of 'before' must be a non-negative integer"
+    );
+  });
 });

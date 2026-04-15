@@ -1,6 +1,7 @@
 /** @file Unit tests for fixture schemas and state-table conversion helpers. */
-import {describe, expect, it} from 'bun:test';
+import {beforeEach, describe, expect, it} from 'bun:test';
 import {convertInitialStateToStoreState, githubBlobSchema, githubInitialStoreSchema} from '../src/store/entities.ts';
+import {resetNextRepositoryId} from '../src/store/entities/repository.ts';
 
 const minimalInitialState = (userOverrides = {}) =>
   githubInitialStoreSchema.parse({
@@ -100,6 +101,10 @@ describe('initialState blob fields', () => {
 });
 
 describe('initialState schema transforms', () => {
+  beforeEach(() => {
+    resetNextRepositoryId();
+  });
+
   it('creates installation fixtures for each seeded organization', () => {
     const parsed = minimalInitialState();
 

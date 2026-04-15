@@ -2,21 +2,21 @@
 
 ## Code Style and Structure
 
-- **Code is for humans.** Write your code with clarity and empathy—assume a
-  tired teammate will need to debug it at 3 a.m.
-- **Comment *why*, not *what*.** Explain assumptions, edge cases, trade-offs, or
-  complexity. Don't echo the obvious.
+- **Code is for humans.** Code should be written with clarity and empathy,
+  assuming that a tired teammate may need to debug it at 3 a.m.
+- **Comment *why*, not *what*.** Comments should explain assumptions, edge
+  cases, trade-offs, or complexity. The obvious should not be restated.
 - **Clarity over cleverness.** Be concise, but favour explicit over terse or
   obscure idioms. Prefer code that's easy to follow.
-- **Use functions and composition.** Avoid repetition by extracting reusable
-  logic. Prefer generators or comprehensions, and declarative code to
-  imperative repetition when readable.
+- **Use functions and composition.** Repetition should be avoided by extracting
+  reusable logic. Generators or comprehensions, and declarative code over
+  imperative repetition, are preferred when readability is preserved.
 - **Small, meaningful functions.** Functions must be small, clear in purpose,
   single responsibility, and obey command/query segregation.
 - **Clear commit messages.** Commit messages should be descriptive, explaining
   what was changed and why.
-- **Name things precisely.** Use clear, descriptive variable and function names.
-  For booleans, prefer names with `is`, `has`, or `should`.
+- **Name things precisely.** Variable and function names should be clear and
+  descriptive. Boolean names should prefer `is`, `has`, or `should`.
 - **Structure logically.** Each file should encapsulate a coherent module. Group
   related code (e.g., models + utilities + fixtures) close together.
 - **Group by feature, not layer.** Colocate views, logic, fixtures, and helpers
@@ -35,13 +35,13 @@
 
 ## Documentation Maintenance
 
-- **Reference:** Use the markdown files within the `docs/` directory as a
+- **Reference:** The Markdown files within the `docs/` directory act as the
   knowledge base and source of truth for project requirements, dependency
   choices, and architectural decisions.
 - **Update:** When new decisions are made, requirements change, libraries are
-  added/removed, or architectural patterns evolve, **proactively update** the
-  relevant file(s) in the `docs/` directory to reflect the latest state.
-  **Ensure the documentation remains accurate and current.**
+  added or removed, or architectural patterns evolve, the relevant file(s) in
+  `docs/` should be updated proactively to reflect the latest state.
+  Documentation should remain accurate and current.
 - Documentation must use en-GB-oxendict ("-ize" / "-yse" / "-our") spelling
   and grammar. (EXCEPTION: the naming of the "LICENSE" file, which is to be
   left unchanged for community consistency.)
@@ -50,18 +50,18 @@
 
 ## Tooling Defaults
 
-- Use `bun` for JavaScript/TypeScript script invocations (including shebangs)
-  unless there is a known reason not to. Any exception must be explicitly noted
-  alongside the invocation or in this file.
+- `bun` is used for JavaScript/TypeScript script invocations (including
+  shebangs) unless there is a known reason not to. Any exception must be noted
+  explicitly alongside the invocation or in this file.
 - AVA does not run reliably under Bun (missing `node:v8` coverage hooks), so
   `test:unit` and the AVA bridge test intentionally invoke `node`.
 
 ## Change Quality & Committing
 
-- **Atomicity:** Aim for small, focused, atomic changes. Each change (and
+- **Atomicity:** Changes should be small, focused, and atomic. Each change (and
   subsequent commit) should represent a single logical unit of work.
-- **Quality Gates:** Before considering a change complete or proposing a commit,
-  ensure it meets the following criteria:
+- **Quality Gates:** Before a change is considered complete or proposed for
+  commit, it should meet the following criteria:
 
   - New functionality or changes in behaviour are fully validated by relevant
     unittests and behavioural tests.
@@ -69,33 +69,34 @@
     behaviour being corrected, both to validate the fix and to guard against
     regression.
   - Passes all relevant unit and behavioural tests according to the guidelines
-    above. (Use `bun test` to verify).
-  - Passes lint checks. (Use `bun lint` to verify).
+    above. (`bun test` verifies this.)
+  - Passes lint checks. (`bun lint` verifies this.)
   - Adheres to formatting standards tested using a formatting validator. (Use
-    `bun fmt` to verify).
+    `bun fmt` to verify.)
 
 - **Committing:**
 
   - Only changes that meet all the quality gates above should be committed.
-  - Write clear, descriptive commit messages summarizing the change, following
-    these formatting guidelines:
+  - Commit messages should be clear and descriptive, summarizing the change and
+    following these formatting guidelines:
 
-    - **Imperative Mood:** Use the imperative mood in the subject line (e.g.,
+    - **Imperative Mood:** The subject line uses the imperative mood (e.g.,
       "Fix bug", "Add feature" instead of "Fixed bug", "Added feature").
     - **Subject Line:** The first line should be a concise summary of the change
       (ideally 50 characters or fewer).
     - **Body:** Separate the subject from the body with a blank line. Subsequent
       lines should explain the *what* and *why* of the change in more detail,
       including rationale, goals, and scope. Wrap the body at 72 characters.
-    - **Formatting:** Use Markdown for any formatted text (like bullet points or
-      code snippets) within the commit message body.
+    - **Formatting:** Markdown is used for any formatted text (like bullet
+      points or code snippets) within the commit message body.
 
-- Do not commit changes that fail any of the quality gates.
+- Changes that fail any of the quality gates should not be committed.
 
 ## Refactoring Heuristics & Workflow
 
-- **Recognizing Refactoring Needs:** Regularly assess the codebase for potential
-  refactoring opportunities. Consider refactoring when observations indicate:
+- **Recognizing Refactoring Needs:** The codebase should be assessed regularly
+  for potential refactoring opportunities. Refactoring should be considered when
+  observations indicate:
 - **Long Methods/Functions:** Functions or methods that are excessively long
     or try to do too many things.
 - **Duplicated Code:** Identical or very similar code blocks appearing in
@@ -113,15 +114,15 @@
     class/object than their own.
 - **Shotgun Surgery:** A single change requiring small modifications in many
     different classes or functions.
-- **Post-Commit Review:** After committing a functional change or bug fix (that
-  meets all quality gates), review the changed code and surrounding areas using
-  the heuristics above.
+- **Post-Commit Review:** After a functional change or bug fix is committed
+  (and meets all quality gates), the changed code and surrounding areas should
+  be reviewed using the heuristics above.
 - **Separate Atomic Refactors:** If refactoring is deemed necessary:
-- Perform the refactoring as a **separate, atomic commit** *after* the
+- Refactoring should be performed as a **separate, atomic commit** *after* the
     functional change commit.
-- Ensure the refactoring adheres to the testing guidelines (behavioural tests
+- The refactoring should adhere to the testing guidelines (behavioural tests
     pass before and after, unit tests added for new units).
-- Ensure the refactoring commit itself passes all quality gates.
+- The refactoring commit itself should pass all quality gates.
 
 ## Markdown Guidance
 
@@ -156,8 +157,8 @@ browser‑only runtime.
 - **Runtime targets**: Target modern evergreen browsers. Use `browserslist` to
   define the support matrix; drop legacy where feasible. Prefer native Web APIs
   (Fetch, URL, AbortController, Streams).
-- **Bun as runner**: Use Bun for scripts and dev server invocations. Prefer
-  `bun <script>` for package scripts and `bunx` for one‑off CLIs.
+- **Bun as runner**: Bun is used for scripts and dev server invocations.
+  `bun <script>` is preferred for package scripts, and `bunx` for one-off CLIs.
 - **Workspaces (optional)**: If a monorepo, use `pnpm` or Bun workspaces with
   clear package boundaries and TS project references.
 - **Vite**: Default bundler for dev/build. Enable code‑splitting, prefetch
@@ -174,18 +175,19 @@ browser‑only runtime.
   - `test`: `bun test --preload ./tests/setup-happy-dom.ts`
   - `test:e2e`: `playwright test`
 
-  Prefer Bun's direct shortcuts: `bun fmt`, `bun lint`, `bun check:types`,
-  `bun test`, and `bun test:e2e`. Bun accepts `bun run <name>` too, but the
-  terse form is faster to type. `lint` covers Biome checks, whilst
-  `check:types` keeps TypeScript errors visible. The `test` script uses Bun's
-  built-in runner, preloading the Happy DOM shim so component tests can render
-  without a browser.
+  Bun's direct shortcuts are preferred: `bun fmt`, `bun lint`,
+  `bun check:types`, `bun test`, and `bun test:e2e`. Bun accepts
+  `bun run <name>` too, but the terse form is faster to type. `lint` covers
+  Biome checks, whilst `check:types` keeps TypeScript errors visible. The
+  `test` script uses Bun's built-in runner, preloading the Happy DOM shim so
+  component tests can render without a browser.
 
-  Call Biome or other CLIs through `bunx` when ad hoc execution makes sense:
+  Biome and other CLIs should be called through `bunx` when ad hoc execution
+  makes sense:
 
   ```bash
-  bun x biome format --write
-  bun x biome ci frontend-pwa packages/tokens/src packages/tokens/build packages/types/src
+  bunx biome format --write
+  bunx biome ci frontend-pwa packages/tokens/src packages/tokens/build packages/types/src
   ```
 
 ### Compiler Configuration (Make It Sharp)
@@ -209,20 +211,20 @@ Keep docs close to code.
 
 ### Code Style & Structure
 
-- **Immutability first**: Prefer `const`, `readonly`, and `Readonly<T>`; avoid
-  mutating props or inputs.
-- **Functions**: Extract meaningfully named helpers when a function grows long.
-  Keep trivial functions on one line when readability allows:
+- **Immutability first**: `const`, `readonly`, and `Readonly<T>` are preferred;
+  mutating props or inputs should be avoided.
+- **Functions**: Meaningfully named helpers should be extracted when a function
+  grows long. Trivial functions may stay on one line when readability allows:
 
   ```ts
   export const mkId = (n: number): Id => new Id(n);
   ```
 
-- **Parameters**: Group related parameters into typed objects or builders;
-  avoid long positional lists.
-- **Predicates**: When `if/else` grows beyond two branches, extract a predicate
-  function or use a lookup table. Ensure exhaustive `switch` with a `never`
-  guard helper.
+- **Parameters**: Related parameters should be grouped into typed objects or
+  builders; long positional lists should be avoided.
+- **Predicates**: When `if/else` grows beyond two branches, a predicate
+  function or lookup table should be extracted. Exhaustive `switch` usage
+  should include a `never` guard helper.
 - **Docs**: Every module begins with a `/** @file … */` block describing
   purpose, responsibilities, and usage.
 - **Public APIs (for libs)**: Export explicit entry points via `package.json`
@@ -230,9 +232,10 @@ Keep docs close to code.
 
 ### Runtime Validation & Types
 
-- **Runtime schemas**: Validate I/O boundaries (network responses, localStorage
-  payloads, URL params) with `zod`/`valibot`. Generate TS types from schemas or
-  derive schemas from types, but add a CI check to keep them in sync.
+- **Runtime schemas**: I/O boundaries (network responses, localStorage
+  payloads, URL params) should be validated with `zod`/`valibot`. TS types may
+  be generated from schemas or schemas derived from types, but a CI check
+  should keep them in sync.
 - **Nominal branding**: Use branded types for IDs/tokens to avoid accidental
     mixing:
 
@@ -240,10 +243,12 @@ Keep docs close to code.
     type UserId = string & { readonly brand: "UserId" };
     ```
 
-- **Cancellation**: Accept `AbortSignal` for any async that can hang (fetches,
-  long UI work). Wire signals through TanStack Query via `signal` in fetchers.
-- **Time & RNG**: Centralize `now()` and `rng()` adapters; never call
-  `Date.now()` or `Math.random()` directly in business logic.
+- **Cancellation**: `AbortSignal` should be accepted for any async that can
+  hang (fetches, long UI work). Signals should be wired through TanStack Query
+  via `signal` in fetchers.
+- **Time & RNG**: `now()` and `rng()` adapters should be centralized;
+  `Date.now()` and `Math.random()` should never be called directly in business
+  logic.
 
 ### Error Handling (Frontend)
 
@@ -257,14 +262,14 @@ Keep docs close to code.
 
 ### Testing (Unit, Behavioural, and UI)
 
-- **Runner**: Use `bun test` with the Happy DOM preload so component suites stay
-  deterministic and parallel‑safe.
-- **Fixtures**: Use factories/builders for component props and server
-  responses. Avoid ad hoc object literals in tests.
-- **Parameterized tests**: Drive variations with helper builders or tight loops
-  rather than copy‑pasting cases.
-- **Mocking**: Prefer dependency injection; if you must stub modules, lean on
-  the `mock` helpers provided by `bun:test`.
+- **Runner**: `bun test` with the Happy DOM preload keeps component suites
+  deterministic and parallel-safe.
+- **Fixtures**: Factories and builders should be used for component props and
+  server responses. Ad hoc object literals in tests should be avoided.
+- **Parameterized tests**: Variations should be driven with helper builders or
+  tight loops rather than copy-pasted cases.
+- **Mocking**: Dependency injection is preferred; if modules must be stubbed,
+  the `mock` helpers provided by `bun:test` should be used.
 - **Fake timers**: Encapsulate clocks behind adapters; fall back to
   `mock.timers` from `bun:test` only when necessary.
 - **Snapshots**: Keep deterministic by sorting keys and fixing seeds. Limit
@@ -272,13 +277,14 @@ Keep docs close to code.
 
 ### Dependency Management (Frontend)
 
-- **Version policy**: Use caret requirements (`^x.y.z`) for all direct
-  dependencies. Avoid `*`, `>=` or tag aliases like `latest`. Use tilde
-  (`~x.y.z`) only with a documented justification.
-- **Lockfile**: Commit `bun.lock`. Recreate on major tool upgrades; keep
-  `bun.lockb` ignored.
-- **Audit**: Run `bun audit` locally and in automation. Track
-  exceptions with explicit expiry dates.
+- **Version policy**: Caret requirements (`^x.y.z`) should be used for all
+  direct dependencies. `*`, `>=`, or tag aliases like `latest` should be
+  avoided. Tilde (`~x.y.z`) should be used only with a documented
+  justification.
+- **Lockfile**: `bun.lock` should be committed. It may be recreated on major
+  tool upgrades; `bun.lockb` remains ignored.
+- **Audit**: `bun audit` should run locally and in automation. Exceptions
+  should be tracked with explicit expiry dates.
 - **Culling**: Prefer small, actively maintained packages. Remove unmaintained
   or risky dependencies swiftly.
 
@@ -290,51 +296,50 @@ Keep docs close to code.
   - In this repo: use `bun fmt`, `bun lint`, and `bun check:types`.
   - Biome respects `.biomeignore` and VCS ignore files; large build trees like
     any `target/` directory are excluded.
-- **Type‑checking**: Run `bun check:types` to surface TypeScript issues
-  early.
+- **Type‑checking**: `bun check:types` surfaces TypeScript issues early.
 - **Import hygiene**: Enforce sorted, grouped imports; no unused or extraneous
   dependencies.
 
 ### Internationalization
 
-- **Setup**: Initialize `react-i18next` with `i18next-http-backend` and
-  `i18next-browser-languagedetector`; set `fallbackLng: 'en'`.
-- **Translations**: Store locale files under `public/locales/<lang>/<ns>.json`
-  and load strings by namespace.
-- **Hooks**: Call `useTranslation` within logic hooks and pass all translated
-  strings to view components via props.
+- **Setup**: `react-i18next` is initialized with `i18next-http-backend` and
+  `i18next-browser-languagedetector`; `fallbackLng: 'en'` is set.
+- **Translations**: Locale files belong under `public/locales/<lang>/<ns>.json`
+  and strings are loaded by namespace.
+- **Hooks**: `useTranslation` should be called within logic hooks, and all
+  translated strings should be passed to view components via props.
 
 ### Observability (Frontend)
 
-- **Structured logs**: Gate debug logs behind a flag (`?debug=1` or build‑time
-  define). Use a small logger that emits structured objects in dev and terse
-  strings in prod.
+- **Structured logs**: Debug logs should be gated behind a flag (`?debug=1` or
+  build-time define). A small logger should emit structured objects in dev and
+  terse strings in prod.
 - **Metrics**: Basic RUM—navigation timings, error counts, and SPA route
   transitions. Sample aggressively to preserve privacy and cost.
-- **Feature flags**: Centralize flags; keep a kill‑switch for risky features;
-  document fallback behaviour.
+- **Feature flags**: Flags should be centralized, a kill-switch should remain
+  available for risky features, and fallback behaviour should be documented.
 
 ### Documentation & Examples
 
-- **Literate examples**: Keep small TS snippets in docs that compile during
-  builds (typecheck only). Prefer examples that mirror production patterns
-  (schema‑validated fetchers, `AbortSignal`, TanStack Query hooks).
+- **Literate examples**: Small TS snippets in docs should compile during builds
+  (typecheck only). Examples should preferably mirror production patterns
+  (schema-validated fetchers, `AbortSignal`, TanStack Query hooks).
 - **Module headers**: Each file begins with `/** @file … */` stating purpose,
   invariants, and cross‑links to related modules.
-- **Error semantics**: Document user‑visible failure modes next to components
-  and hooks that surface them.
+- **Error semantics**: User-visible failure modes should be documented next to
+  the components and hooks that surface them.
 
 ### Release Discipline
 
 - **Conventional Commits + Changesets** for versioning (libraries) and change
   logs.
-- **SemVer**: Honour breaking changes with a major bump; avoid sneaking them in
-  via dependency updates.
-- **Reproducibility**: Pin tool versions via `.tool-versions`/`.bun-version`
-  (or document required Bun/Node versions). Rebuild the lockfile on major
-  upgrades.
-- **Bundle sanity**: Maintain a bundle size budget; track regressions; document
-  acceptable variances when adding large features.
+- **SemVer**: Breaking changes should be honoured with a major bump; they
+  should not be introduced silently via dependency updates.
+- **Reproducibility**: Tool versions should be pinned via
+  `.tool-versions`/`.bun-version` (or the required Bun/Node versions should be
+  documented). The lockfile should be rebuilt on major upgrades.
+- **Bundle sanity**: A bundle size budget should be maintained, regressions
+  tracked, and acceptable variances documented when large features are added.
 
 ### Quick Checklist (Before Commit)
 

@@ -7,9 +7,19 @@ const schemaDefaults = ['schema.docs-enterprise.graphql', 'schema.docs.graphql',
 export type SchemaFile = (typeof schemaDefaults)[number];
 const openApiSchema = z
   .object({
-    paths: z.record(z.unknown())
+    openapi: z.string().optional(),
+    swagger: z.string().optional(),
+    paths: z.record(z.string(), z.unknown())
   })
-  .passthrough();
+  .passthrough()
+  .superRefine((value, ctx) => {
+    if (!value.openapi && !value.swagger) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'OpenAPI documents must declare either an openapi or swagger version'
+      });
+    }
+  });
 type OpenApiSchema = z.infer<typeof openApiSchema>;
 
 /**

@@ -12,6 +12,10 @@ let nextGeneratedRepositoryId = 3000;
 
 const nextRepositoryId = () => nextGeneratedRepositoryId++;
 
+export const resetNextRepositoryId = (newValue = 3000) => {
+  nextGeneratedRepositoryId = newValue;
+};
+
 export const githubRepositorySchema = z
   .object({
     id: z.number().optional(),
@@ -133,63 +137,61 @@ export const githubRepositorySchema = z
       })
   })
   .transform((repo) => {
-    repo.id ??= nextRepositoryId();
-    repo.node_id = repo.name;
-    repo.full_name = `${repo.owner}/${repo.name}`;
-
     const host = 'localhost:3300';
-    repo.url = `http://${host}/repos/${repo.full_name}`;
-    repo.html_url = `http://${host}/repos/${repo.full_name}`;
-    repo.archive_url = `http://${host}/repos/${repo.full_name}/{archive_format}{/ref}`;
-    repo.assignees_url = `http://${host}/repos/${repo.full_name}/assignees{/user}`;
-    repo.blobs_url = `http://${host}/repos/${repo.full_name}/git/blobs{/sha}`;
-    repo.branches_url = `http://${host}/repos/${repo.full_name}/branches{/branch}`;
-    repo.collaborators_url = `http://${host}/repos/${repo.full_name}/collaborators{/collaborator}`;
-    repo.comments_url = `http://${host}/repos/${repo.full_name}/comments{/number}`;
-    repo.commits_url = `http://${host}/repos/${repo.full_name}/commits{/sha}`;
-    repo.compare_url = `http://${host}/repos/${repo.full_name}/compare/{base}...{head}`;
-    repo.contents_url = `http://${host}/repos/${repo.full_name}/contents/{+path}`;
-    repo.contributors_url = `http://${host}/repos/${repo.full_name}/contributors`;
-    repo.deployments_url = `http://${host}/repos/${repo.full_name}/deployments`;
-    repo.downloads_url = `http://${host}/repos/${repo.full_name}/downloads`;
-    repo.events_url = `http://${host}/repos/${repo.full_name}/events`;
-    repo.forks_url = `http://${host}/repos/${repo.full_name}/forks`;
-    repo.git_commits_url = `http://${host}/repos/${repo.full_name}/git/commits{/sha}`;
-    repo.git_refs_url = `http://${host}/repos/${repo.full_name}/git/refs{/sha}`;
-    repo.git_tags_url = `http://${host}/repos/${repo.full_name}/git/tags{/sha}`;
-    repo.git_url = `git:github.com/${repo.full_name}.git`;
-    repo.issue_comment_url = `http://${host}/repos/${repo.full_name}/issues/comments{/number}`;
-    repo.issue_events_url = `http://${host}/repos/${repo.full_name}/issues/events{/number}`;
-    repo.issues_url = `http://${host}/repos/${repo.full_name}/issues{/number}`;
-    repo.keys_url = `http://${host}/repos/${repo.full_name}/keys{/key_id}`;
-    repo.labels_url = `http://${host}/repos/${repo.full_name}/labels{/name}`;
-    repo.languages_url = `http://${host}/repos/${repo.full_name}/languages`;
-    repo.merges_url = `http://${host}/repos/${repo.full_name}/merges`;
-    repo.milestones_url = `http://${host}/repos/${repo.full_name}/milestones{/number}`;
-    repo.notifications_url = `http://${host}/repos/${repo.full_name}/notifications{?since,all,participating}`;
-    repo.pulls_url = `http://${host}/repos/${repo.full_name}/pulls{/number}`;
-    repo.releases_url = `http://${host}/repos/${repo.full_name}/releases{/id}`;
-    repo.ssh_url = `git@github.com:${repo.full_name}.git`;
-    repo.stargazers_url = `http://${host}/repos/${repo.full_name}/stargazers`;
-    repo.statuses_url = `http://${host}/repos/${repo.full_name}/statuses/{sha}`;
-    repo.subscribers_url = `http://${host}/repos/${repo.full_name}/subscribers`;
-    repo.subscription_url = `http://${host}/repos/${repo.full_name}/subscription`;
-    repo.tags_url = `http://${host}/repos/${repo.full_name}/tags`;
-    repo.teams_url = `http://${host}/repos/${repo.full_name}/teams`;
-    repo.trees_url = `http://${host}/repos/${repo.full_name}/git/trees{/sha}`;
-    repo.clone_url = `http://github.com/${repo.full_name}.git`;
-    repo.mirror_url = `git:git.example.com/${repo.full_name}`;
-    repo.hooks_url = `http://${host}/repos/${repo.full_name}/hooks`;
-    repo.svn_url = `http://svn.github.com/${repo.full_name}`;
+    const id = repo.id ?? nextRepositoryId();
+    const full_name = `${repo.owner}/${repo.name}`;
 
-    if (!repo.homepage) {
-      repo.homepage = `http://${host}`;
-    }
-    if (repo.topics.length === 0) {
-      repo.topics = ['octocat', 'boilerplate', 'tauri', 'api'];
-    }
-
-    return repo;
+    return {
+      ...repo,
+      id,
+      node_id: repo.name,
+      full_name,
+      url: `http://${host}/repos/${full_name}`,
+      html_url: `http://${host}/repos/${full_name}`,
+      archive_url: `http://${host}/repos/${full_name}/{archive_format}{/ref}`,
+      assignees_url: `http://${host}/repos/${full_name}/assignees{/user}`,
+      blobs_url: `http://${host}/repos/${full_name}/git/blobs{/sha}`,
+      branches_url: `http://${host}/repos/${full_name}/branches{/branch}`,
+      collaborators_url: `http://${host}/repos/${full_name}/collaborators{/collaborator}`,
+      comments_url: `http://${host}/repos/${full_name}/comments{/number}`,
+      commits_url: `http://${host}/repos/${full_name}/commits{/sha}`,
+      compare_url: `http://${host}/repos/${full_name}/compare/{base}...{head}`,
+      contents_url: `http://${host}/repos/${full_name}/contents/{+path}`,
+      contributors_url: `http://${host}/repos/${full_name}/contributors`,
+      deployments_url: `http://${host}/repos/${full_name}/deployments`,
+      downloads_url: `http://${host}/repos/${full_name}/downloads`,
+      events_url: `http://${host}/repos/${full_name}/events`,
+      forks_url: `http://${host}/repos/${full_name}/forks`,
+      git_commits_url: `http://${host}/repos/${full_name}/git/commits{/sha}`,
+      git_refs_url: `http://${host}/repos/${full_name}/git/refs{/sha}`,
+      git_tags_url: `http://${host}/repos/${full_name}/git/tags{/sha}`,
+      git_url: `git:github.com/${full_name}.git`,
+      issue_comment_url: `http://${host}/repos/${full_name}/issues/comments{/number}`,
+      issue_events_url: `http://${host}/repos/${full_name}/issues/events{/number}`,
+      issues_url: `http://${host}/repos/${full_name}/issues{/number}`,
+      keys_url: `http://${host}/repos/${full_name}/keys{/key_id}`,
+      labels_url: `http://${host}/repos/${full_name}/labels{/name}`,
+      languages_url: `http://${host}/repos/${full_name}/languages`,
+      merges_url: `http://${host}/repos/${full_name}/merges`,
+      milestones_url: `http://${host}/repos/${full_name}/milestones{/number}`,
+      notifications_url: `http://${host}/repos/${full_name}/notifications{?since,all,participating}`,
+      pulls_url: `http://${host}/repos/${full_name}/pulls{/number}`,
+      releases_url: `http://${host}/repos/${full_name}/releases{/id}`,
+      ssh_url: `git@github.com:${full_name}.git`,
+      stargazers_url: `http://${host}/repos/${full_name}/stargazers`,
+      statuses_url: `http://${host}/repos/${full_name}/statuses/{sha}`,
+      subscribers_url: `http://${host}/repos/${full_name}/subscribers`,
+      subscription_url: `http://${host}/repos/${full_name}/subscription`,
+      tags_url: `http://${host}/repos/${full_name}/tags`,
+      teams_url: `http://${host}/repos/${full_name}/teams`,
+      trees_url: `http://${host}/repos/${full_name}/git/trees{/sha}`,
+      clone_url: `http://github.com/${full_name}.git`,
+      mirror_url: `git:git.example.com/${full_name}`,
+      hooks_url: `http://${host}/repos/${full_name}/hooks`,
+      svn_url: `http://svn.github.com/${full_name}`,
+      homepage: repo.homepage || `http://${host}`,
+      topics: repo.topics.length === 0 ? ['octocat', 'boilerplate', 'tauri', 'api'] : repo.topics
+    };
   });
 
 export type GitHubRepository = z.infer<typeof githubRepositorySchema>;

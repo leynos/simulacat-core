@@ -14,6 +14,7 @@ describe('GET installation endpoints', () => {
     const app = simulation({
       initialState: {
         users: [],
+        installations: [{id: 2000, account: 'lovely-org'}],
         organizations: [{login: 'lovely-org'}],
         repositories: [{owner: 'lovely-org', name: 'awesome-repo'}],
         branches: [{owner: 'lovely-org', repo: 'awesome-repo', name: 'main'}],
@@ -33,6 +34,31 @@ describe('GET installation endpoints', () => {
       expect(response.err).toBe(undefined);
       expect(request.status).toEqual(200);
       expect(response.repositories).toEqual([expect.objectContaining({name: 'awesome-repo'})]);
+    });
+  });
+
+  describe('/app/installations/{installation_id}/access_tokens', () => {
+    it('scopes repositories to the requested installation', async () => {
+      const request = await fetch(`${url}/app/installations/2000/access_tokens`, {
+        method: 'POST',
+        headers: {'content-type': 'application/json'},
+        body: '{}'
+      });
+      const response = await request.json();
+
+      expect(request.status).toEqual(201);
+      expect(response.repositories).toEqual([expect.objectContaining({name: 'awesome-repo'})]);
+      expect(response.token).toBe('FAKE_GITHUB_TOKEN');
+    });
+
+    it('returns 404 for an unknown installation', async () => {
+      const request = await fetch(`${url}/app/installations/9999999/access_tokens`, {
+        method: 'POST',
+        headers: {'content-type': 'application/json'},
+        body: '{}'
+      });
+
+      expect(request.status).toEqual(404);
     });
   });
 

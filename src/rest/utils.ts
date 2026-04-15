@@ -24,7 +24,7 @@ export const blobAsBase64 = ({
   ref: string;
   kind?: 'contents' | 'git-blob';
 }) => {
-  const effectiveSha = blob.sha;
+  const effectiveSha = blobStoreKey(blob);
 
   return {
     content: blob.encoding === 'base64' ? blob.content : Buffer.from(blob.content).toString('base64'),

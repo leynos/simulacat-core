@@ -17,7 +17,7 @@ export const githubBranchSchema = z
       .optional()
       .default({}),
     protected: z.boolean().optional().default(true),
-    protection: z.any().optional(),
+    protection: z.record(z.string(), z.unknown()).optional(),
     protection_url: z.string().optional()
   })
   .transform((branch) => {

@@ -36,11 +36,27 @@ const handlers =
           },
           // POST /app/installations/{installation_id}/access_tokens
           'apps/create-installation-access-token': async (
-            _context: Parameters<SimulationHandler>[0],
-            _request: Parameters<SimulationHandler>[1],
+            context: Parameters<SimulationHandler>[0],
+            request: Parameters<SimulationHandler>[1],
             _response: Parameters<SimulationHandler>[2]
           ) => {
-            const repositories = simulationStore.selectors.allReposWithOrgs(getState()) ?? [];
+            const contextParams = context.request.params as {installation_id?: string | string[]};
+            const requestParams = request.params as {installation_id?: string | string[]} | undefined;
+            const installationIdParam =
+              contextParams.installation_id ?? requestParams?.installation_id ?? request.body?.installation_id;
+            const installationId = Number(
+              Array.isArray(installationIdParam) ? installationIdParam[0] : installationIdParam
+            );
+            const installation = simulationStore.schema.installations
+              .selectTableAsList(getState())
+              .find((candidate) => candidate.id === installationId);
+            if (!installation) {
+              return {
+                status: 404,
+                json: {message: 'Not Found'}
+              };
+            }
+            const repositories = simulationStore.selectors.allReposWithOrgs(getState(), installation.account) ?? [];
             const token = 'FAKE_GITHUB_TOKEN';
             return {
               status: 201,

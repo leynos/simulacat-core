@@ -8,8 +8,8 @@ export const githubBlobSchema = z
     encoding: z.union([z.literal('string'), z.literal('base64')]).default('string'),
     owner: z.string(),
     repo: z.string(),
-    path: z.string().optional(),
-    sha: z.string().optional()
+    path: z.preprocess((value) => (value === '' ? undefined : value), z.string().min(1).optional()),
+    sha: z.preprocess((value) => (value === '' ? undefined : value), z.string().min(1).optional())
   })
   .transform((blob, ctx) => {
     if (!blob.path && !blob.sha) {

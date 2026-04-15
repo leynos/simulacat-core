@@ -41,11 +41,6 @@ export const githubAppInstallationSchema = z
   .transform((install) => {
     install.id ??= faker.number.int({min: 2000, max: 9_999_999});
 
-    const host = 'localhost:3300';
-    install.access_tokens_url ??= `https://${host}/app/installations/${install.id}/access_tokens`;
-    install.repositories_url ??= `https://${host}/installation/repositories`;
-    install.html_url ??= `https://${host}/organizations/${install.account}/settings/installations/${install.id}`;
-
     return install;
   });
 

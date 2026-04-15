@@ -4,12 +4,10 @@ import {simulation} from '../src/index.ts';
 
 type SimulationServer = Awaited<ReturnType<ReturnType<typeof simulation>['listen']>>;
 
-const basePort = 3330;
-const host = 'http://localhost';
-const url = `${host}:${basePort}`;
-
 describe('GET user endpoints', () => {
   let server: SimulationServer;
+  let url: string;
+
   beforeAll(async () => {
     const app = simulation({
       initialState: {
@@ -20,7 +18,8 @@ describe('GET user endpoints', () => {
         blobs: []
       }
     });
-    server = await app.listen(basePort);
+    server = await app.listen(0);
+    url = `http://localhost:${server.port}`;
   });
   afterAll(async () => {
     await server.ensureClose();
@@ -47,8 +46,7 @@ describe('GET user endpoints', () => {
 
 describe('GET user membership endpoints with an authenticated user', () => {
   let server: SimulationServer;
-  const authPort = basePort + 1;
-  const authUrl = `${host}:${authPort}`;
+  let authUrl: string;
 
   beforeAll(async () => {
     const app = simulation({
@@ -60,7 +58,8 @@ describe('GET user membership endpoints with an authenticated user', () => {
         blobs: []
       }
     });
-    server = await app.listen(authPort);
+    server = await app.listen(0);
+    authUrl = `http://localhost:${server.port}`;
   });
 
   afterAll(async () => {
@@ -68,7 +67,11 @@ describe('GET user membership endpoints with an authenticated user', () => {
   });
 
   it('returns only organizations with memberships for the authenticated user', async () => {
-    const request = await fetch(`${authUrl}/user/memberships/orgs`);
+    const request = await fetch(`${authUrl}/user/memberships/orgs`, {
+      headers: {
+        'x-simulacat-user': 'dev'
+      }
+    });
     const response = await request.json();
 
     expect(request.status).toEqual(200);

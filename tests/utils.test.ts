@@ -47,6 +47,14 @@ describe('getSchema', () => {
     expect(() => getSchema(tempFile)).toThrow('Failed to parse JSON schema');
   });
 
+  it('throws a parse-specific error for syntactically invalid JSON', async () => {
+    const tempFile = path.join(os.tmpdir(), `simulacat-schema-${Date.now()}.json`) as `${string}.json`;
+    tempPaths.push(tempFile);
+    await fs.writeFile(tempFile, '{"openapi": "3.1.0", "paths": {', 'utf8');
+
+    expect(() => getSchema(tempFile)).toThrow('Failed to parse JSON schema');
+  });
+
   it('loads bundled schema defaults by name', () => {
     const schema = getSchema('schema.docs.graphql');
 

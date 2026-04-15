@@ -66,12 +66,12 @@ describe('blobAsBase64', () => {
       kind: 'git-blob'
     });
 
-    expect(payload.url).toBe('http://localhost:3300/repos/lovely-org/awesome-repo/git/blobs/abc123');
-    expect(payload.sha).toBe('abc123');
+    expect(payload.url).toBe('http://localhost:3300/repos/lovely-org/awesome-repo/git/blobs/README.md');
+    expect(payload.sha).toBe('README.md');
     expect(payload.size).toBe(11);
   });
 
-  it('keeps sha undefined for content payloads without a stored blob sha', () => {
+  it('uses the normalized blob key when a content payload lacks a stored blob sha', () => {
     const payload = blobAsBase64({
       blob: {
         owner: 'lovely-org',
@@ -86,7 +86,7 @@ describe('blobAsBase64', () => {
       ref: 'README.md'
     });
 
-    expect(payload.sha).toBeUndefined();
+    expect(payload.sha).toBe('README.md');
     expect(payload.url).toBe('http://localhost:3300/repos/lovely-org/awesome-repo/contents/README.md');
   });
 });
