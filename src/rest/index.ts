@@ -132,15 +132,15 @@ const handlers =
         }
       },
       // GET /repos/{owner}/{repo}/git/trees/{tree_sha}
-      'git/get-tree': async (_context, request, response) => {
-        const ownerParam = request.params.owner;
-        const repoParam = request.params.repo;
-        const refParam = request.params.ref;
+      'git/get-tree': async (context, request, response) => {
+        const ownerParam = context.request.params.owner;
+        const repoParam = context.request.params.repo;
+        const treeShaParam = context.request.params.tree_sha;
         const owner = Array.isArray(ownerParam) ? ownerParam[0] : ownerParam;
         const repo = Array.isArray(repoParam) ? repoParam[0] : repoParam;
-        const ref = Array.isArray(refParam) ? refParam[0] : refParam;
+        const treeSha = Array.isArray(treeShaParam) ? treeShaParam[0] : treeShaParam;
         const blobs = simulationStore.selectors.getBlobAtOwnerRepo(simulationStore.store.getState(), owner, repo);
-        if (!blobs || !owner || !repo || !ref) {
+        if (!blobs || !owner || !repo || !treeSha) {
           response.status(404).send('fixture does not exist');
         } else {
           const tree = gitTrees({
@@ -148,7 +148,7 @@ const handlers =
             host: `${request.protocol}://${request.headers.host}`,
             owner,
             repo,
-            ref
+            ref: treeSha
           });
           response.status(200).json(tree);
         }

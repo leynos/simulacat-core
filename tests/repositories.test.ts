@@ -16,7 +16,15 @@ describe('GET repo endpoints', () => {
         organizations: [{login: 'lovely-org'}, {login: 'empty-org'}],
         repositories: [{owner: 'lovely-org', name: 'awesome-repo'}],
         branches: [{name: 'main'}],
-        blobs: []
+        blobs: [
+          {
+            owner: 'lovely-org',
+            repo: 'awesome-repo',
+            path: 'README.md',
+            sha: 'tree-sha-123',
+            content: 'hello tree route'
+          }
+        ]
       }
     });
     server = await app.listen(basePort);
@@ -52,6 +60,26 @@ describe('GET repo endpoints', () => {
       const response = await request.json();
       expect(request.status).toEqual(200);
       expect(response).toEqual([expect.objectContaining({name: 'main'})]);
+    });
+  });
+
+  describe('/repos/{owner}/{repo}/git/trees/{tree_sha}', () => {
+    it('uses the tree_sha route param for successful lookups', async () => {
+      const request = await fetch(`${url}/repos/lovely-org/awesome-repo/git/trees/tree-sha-123`);
+      const response = await request.json();
+      expect(request.status).toEqual(200);
+      expect(response).toEqual(
+        expect.objectContaining({
+          sha: 'tree-sha-123',
+          tree: [
+            expect.objectContaining({
+              path: 'README.md',
+              sha: 'tree-sha-123'
+            })
+          ],
+          truncated: false
+        })
+      );
     });
   });
 });

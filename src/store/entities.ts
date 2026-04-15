@@ -391,7 +391,7 @@ export const convertInitialStateToStoreState = (initialState: GitHubStore | unde
     repositories: convertObjToProp(initialState.repositories, 'name'),
     branches: convertObjToProp(initialState.branches, 'name'),
     organizations: convertObjToProp(initialState.organizations, 'login'),
-    blobs: convertObjToProp(initialState.blobs)
+    blobs: convertObjToProp(initialState.blobs, 'sha')
   };
 
   return storeObject;
