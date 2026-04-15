@@ -59,6 +59,7 @@ export function applyRelayPagination<T, R>(
   args: PageArgs,
   mapper: (a: T) => R = identity as (a: T) => R
 ): Page<R> {
+  const totalNodes = nodes.length;
   const range = applyCursorsToEdges(nodes, args.before, args.after);
 
   const edges = edgesToReturn(range, args.first, args.last).map((edge) => ({
@@ -79,7 +80,7 @@ export function applyRelayPagination<T, R>(
         if (first != null) {
           return range.length > first;
         } else if (before != null) {
-          return Number(before) < range.length - 1;
+          return Number(before) < totalNodes - 1;
         }
         return false;
       },
@@ -135,7 +136,7 @@ function edgesToReturn<T>(edges: T[], first?: number, last?: number) {
   }
   if (first != null) {
     if (first < 0) {
-      throw new Error(`value of first must be greater than 0, was ${first}`);
+      throw new Error(`value of 'first' must be greater than 0, was ${first}`);
     }
     newEdges = newEdges.slice(0, first);
   }
@@ -143,7 +144,11 @@ function edgesToReturn<T>(edges: T[], first?: number, last?: number) {
     if (last < 0) {
       throw new Error(`value of 'last' must be greater than 0, was ${last}`);
     }
-    newEdges = newEdges.slice(-last);
+    if (last === 0) {
+      newEdges = [];
+    } else {
+      newEdges = newEdges.slice(-last);
+    }
   }
 
   return newEdges;

@@ -113,7 +113,7 @@ export function toGraphql<T extends keyof (DataSchemas | GraphQLData)>(
       const repo = entity as DataSchemas['Repository'];
       const gqlRepo: GraphQLData['Repository'] = {
         __typename,
-        id: repo.id.toString(),
+        id: String(repo.id),
         name: repo.name,
         description: repo.description,
         nameWithOwner: repo.full_name,

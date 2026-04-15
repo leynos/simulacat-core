@@ -38,6 +38,22 @@ describe('applyRelayPagination', () => {
     expect(page.edges).toEqual([{node: 'c', cursor: '2'}]);
   });
 
+  it('reports hasNextPage against the untrimmed range when before is provided', () => {
+    const page = applyRelayPagination(['a', 'b', 'c', 'd'], {before: '2'});
+
+    expect(page.nodes).toEqual(['a', 'b']);
+    expect(page.pageInfo.hasNextPage).toBe(true);
+  });
+
+  it('returns an empty page when last is zero', () => {
+    const page = applyRelayPagination(['a', 'b', 'c'], {last: 0});
+
+    expect(page.nodes).toEqual([]);
+    expect(page.edges).toEqual([]);
+    expect(page.pageInfo.startCursor).toBeUndefined();
+    expect(page.pageInfo.endCursor).toBeUndefined();
+  });
+
   it('maps nodes before returning them', () => {
     const page = applyRelayPagination([{name: 'a'}, {name: 'b'}], {first: 2}, (node) => node.name.toUpperCase());
 
@@ -89,7 +105,7 @@ describe('applyRelayPagination', () => {
   });
 
   it('rejects negative first values', () => {
-    expect(() => applyRelayPagination(['a'], {first: -1})).toThrow('value of first must be greater than 0');
+    expect(() => applyRelayPagination(['a'], {first: -1})).toThrow("value of 'first' must be greater than 0");
   });
 
   it('rejects negative last values', () => {

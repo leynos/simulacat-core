@@ -97,7 +97,7 @@ describe('GET repo endpoints', () => {
           tree: [
             expect.objectContaining({
               path: 'README.md',
-              sha: 'tree-sha-123'
+              sha: 'README.md'
             })
           ],
           truncated: false
@@ -106,8 +106,22 @@ describe('GET repo endpoints', () => {
       expect(response.url).toContain('/repos/lovely-org/awesome-repo/git/trees/tree-sha-123');
     });
 
-    it('returns 404 when the repository has no blobs', async () => {
+    it('returns an empty tree when the repository has no blobs', async () => {
       const request = await fetch(`${url}/repos/empty-org/other-repo/git/trees/tree-sha-123`);
+      const response = await request.json();
+
+      expect(request.status).toEqual(200);
+      expect(response).toEqual(
+        expect.objectContaining({
+          sha: 'tree-sha-123',
+          tree: [],
+          truncated: false
+        })
+      );
+    });
+
+    it('returns 404 when the repository does not exist', async () => {
+      const request = await fetch(`${url}/repos/lovely-org/missing-repo/git/trees/tree-sha-123`);
 
       expect(request.status).toEqual(404);
     });

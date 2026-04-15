@@ -25,8 +25,8 @@ export const githubUserSchema = z
     organizations: z.array(z.string()),
     created_at: z
       .string()
-      .default(() => faker.date.recent().toISOString())
       .optional()
+      .default(() => faker.date.recent().toISOString())
   })
   .transform((user) => {
     if (!user.name) {
@@ -95,7 +95,7 @@ export const convertInitialStateToStoreState = (initialState: GitHubStore | unde
     blobs: convertObjByKey(
       initialState.blobs.map((blob) => ({
         ...blob,
-        sha: blobStoreKey(blob)
+        sha: blobStoreKey(blob)!
       })),
       (blob) => blob.sha
     )

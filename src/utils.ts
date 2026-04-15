@@ -31,29 +31,30 @@ export function getSchema(schemaFile: SchemaFile | string): string | OpenApiSche
     ? path.join(root, 'schema', schemaFile)
     : schemaFile;
 
+  let fileString: string;
   try {
-    const fileString = fs.readFileSync(schemaPath, 'utf-8');
-
-    if (!schemaFile.endsWith('.json')) {
-      return fileString;
-    }
-
-    try {
-      const parsed = JSON.parse(fileString);
-      const validated = openApiSchema.safeParse(parsed);
-      if (!validated.success) {
-        throw new Error(validated.error.message);
-      }
-      return validated.data;
-    } catch (error) {
-      throw new Error(
-        `Failed to parse JSON schema from ${schemaPath}: ${error instanceof Error ? error.message : String(error)}`,
-        {cause: error}
-      );
-    }
+    fileString = fs.readFileSync(schemaPath, 'utf-8');
   } catch (error) {
     throw new Error(
       `Failed to load schema ${schemaFile} from ${schemaPath}: ${error instanceof Error ? error.message : String(error)}`,
+      {cause: error}
+    );
+  }
+
+  if (!schemaFile.endsWith('.json')) {
+    return fileString;
+  }
+
+  try {
+    const parsed = JSON.parse(fileString);
+    const validated = openApiSchema.safeParse(parsed);
+    if (!validated.success) {
+      throw new Error(validated.error.message);
+    }
+    return validated.data;
+  } catch (error) {
+    throw new Error(
+      `Failed to parse JSON schema from ${schemaPath}: ${error instanceof Error ? error.message : String(error)}`,
       {cause: error}
     );
   }

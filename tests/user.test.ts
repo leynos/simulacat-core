@@ -27,15 +27,10 @@ describe('GET user endpoints', () => {
   });
 
   describe('/user/memberships/orgs', () => {
-    it('validates with 200 response', async () => {
+    it('returns 401 when no authenticated user is seeded', async () => {
       const request = await fetch(`${url}/user/memberships/orgs`);
-      const response = await request.json();
-      expect(request.status).toEqual(200);
-      expect(response).toEqual([
-        expect.objectContaining({
-          organization: expect.objectContaining({login: 'lovely-org'})
-        })
-      ]);
+
+      expect(request.status).toEqual(401);
     });
   });
 
@@ -47,5 +42,44 @@ describe('GET user endpoints', () => {
       expect(request.status).toEqual(401);
       expect(response).toEqual({message: 'Authentication required'});
     });
+  });
+});
+
+describe('GET user membership endpoints with an authenticated user', () => {
+  let server: SimulationServer;
+  const authPort = basePort + 1;
+  const authUrl = `${host}:${authPort}`;
+
+  beforeAll(async () => {
+    const app = simulation({
+      initialState: {
+        users: [{login: 'dev', organizations: ['lovely-org']}],
+        organizations: [{login: 'lovely-org'}, {login: 'other-org'}],
+        repositories: [{owner: 'lovely-org', name: 'awesome-repo'}],
+        branches: [{owner: 'lovely-org', repo: 'awesome-repo', name: 'main'}],
+        blobs: []
+      }
+    });
+    server = await app.listen(authPort);
+  });
+
+  afterAll(async () => {
+    await server.ensureClose();
+  });
+
+  it('returns only organizations with memberships for the authenticated user', async () => {
+    const request = await fetch(`${authUrl}/user/memberships/orgs`);
+    const response = await request.json();
+
+    expect(request.status).toEqual(200);
+    expect(response).toEqual([
+      expect.objectContaining({
+        state: 'active',
+        role: 'member',
+        organization: expect.objectContaining({login: 'lovely-org'}),
+        organization_url: expect.stringContaining('/orgs/lovely-org'),
+        user: expect.objectContaining({login: 'dev'})
+      })
+    ]);
   });
 });

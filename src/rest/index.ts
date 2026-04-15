@@ -201,8 +201,11 @@ const handlers =
             const owner = Array.isArray(ownerParam) ? ownerParam[0] : ownerParam;
             const repo = Array.isArray(repoParam) ? repoParam[0] : repoParam;
             const treeSha = Array.isArray(treeShaParam) ? treeShaParam[0] : treeShaParam;
+            const repository = simulationStore.schema.repositories
+              .selectTableAsList(simulationStore.store.getState())
+              .find((candidate) => candidate.owner === owner && candidate.name === repo);
             const blobs = simulationStore.selectors.getBlobAtOwnerRepo(simulationStore.store.getState(), owner, repo);
-            if (!owner || !repo || !treeSha || blobs.length === 0) {
+            if (!owner || !repo || !treeSha || !repository) {
               response.status(404).send('fixture does not exist');
             } else {
               const tree = gitTrees({
@@ -239,23 +242,27 @@ const handlers =
           // GET /user/memberships/orgs
           'orgs/list-memberships-for-authenticated-user': async (
             _context: Parameters<SimulationHandler>[0],
-            _request: Parameters<SimulationHandler>[1],
-            _response: Parameters<SimulationHandler>[2]
+            request: Parameters<SimulationHandler>[1],
+            response: Parameters<SimulationHandler>[2]
           ) => {
             const users = simulationStore.schema.users.selectTableAsList(getState());
-            const user = users[0];
+            const requestedLogin = request.get('x-simulacat-user') ?? request.get('x-github-user');
+            const user = requestedLogin ? users.find((candidate) => candidate.login === requestedLogin) : users[0];
+            if (!user) {
+              return response.status(401).json({message: 'Authentication required'});
+            }
             const organizations = simulationStore.selectors.allGithubOrganizations(getState());
-            return {
-              status: 200,
-              json: organizations.map((organization) => ({
-                url: `${organization.url}/memberships`,
+            const memberships = organizations
+              .filter((organization) => user.organizations.includes(organization.login))
+              .map((organization) => ({
+                url: `${organization.url}/memberships/${user.login}`,
                 state: 'active',
                 organization,
-                role: 'admin',
+                role: 'member',
                 organization_url: organization.url,
-                user: !user ? null : user
-              }))
-            };
+                user
+              }));
+            return response.status(200).json(memberships);
           }
         };
 

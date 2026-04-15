@@ -117,8 +117,9 @@ Implication:
 - in that mode, REST behaviour is effectively pure OpenAPI example stubbing plus
   the non-OpenAPI Express routes
 
-This is a meaningful gotcha for consumers who expect custom REST handlers to
-work without seeding store state.
+This is a meaningful gotcha for consumers who expect built-in GitHub REST
+handlers to work without seeding store state; `extend.openapiHandlers` still
+works in that mode.
 
 ## Built-In Scriptable REST Coverage
 

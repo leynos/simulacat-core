@@ -70,6 +70,25 @@ describe('blobAsBase64', () => {
     expect(payload.sha).toBe('abc123');
     expect(payload.size).toBe(11);
   });
+
+  it('keeps sha undefined for content payloads without a stored blob sha', () => {
+    const payload = blobAsBase64({
+      blob: {
+        owner: 'lovely-org',
+        repo: 'awesome-repo',
+        path: 'README.md',
+        content: 'hello world',
+        encoding: 'string'
+      },
+      host: 'http://localhost:3300',
+      owner: 'lovely-org',
+      repo: 'awesome-repo',
+      ref: 'README.md'
+    });
+
+    expect(payload.sha).toBeUndefined();
+    expect(payload.url).toBe('http://localhost:3300/repos/lovely-org/awesome-repo/contents/README.md');
+  });
 });
 
 describe('gitTrees', () => {
@@ -99,12 +118,38 @@ describe('gitTrees', () => {
         tree: [
           expect.objectContaining({
             path: 'README.md',
-            sha: 'abc123',
-            url: 'http://localhost:3300/repos/lovely-org/awesome-repo/git/blobs/abc123'
+            sha: 'README.md',
+            url: 'http://localhost:3300/repos/lovely-org/awesome-repo/git/blobs/README.md'
           })
         ]
       })
     );
+  });
+
+  it('falls back to sha-only blobs when building git tree entries', () => {
+    const payload = gitTrees({
+      blobs: [
+        {
+          owner: 'lovely-org',
+          repo: 'awesome-repo',
+          sha: 'blob-sha',
+          content: Buffer.from('tree content').toString('base64'),
+          encoding: 'base64'
+        }
+      ],
+      host: 'http://localhost:3300',
+      owner: 'lovely-org',
+      repo: 'awesome-repo',
+      ref: 'tree-sha'
+    });
+
+    expect(payload.tree).toEqual([
+      expect.objectContaining({
+        path: 'blob-sha',
+        sha: 'blob-sha',
+        url: 'http://localhost:3300/repos/lovely-org/awesome-repo/git/blobs/blob-sha'
+      })
+    ]);
   });
 });
 

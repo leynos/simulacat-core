@@ -155,15 +155,44 @@ const inputSelectors = ({createSelector, schema}: ExtendSimulationSelectors<Exte
         const repos = !org ? allRepos : allRepos.filter((r) => r.owner === org);
         return repos.map((repo) => {
           const ownerOrg = orgMap?.[repo.owner];
-          const linkedRepo = {
+          const linkedRepo: GitHubRepositoryWithOrganizationOwner = {
             ...repo,
             id: Number(repo.id),
-            owner: ownerOrg ? {...ownerOrg, id: Number(ownerOrg.id)} : repo.owner
+            owner: ownerOrg
+              ? {
+                  ...ownerOrg,
+                  id: Number(ownerOrg.id)
+                }
+              : repo.owner
           };
           if (linkedRepo.owner && typeof linkedRepo.owner !== 'string') {
-            // TODO better option than delete?
-            delete linkedRepo.owner.name;
-            delete linkedRepo.owner.email;
+            linkedRepo.owner = {
+              id: linkedRepo.owner.id,
+              login: linkedRepo.owner.login,
+              node_id: linkedRepo.owner.node_id,
+              type: linkedRepo.owner.type,
+              description: linkedRepo.owner.description,
+              created_at: linkedRepo.owner.created_at,
+              teams: linkedRepo.owner.teams,
+              avatar_url: linkedRepo.owner.avatar_url,
+              gravatar_id: linkedRepo.owner.gravatar_id,
+              site_admin: linkedRepo.owner.site_admin,
+              url: linkedRepo.owner.url,
+              html_url: linkedRepo.owner.html_url,
+              followers_url: linkedRepo.owner.followers_url,
+              following_url: linkedRepo.owner.following_url,
+              gists_url: linkedRepo.owner.gists_url,
+              starred_url: linkedRepo.owner.starred_url,
+              subscriptions_url: linkedRepo.owner.subscriptions_url,
+              organizations_url: linkedRepo.owner.organizations_url,
+              repos_url: linkedRepo.owner.repos_url,
+              events_url: linkedRepo.owner.events_url,
+              received_events_url: linkedRepo.owner.received_events_url,
+              hooks_url: linkedRepo.owner.hooks_url,
+              issues_url: linkedRepo.owner.issues_url,
+              members_url: linkedRepo.owner.members_url,
+              public_members_url: linkedRepo.owner.public_members_url
+            };
           }
           return linkedRepo;
         });

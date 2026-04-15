@@ -8,9 +8,13 @@ import {faker} from '@faker-js/faker';
 import {z} from 'zod';
 import {githubEntityPermissionSchema} from './shared.ts';
 
+let nextGeneratedRepositoryId = 3000;
+
+const nextRepositoryId = () => nextGeneratedRepositoryId++;
+
 export const githubRepositorySchema = z
   .object({
-    id: z.number().default(3000),
+    id: z.number().optional(),
     node_id: z.string().optional(),
     name: z.string(),
     description: z.string().optional().default('Generic repository description'),
@@ -129,7 +133,7 @@ export const githubRepositorySchema = z
       })
   })
   .transform((repo) => {
-    repo.id ??= faker.number.int({min: 3000});
+    repo.id ??= nextRepositoryId();
     repo.node_id = repo.name;
     repo.full_name = `${repo.owner}/${repo.name}`;
 
@@ -178,8 +182,12 @@ export const githubRepositorySchema = z
     repo.hooks_url = `http://${host}/repos/${repo.full_name}/hooks`;
     repo.svn_url = `http://svn.github.com/${repo.full_name}`;
 
-    repo.homepage = `http://${host}`;
-    repo.topics = ['octocat', 'boilerplate', 'tauri', 'api'];
+    if (!repo.homepage) {
+      repo.homepage = `http://${host}`;
+    }
+    if (repo.topics.length === 0) {
+      repo.topics = ['octocat', 'boilerplate', 'tauri', 'api'];
+    }
 
     return repo;
   });

@@ -34,7 +34,9 @@ describe('getSchema', () => {
   });
 
   it('throws when the schema path does not exist', () => {
-    expect(() => getSchema('/tmp/this-file-does-not-exist.graphql')).toThrow();
+    const missingSchema = path.join(os.tmpdir(), 'this-file-does-not-exist.graphql');
+
+    expect(() => getSchema(missingSchema)).toThrow();
   });
 
   it('throws when a JSON schema does not match the expected OpenAPI shape', async () => {

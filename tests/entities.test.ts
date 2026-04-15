@@ -151,4 +151,46 @@ describe('initialState schema transforms', () => {
     expect(repository.url).toContain('/repos/test-org/test-repo');
     expect(repository.visibility).toBe('public');
   });
+
+  it('preserves caller-supplied repository and organization ids', () => {
+    const parsed = githubInitialStoreSchema.parse({
+      users: [{login: 'dev', organizations: []}],
+      organizations: [{id: 4401, login: 'test-org'}],
+      repositories: [{id: 3301, owner: 'test-org', name: 'test-repo'}],
+      branches: [{owner: 'test-org', repo: 'test-repo', name: 'main'}],
+      blobs: []
+    });
+
+    expect(parsed.organizations[0]?.id).toBe(4401);
+    expect(parsed.repositories[0]?.id).toBe(3301);
+  });
+
+  it('assigns distinct generated ids to multiple seeded repositories', () => {
+    const parsed = githubInitialStoreSchema.parse({
+      users: [{login: 'dev', organizations: []}],
+      organizations: [{login: 'test-org'}],
+      repositories: [
+        {owner: 'test-org', name: 'test-repo'},
+        {owner: 'test-org', name: 'second-repo'}
+      ],
+      branches: [
+        {owner: 'test-org', repo: 'test-repo', name: 'main'},
+        {owner: 'test-org', repo: 'second-repo', name: 'main'}
+      ],
+      blobs: []
+    });
+
+    const firstRepository = parsed.repositories[0];
+    const secondRepository = parsed.repositories[1];
+
+    if (!firstRepository || !secondRepository) {
+      throw new Error('expected seeded repositories to be present');
+    }
+
+    expect(firstRepository.id).not.toBe(secondRepository.id);
+    expect(firstRepository.full_name).toBe('test-org/test-repo');
+    expect(secondRepository.full_name).toBe('test-org/second-repo');
+    expect(firstRepository.url).toContain('/repos/test-org/test-repo');
+    expect(secondRepository.url).toContain('/repos/test-org/second-repo');
+  });
 });

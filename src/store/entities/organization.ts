@@ -41,36 +41,38 @@ export const githubOrganizationSchema = z
     public_members_url: z.string().optional()
   })
   .transform((org) => {
-    org.id ??= faker.number.int({min: 4000});
-    if (!org.name) {
-      org.name = org.login;
-    }
-    if (!org.email) {
-      org.email = faker.internet.email({
+    const name = org.name ?? org.login;
+    const email =
+      org.email ??
+      faker.internet.email({
         firstName: 'org',
         lastName: org.login
       });
-    }
 
     const host = 'localhost:3300';
-    org.url = `http://${host}/orgs/${org.login}`;
-    org.html_url = `http://github.com/${org.login}`;
-    org.followers_url = `http://${host}/users/${org.login}/followers`;
-    org.following_url = `http://${host}/users/${org.login}/following{/other_user}`;
-    org.gists_url = `http://${host}/users/${org.login}/gists{/gist_id}`;
-    org.starred_url = `http://${host}/users/${org.login}/starred{/owner}{/repo}`;
-    org.subscriptions_url = `http://${host}/users/${org.login}/subscriptions`;
-    org.organizations_url = `http://${host}/users/${org.login}/orgs`;
-    org.repos_url = `${org.url}/repos`;
-    org.events_url = `${org.url}/events`;
-    org.received_events_url = `http://${host}/users/${org.login}/received_events`;
-    org.hooks_url = `${org.url}/hooks`;
-    org.issues_url = `${org.url}/issues`;
-    org.members_url = `${org.url}/members{/member}`;
-    org.public_members_url = `${org.url}/public_members{/member}`;
-    org.node_id = 'MDQ6VXNlcjE=';
+    const url = `http://${host}/orgs/${org.login}`;
 
-    return org;
+    return {
+      ...org,
+      name,
+      email,
+      url,
+      html_url: `https://github.com/${org.login}`,
+      followers_url: `http://${host}/users/${org.login}/followers`,
+      following_url: `http://${host}/users/${org.login}/following{/other_user}`,
+      gists_url: `http://${host}/users/${org.login}/gists{/gist_id}`,
+      starred_url: `http://${host}/users/${org.login}/starred{/owner}{/repo}`,
+      subscriptions_url: `http://${host}/users/${org.login}/subscriptions`,
+      organizations_url: `http://${host}/users/${org.login}/orgs`,
+      repos_url: `${url}/repos`,
+      events_url: `${url}/events`,
+      received_events_url: `http://${host}/users/${org.login}/received_events`,
+      hooks_url: `${url}/hooks`,
+      issues_url: `${url}/issues`,
+      members_url: `${url}/members{/member}`,
+      public_members_url: `${url}/public_members{/member}`,
+      node_id: Buffer.from(`Organization:${org.login}`).toString('base64')
+    };
   });
 
 export type GitHubOrganization = z.infer<typeof githubOrganizationSchema>;

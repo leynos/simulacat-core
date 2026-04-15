@@ -58,9 +58,9 @@ Selectors provide the higher-level joins the handlers need:
 The package is designed to be extended rather than forked.
 
 - `extendStore`
-  Adds schema slices, actions, and selectors.
+  Provides schema slices, actions, and selectors.
 - `openapiHandlers`
-  Adds or overrides REST operations while reusing the same store.
+  Registers or overrides REST operations while reusing the same store.
 - `extendRouter`
   Adds plain Express routes for harness-specific behaviour.
 

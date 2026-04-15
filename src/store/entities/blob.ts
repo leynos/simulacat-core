@@ -25,4 +25,4 @@ export const githubBlobSchema = z
 
 export type GitHubBlob = z.infer<typeof githubBlobSchema>;
 
-export const blobStoreKey = (blob: GitHubBlob) => blob.sha ?? blob.path!;
+export const blobStoreKey = (blob: GitHubBlob) => blob.path ?? blob.sha;
