@@ -231,6 +231,31 @@ describe('initialState schema transforms', () => {
     ]);
   });
 
+  it('does not mutate the caller-provided installations array', () => {
+    const installations = [
+      {
+        id: 4242,
+        account: 'test-org',
+        access_tokens_url: 'https://example.test/custom/access_tokens',
+        repositories_url: 'https://example.test/custom/repositories',
+        html_url: 'https://example.test/custom/html'
+      }
+    ];
+    const input = buildGithubInitialStore({installations});
+
+    githubInitialStoreSchema.parse(input);
+
+    expect(installations).toEqual([
+      expect.objectContaining({
+        id: 4242,
+        account: 'test-org',
+        access_tokens_url: 'https://example.test/custom/access_tokens',
+        repositories_url: 'https://example.test/custom/repositories',
+        html_url: 'https://example.test/custom/html'
+      })
+    ]);
+  });
+
   it('normalizes repository fields needed by REST and GraphQL responses', () => {
     const parsed = parseGithubInitialStore();
     const repository = parsed.repositories[0];

@@ -44,7 +44,7 @@ export const githubUserSchema = z
       .default(() => faker.date.recent().toISOString())
   })
   .transform((user): GitHubUser => {
-    const id = user.id ?? faker.number.int({min: 1000});
+    const id = user.id;
     const name = user.name ?? user.login;
     const email = user.email ?? faker.internet.email({firstName: name});
 
@@ -78,8 +78,10 @@ export const githubInitialStoreSchema = z
         })
       );
 
-    initialStore.installations = [...initialStore.installations, ...generatedInstallations];
-    return initialStore;
+    return {
+      ...initialStore,
+      installations: [...initialStore.installations, ...generatedInstallations]
+    };
   });
 
 export type GitHubStore = z.output<typeof githubInitialStoreSchema>;
