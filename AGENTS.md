@@ -137,6 +137,102 @@
 - Use GitHub-flavoured Markdown footnotes (`[^1]`) for references and
   footnotes.
 
+## TypeScript Guidance
+
+This repository is implemented in TypeScript and should follow the same
+clarity, strictness, and reproducibility goals used elsewhere in this guide.
+
+### Toolchain & Project Shape
+
+- **ESM-first with a documented CLI exception**: Source modules and the
+  published library surface are expected to be ESM. This repository retains a
+  CommonJS build artifact for the Node CLI because `bin/start.cjs` requires
+  `../dist/index.cjs` so it can run under Node without transpilation. Treat
+  that CommonJS output as a narrow operational exception, not as the default
+  module model.
+- **Bun as runner**: Bun is used for package scripts and ad hoc TypeScript
+  tooling. Prefer `bun <script>` for package scripts and `bunx` for one-off
+  CLIs.
+- **Project scripts (Bun)**:
+  - `fmt`: `bunx @biomejs/biome format --write .`
+  - `lint`: `bunx @biomejs/biome lint .`
+  - `check:types`: `bun run generate && bunx tsc --noEmit`
+  - `test`: `bun test --max-concurrency=1 tests`
+
+### Compiler Configuration
+
+Use a sharp `tsconfig.json` and keep strictness enabled. The repository should
+prefer settings such as:
+
+- `strict: true`
+- `noUncheckedIndexedAccess: true`
+- `exactOptionalPropertyTypes: true`
+- `noImplicitOverride: true`
+- `useUnknownInCatchVariables: true`
+- `noPropertyAccessFromIndexSignature: true`
+- `verbatimModuleSyntax: true` with `import type` / `export type`
+
+Place JSDoc comments above declarations and above decorators when decorators
+are present.
+
+### Code Style & Structure
+
+- **Immutability first**: Prefer `const`, `readonly`, and returning new objects
+  over mutating inputs.
+- **Functions**: Extract meaningfully named helpers when a function grows long
+  or takes on multiple responsibilities.
+- **Parameters**: Group related parameters into typed objects rather than long
+  positional lists.
+- **Predicates**: When branching becomes complex, extract predicate helpers or
+  lookup tables. Exhaustive `switch` logic should include a `never` guard.
+- **Docs**: Every module begins with a `/** @file … */` block describing
+  purpose, responsibilities, and usage.
+- **Public APIs**: Export explicit entry points via `package.json`
+  `exports`/`types`. Avoid wildcard re-exports that hide breaking changes.
+
+### Runtime Validation & Types
+
+- **Runtime schemas**: Validate I/O boundaries such as network responses,
+  fixture payloads, and persisted data with `zod`.
+- **Nominal branding**: Prefer branded types for identifiers or tokens when it
+  prevents accidental mixing of otherwise identical primitives.
+- **Time & randomness**: Centralize `now()` and `rng()` style adapters rather
+  than calling `Date.now()` or `Math.random()` directly in business logic.
+
+### Error Handling
+
+- **Semantic errors**: Use discriminated unions for recoverable conditions that
+  callers branch on.
+- **Exceptions**: Reserve `Error` subclasses for exceptional paths and attach a
+  `cause` where available.
+
+### Testing
+
+- **Runner**: Use `bun test` and keep tests deterministic.
+- **Fixtures**: Prefer factories and builders over repeated ad hoc object
+  literals.
+- **Parameterized tests**: Drive variations with helpers or compact loops
+  rather than duplicated cases.
+- **Snapshots**: Keep snapshot inputs deterministic by fixing seeds and sorting
+  unstable data.
+
+### Dependency Management
+
+- **Version policy**: Use caret requirements (`^x.y.z`) for direct
+  dependencies unless a narrower range is justified explicitly.
+- **Lockfile**: Commit `bun.lock`. Rebuild it deliberately when major tool
+  upgrades require it.
+- **Culling**: Prefer small, actively maintained packages and remove
+  unmaintained dependencies quickly.
+
+### Linting & Formatting
+
+- **Biome**: Use Biome for formatting and linting through `bun fmt` and
+  `bun lint`.
+- **Type-checking**: Use `bun check:types` to surface TypeScript issues early.
+- **Import hygiene**: Keep imports sorted and remove unused or extraneous
+  dependencies.
+
 ## Additional tooling
 
 The following tooling is available in this environment:
