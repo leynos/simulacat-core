@@ -16,6 +16,16 @@ import type {ExtendedSimulationStore} from '../../store/index.ts';
 import {RepositoryVisibility} from '../../__generated__/resolvers-types.ts';
 import type {User} from '../../__generated__/resolvers-types.ts';
 
+/**
+ * Converts a seeded repository fixture into a `GraphQLData['Repository']`.
+ *
+ * @param simulationStore `ExtendedSimulationStore` used for linked owner lookups.
+ * @param repo `DataSchemas['Repository']` source entity to expose.
+ * @param toGraphql `ToGraphqlDispatcher` used for nested owner conversion.
+ * @returns `GraphQLData['Repository']` with non-null `id`, `nameWithOwner`,
+ * `url`, `createdAt`, and `defaultBranchRef`; relation fields stay lazy or
+ * placeholder-backed instead of being fully resolved here.
+ */
 export function convertRepositoryToGraphql(
   simulationStore: ExtendedSimulationStore,
   repo: DataSchemas['Repository'],
@@ -26,7 +36,7 @@ export function convertRepositoryToGraphql(
 
   return {
     __typename: 'Repository',
-    id: String(repo.id),
+    id: String(repo.id ?? repo.full_name),
     name: repo.name,
     nameWithOwner: repo.full_name,
     url: repo.url,

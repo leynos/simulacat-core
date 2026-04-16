@@ -1,6 +1,12 @@
 /** @file Unit tests for fixture schemas and state-table conversion helpers. */
 import {beforeEach, describe, expect, it} from 'bun:test';
-import {convertInitialStateToStoreState, githubBlobSchema, githubInitialStoreSchema} from '../src/store/entities.ts';
+import {
+  convertInitialStateToStoreState,
+  githubBlobSchema,
+  githubInitialStoreSchema,
+  githubOrganizationSchema,
+  githubUserSchema
+} from '../src/store/entities.ts';
 import {resetNextRepositoryId} from '../src/store/entities/repository.ts';
 
 type GitHubInitialStoreFixture = {
@@ -73,6 +79,10 @@ describe('initialState user fields', () => {
     expect(user.id).toBeGreaterThanOrEqual(1000);
     expect(user.email).toContain('@');
   });
+
+  it('rejects blank logins', () => {
+    expect(() => githubUserSchema.parse({login: '   ', organizations: []})).toThrow();
+  });
 });
 
 describe('githubBlobSchema', () => {
@@ -109,20 +119,75 @@ describe('githubBlobSchema', () => {
 });
 
 describe('initialState blob fields', () => {
-  it('stores path-only blobs using a stable fallback key', () => {
+  it('stores path-only blobs using a repository-scoped fallback key', () => {
     const parsed = parseGithubInitialStore({
       blobs: [{owner: 'test-org', repo: 'test-repo', path: 'README.md'}]
     });
     const store = requireStoreState(convertInitialStateToStoreState(parsed));
 
-    expect(store.blobs['README.md']).toEqual(
+    expect(store.blobs['test-org/test-repo:README.md']).toEqual(
       expect.objectContaining({
         owner: 'test-org',
         repo: 'test-repo',
         path: 'README.md'
       })
     );
-    expect(store.blobs['README.md']?.sha).toBeUndefined();
+    expect(store.blobs['test-org/test-repo:README.md']?.sha).toBeUndefined();
+  });
+
+  it('keeps path-only blobs from different repositories distinct', () => {
+    const parsed = parseGithubInitialStore({
+      repositories: [
+        {owner: 'test-org', name: 'test-repo'},
+        {owner: 'test-org', name: 'docs-repo'}
+      ],
+      branches: [
+        {owner: 'test-org', repo: 'test-repo', name: 'main'},
+        {owner: 'test-org', repo: 'docs-repo', name: 'main'}
+      ],
+      blobs: [
+        {owner: 'test-org', repo: 'test-repo', path: 'README.md'},
+        {owner: 'test-org', repo: 'docs-repo', path: 'README.md'}
+      ]
+    });
+    const store = requireStoreState(convertInitialStateToStoreState(parsed));
+
+    expect(store.blobs['test-org/test-repo:README.md']).toEqual(
+      expect.objectContaining({repo: 'test-repo', path: 'README.md'})
+    );
+    expect(store.blobs['test-org/docs-repo:README.md']).toEqual(
+      expect.objectContaining({repo: 'docs-repo', path: 'README.md'})
+    );
+  });
+});
+
+describe('githubOrganizationSchema', () => {
+  it('rejects blank logins', () => {
+    expect(() => githubOrganizationSchema.parse({login: '   '})).toThrow('login must be a non-empty string');
+  });
+
+  it('derives related URLs from the provided organization URL base', () => {
+    const organization = githubOrganizationSchema.parse({
+      login: 'test-org',
+      url: 'https://api.example.test/api/v3/orgs/test-org'
+    });
+
+    expect(organization.url).toBe('https://api.example.test/api/v3/orgs/test-org');
+    expect(organization.repos_url).toBe('https://api.example.test/api/v3/orgs/test-org/repos');
+    expect(organization.followers_url).toBe('https://api.example.test/api/v3/users/test-org/followers');
+    expect(organization.members_url).toBe('https://api.example.test/api/v3/orgs/test-org/members{/member}');
+  });
+
+  it('preserves caller-supplied related URLs', () => {
+    const organization = githubOrganizationSchema.parse({
+      login: 'test-org',
+      url: 'https://api.example.test/orgs/test-org',
+      html_url: 'https://example.test/orgs/test-org',
+      members_url: 'https://example.test/custom-members{/member}'
+    });
+
+    expect(organization.html_url).toBe('https://example.test/orgs/test-org');
+    expect(organization.members_url).toBe('https://example.test/custom-members{/member}');
   });
 });
 

@@ -25,4 +25,12 @@ export const githubBlobSchema = z
 
 export type GitHubBlob = z.infer<typeof githubBlobSchema>;
 
-export const blobStoreKey = (blob: GitHubBlob) => blob.path ?? blob.sha;
+export const blobStoreKey = (blob: GitHubBlob) => {
+  const reference = blob.path ?? blob.sha;
+
+  if (!reference) {
+    throw new Error('Blob store key requires a path or sha');
+  }
+
+  return `${blob.owner}/${blob.repo}:${reference}`;
+};

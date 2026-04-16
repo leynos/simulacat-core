@@ -24,7 +24,7 @@ export const blobAsBase64 = ({
   ref: string;
   kind?: 'contents' | 'git-blob';
 }) => {
-  const effectiveSha = blob.sha ?? blobStoreKey(blob);
+  const effectiveSha = blob.sha ?? blob.path ?? blobStoreKey(blob);
 
   return {
     content: blob.encoding === 'base64' ? blob.content : Buffer.from(blob.content).toString('base64'),
@@ -61,7 +61,7 @@ export const gitTrees = ({
   ref: string;
 }) => {
   const tree = blobs.map((blob) => {
-    const effectiveSha = blob.sha ?? blobStoreKey(blob);
+    const effectiveSha = blob.sha ?? blob.path ?? blobStoreKey(blob);
 
     return {
       path: blob.path ?? blob.sha,

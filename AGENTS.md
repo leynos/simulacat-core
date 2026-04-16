@@ -23,8 +23,8 @@
 - **Group by feature, not layer.** Views, logic, fixtures, and helpers related
   to a domain concept are colocated rather than split by type.
 - **Use consistent spelling and grammar.** Comments use en-GB-oxendict
-  ("-ize" / "-yse" / "-our") spelling and grammar, with the exception of
-  references to external APIs.
+  ("-ize" / "-yse" / "-our") spelling and grammar, except references to
+  external APIs.
 - **Illustrate with clear examples.** Function documentation includes clear
   examples demonstrating usage and outcome. Test documentation omits examples
   when the example merely reiterates the test logic.

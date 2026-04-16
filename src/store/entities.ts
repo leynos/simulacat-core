@@ -31,7 +31,7 @@ export const githubUserSchema = z
       .number()
       .optional()
       .default(() => faker.number.int({min: 1000})),
-    login: z.string(),
+    login: z.string().trim().min(1),
     name: z.string().optional(),
     bio: z.string().default(''),
     email: z.string().optional(),
@@ -108,7 +108,7 @@ export const convertInitialStateToStoreState = (initialState: GitHubStore | unde
     repositories: convertObjByKey(initialState.repositories, repositoryStoreKey),
     branches: convertObjByKey(initialState.branches, branchStoreKey),
     organizations: convertObjToProp(initialState.organizations, 'login'),
-    blobs: convertObjByKey(initialState.blobs, (blob) => blobStoreKey(blob)!)
+    blobs: convertObjByKey(initialState.blobs, (blob) => blobStoreKey(blob))
   };
 };
 
