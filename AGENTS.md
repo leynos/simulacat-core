@@ -179,7 +179,7 @@ browser‑only runtime.
   `bun check:types`, `bun test`, and `bun test:e2e`. Bun accepts
   `bun run <name>` too, but the terse form is faster to type. `lint` covers
   Biome checks, whilst `check:types` keeps TypeScript errors visible. The
-  `test` script uses Bun's built-in runner, preloading the Happy DOM shim so
+  `test` script uses Bun's built-in runner, preloading the Happy DOM shim, so
   component tests can render without a browser.
 
   Biome and other CLIs should be called through `bunx` when ad hoc execution
