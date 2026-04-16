@@ -87,8 +87,24 @@ export const githubInitialStoreSchema = z
 export type GitHubStore = z.output<typeof githubInitialStoreSchema>;
 export type GitHubInitialStore = z.input<typeof githubInitialStoreSchema>;
 
-export const convertObjByKey = <T>(objects: T[], key: (object: T) => string) =>
-  Object.fromEntries(objects.map((object) => [key(object), object])) as Record<string, T>;
+export const convertObjByKey = <T>(objects: T[], key: (object: T) => string) => {
+  const keyedObjects: Record<string, T> = {};
+  const keyIndexes = new Map<string, number>();
+
+  for (const [index, object] of objects.entries()) {
+    const currentKey = key(object);
+    const existingIndex = keyIndexes.get(currentKey);
+
+    if (existingIndex !== undefined) {
+      throw new Error(`Duplicate key "${currentKey}" for objects at indices ${existingIndex} and ${index}`);
+    }
+
+    keyedObjects[currentKey] = object;
+    keyIndexes.set(currentKey, index);
+  }
+
+  return keyedObjects;
+};
 
 /**
  * Converts parsed initial state into the keyed tables expected by the

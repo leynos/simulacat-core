@@ -303,4 +303,19 @@ describe('initialState schema transforms', () => {
     expect(firstRepository.url).toContain('/repos/test-org/test-repo');
     expect(secondRepository.url).toContain('/repos/test-org/second-repo');
   });
+
+  it('rejects duplicate keyed entities instead of overwriting them', () => {
+    const parsed = parseGithubInitialStore({
+      repositories: [
+        {owner: 'test-org', name: 'test-repo'},
+        {owner: 'test-org', name: 'test-repo'}
+      ],
+      branches: [
+        {owner: 'test-org', repo: 'test-repo', name: 'main'},
+        {owner: 'test-org', repo: 'test-repo', name: 'release'}
+      ]
+    });
+
+    expect(() => convertInitialStateToStoreState(parsed)).toThrow('Duplicate key "test-org/test-repo"');
+  });
 });

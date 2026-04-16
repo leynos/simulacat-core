@@ -97,32 +97,32 @@
 - **Recognizing Refactoring Needs:** The codebase should be assessed regularly
   for potential refactoring opportunities. Refactoring should be considered when
   observations indicate:
-- **Long Methods/Functions:** Functions or methods that are excessively long
+  - **Long Methods/Functions:** Functions or methods that are excessively long
     or try to do too many things.
-- **Duplicated Code:** Identical or very similar code blocks appearing in
+  - **Duplicated Code:** Identical or very similar code blocks appearing in
     multiple places.
-- **Complex Conditionals:** Deeply nested or overly complex `if`/`else` or
+  - **Complex Conditionals:** Deeply nested or overly complex `if`/`else` or
     `switch` statements (high cyclomatic complexity).
-- **Large Code Blocks for Single Values:** Significant chunks of logic
+  - **Large Code Blocks for Single Values:** Significant chunks of logic
     dedicated solely to calculating or deriving a single value.
-- **Primitive Obsession / Data Clumps:** Groups of simple variables (strings,
-    numbers, booleans) that are frequently passed around together, often
-    indicating a missing class or object structure.
-- **Excessive Parameters:** Functions or methods requiring a very long list of
-    parameters.
-- **Feature Envy:** Methods that seem more interested in the data of another
+  - **Primitive Obsession / Data Clumps:** Groups of simple variables
+    (strings, numbers, booleans) that are frequently passed around together,
+    often indicating a missing class or object structure.
+  - **Excessive Parameters:** Functions or methods requiring a very long list
+    of parameters.
+  - **Feature Envy:** Methods that seem more interested in the data of another
     class/object than their own.
-- **Shotgun Surgery:** A single change requiring small modifications in many
+  - **Shotgun Surgery:** A single change requiring small modifications in many
     different classes or functions.
-- **Post-Commit Review:** After a functional change or bug fix is committed
-  (and meets all quality gates), the changed code and surrounding areas should
-  be reviewed using the heuristics above.
+  - **Post-Commit Review:** After a functional change or bug fix is committed
+    (and meets all quality gates), the changed code and surrounding areas
+    should be reviewed using the heuristics above.
 - **Separate Atomic Refactors:** If refactoring is deemed necessary:
-- Refactoring should be performed as a **separate, atomic commit** *after* the
-    functional change commit.
-- The refactoring should adhere to the testing guidelines (behavioural tests
+  - Refactoring should be performed as a **separate, atomic commit** *after*
+    the functional change commit.
+  - The refactoring should adhere to the testing guidelines (behavioural tests
     pass before and after, unit tests added for new units).
-- The refactoring commit itself should pass all quality gates.
+  - The refactoring commit itself should pass all quality gates.
 
 ## Markdown Guidance
 
