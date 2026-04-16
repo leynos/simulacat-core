@@ -9,7 +9,7 @@ import {z} from 'zod';
 
 export const githubOrganizationSchema = z
   .object({
-    id: z.number().default(4000),
+    id: z.number().default(() => faker.number.int({min: 4000, max: 9_999_999})),
     login: z.string(),
     name: z.string().optional(),
     email: z.string().optional(),

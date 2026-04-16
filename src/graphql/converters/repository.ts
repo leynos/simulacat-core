@@ -21,6 +21,9 @@ export function convertRepositoryToGraphql(
   repo: DataSchemas['Repository'],
   toGraphql: ToGraphqlDispatcher
 ): GraphQLData['Repository'] {
+  const defaultBranchName = repo.default_branch ?? 'main';
+  const defaultBranchId = Buffer.from(`Branch:${repo.id ?? repo.full_name}:${defaultBranchName}`).toString('base64');
+
   return {
     __typename: 'Repository',
     id: String(repo.id),
@@ -36,13 +39,13 @@ export function convertRepositoryToGraphql(
       return deriveOwner(simulationStore, repo.owner, toGraphql);
     },
     defaultBranchRef: {
-      id: repo.default_branch ?? 'main',
-      name: repo.default_branch ?? 'main'
+      id: defaultBranchId,
+      name: defaultBranchName
     },
     languages(pageArgs: PageArgs) {
-      return convertLanguageConnection(
-        applyRelayPagination(repo.language ? [{id: repo.language, name: repo.language, size: 0}] : [], pageArgs)
-      );
+      const languages = repo.language ? [{id: repo.language, name: repo.language, size: 0}] : [];
+      const totalSize = languages.reduce((sum, language) => sum + language.size, 0);
+      return convertLanguageConnection(applyRelayPagination(languages, pageArgs), totalSize);
     },
     repositoryTopics(pageArgs: PageArgs) {
       return convertRepositoryTopicConnection(

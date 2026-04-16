@@ -3,23 +3,53 @@ import {beforeEach, describe, expect, it} from 'bun:test';
 import {convertInitialStateToStoreState, githubBlobSchema, githubInitialStoreSchema} from '../src/store/entities.ts';
 import {resetNextRepositoryId} from '../src/store/entities/repository.ts';
 
-const minimalInitialState = (userOverrides = {}) =>
-  githubInitialStoreSchema.parse({
-    users: [{login: 'dev', organizations: [], ...userOverrides}],
-    organizations: [{login: 'test-org'}],
-    repositories: [{owner: 'test-org', name: 'test-repo'}],
-    branches: [{owner: 'test-org', repo: 'test-repo', name: 'main'}],
-    blobs: []
-  });
+type GitHubInitialStoreFixture = {
+  users: Array<Record<string, unknown>>;
+  installations?: Array<Record<string, unknown>>;
+  organizations: Array<Record<string, unknown>>;
+  repositories: Array<Record<string, unknown>>;
+  branches: Array<Record<string, unknown>>;
+  blobs: Array<Record<string, unknown>>;
+};
+
+const buildGithubInitialStore = (
+  overrides: Partial<GitHubInitialStoreFixture> = {},
+  userOverrides: Record<string, unknown> = {}
+) => ({
+  users: [{login: 'dev', organizations: [], ...userOverrides}],
+  organizations: [{login: 'test-org'}],
+  repositories: [{owner: 'test-org', name: 'test-repo'}],
+  branches: [{owner: 'test-org', repo: 'test-repo', name: 'main'}],
+  blobs: [],
+  ...overrides
+});
+
+const parseGithubInitialStore = (
+  overrides: Partial<GitHubInitialStoreFixture> = {},
+  userOverrides: Record<string, unknown> = {}
+) => githubInitialStoreSchema.parse(buildGithubInitialStore(overrides, userOverrides));
+
+type StoreState = ReturnType<typeof convertInitialStateToStoreState>;
+
+const requireStoreState = (store: StoreState) => {
+  if (!store) {
+    throw new Error('convertInitialStateToStoreState returned null for parsed input');
+  }
+
+  return store;
+};
 
 describe('initialState user fields', () => {
   it('preserves all provided fields through to store state', () => {
-    const parsed = minimalInitialState({
-      id: 99887766,
-      name: 'dev User',
-      email: 'dev@example.io'
-    });
-    const store = convertInitialStateToStoreState(parsed)!;
+    const parsed = parseGithubInitialStore(
+      {},
+      {
+        id: 99887766,
+        name: 'dev User',
+        email: 'dev@example.io'
+      }
+    );
+    const store = requireStoreState(convertInitialStateToStoreState(parsed));
     const {dev: user} = store.users;
 
     expect(user).toBeDefined();
@@ -33,8 +63,8 @@ describe('initialState user fields', () => {
   });
 
   it('generates defaults for omitted fields', () => {
-    const parsed = minimalInitialState();
-    const store = convertInitialStateToStoreState(parsed)!;
+    const parsed = parseGithubInitialStore();
+    const store = requireStoreState(convertInitialStateToStoreState(parsed));
     const {dev: user} = store.users;
 
     if (!user) {
@@ -80,14 +110,10 @@ describe('githubBlobSchema', () => {
 
 describe('initialState blob fields', () => {
   it('stores path-only blobs using a stable fallback key', () => {
-    const parsed = githubInitialStoreSchema.parse({
-      users: [{login: 'dev', organizations: []}],
-      organizations: [{login: 'test-org'}],
-      repositories: [{owner: 'test-org', name: 'test-repo'}],
-      branches: [{owner: 'test-org', repo: 'test-repo', name: 'main'}],
+    const parsed = parseGithubInitialStore({
       blobs: [{owner: 'test-org', repo: 'test-repo', path: 'README.md'}]
     });
-    const store = convertInitialStateToStoreState(parsed)!;
+    const store = requireStoreState(convertInitialStateToStoreState(parsed));
 
     expect(store.blobs['README.md']).toEqual(
       expect.objectContaining({
@@ -106,7 +132,7 @@ describe('initialState schema transforms', () => {
   });
 
   it('creates installation fixtures for each seeded organization', () => {
-    const parsed = minimalInitialState();
+    const parsed = parseGithubInitialStore();
 
     expect(parsed.installations).toHaveLength(1);
     expect(parsed.installations[0]).toEqual(
@@ -118,8 +144,7 @@ describe('initialState schema transforms', () => {
   });
 
   it('preserves caller-supplied installation fields', () => {
-    const parsed = githubInitialStoreSchema.parse({
-      users: [{login: 'dev', organizations: []}],
+    const parsed = parseGithubInitialStore({
       installations: [
         {
           id: 4242,
@@ -128,11 +153,7 @@ describe('initialState schema transforms', () => {
           repositories_url: 'https://example.test/custom/repositories',
           html_url: 'https://example.test/custom/html'
         }
-      ],
-      organizations: [{login: 'test-org'}],
-      repositories: [{owner: 'test-org', name: 'test-repo'}],
-      branches: [{owner: 'test-org', repo: 'test-repo', name: 'main'}],
-      blobs: []
+      ]
     });
 
     expect(parsed.installations).toEqual([
@@ -146,7 +167,7 @@ describe('initialState schema transforms', () => {
   });
 
   it('normalizes repository fields needed by REST and GraphQL responses', () => {
-    const parsed = minimalInitialState();
+    const parsed = parseGithubInitialStore();
     const repository = parsed.repositories[0];
 
     if (!repository) {
@@ -158,12 +179,9 @@ describe('initialState schema transforms', () => {
   });
 
   it('preserves caller-supplied repository and organization ids', () => {
-    const parsed = githubInitialStoreSchema.parse({
-      users: [{login: 'dev', organizations: []}],
+    const parsed = parseGithubInitialStore({
       organizations: [{id: 4401, login: 'test-org'}],
-      repositories: [{id: 3301, owner: 'test-org', name: 'test-repo'}],
-      branches: [{owner: 'test-org', repo: 'test-repo', name: 'main'}],
-      blobs: []
+      repositories: [{id: 3301, owner: 'test-org', name: 'test-repo'}]
     });
 
     expect(parsed.organizations[0]?.id).toBe(4401);
@@ -171,9 +189,7 @@ describe('initialState schema transforms', () => {
   });
 
   it('assigns distinct generated ids to multiple seeded repositories', () => {
-    const parsed = githubInitialStoreSchema.parse({
-      users: [{login: 'dev', organizations: []}],
-      organizations: [{login: 'test-org'}],
+    const parsed = parseGithubInitialStore({
       repositories: [
         {owner: 'test-org', name: 'test-repo'},
         {owner: 'test-org', name: 'second-repo'}
@@ -181,8 +197,7 @@ describe('initialState schema transforms', () => {
       branches: [
         {owner: 'test-org', repo: 'test-repo', name: 'main'},
         {owner: 'test-org', repo: 'second-repo', name: 'main'}
-      ],
-      blobs: []
+      ]
     });
 
     const firstRepository = parsed.repositories[0];

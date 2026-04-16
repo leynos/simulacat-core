@@ -2,36 +2,36 @@
 
 ## Code Style and Structure
 
-- **Code is for humans.** Code should be written with clarity and empathy,
+- **Code is for humans.** Code is written with clarity and empathy,
   assuming that a tired teammate may need to debug it at 3 a.m.
-- **Comment *why*, not *what*.** Comments should explain assumptions, edge
-  cases, trade-offs, or complexity. The obvious should not be restated.
-- **Clarity over cleverness.** Be concise, but favour explicit over terse or
-  obscure idioms. Prefer code that's easy to follow.
-- **Use functions and composition.** Repetition should be avoided by extracting
+- **Comment *why*, not *what*.** Comments explain assumptions, edge cases,
+  trade-offs, or complexity. The obvious is not restated.
+- **Clarity over cleverness.** Concision is valued, but explicit code is
+  preferred over terse or obscure idioms. Code that is easy to follow is
+  preferred.
+- **Use functions and composition.** Repetition is avoided by extracting
   reusable logic. Generators or comprehensions, and declarative code over
   imperative repetition, are preferred when readability is preserved.
-- **Small, meaningful functions.** Functions must be small, clear in purpose,
-  single responsibility, and obey command/query segregation.
-- **Clear commit messages.** Commit messages should be descriptive, explaining
-  what was changed and why.
-- **Name things precisely.** Variable and function names should be clear and
-  descriptive. Boolean names should prefer `is`, `has`, or `should`.
-- **Structure logically.** Each file should encapsulate a coherent module. Group
-  related code (e.g., models + utilities + fixtures) close together.
-- **Group by feature, not layer.** Colocate views, logic, fixtures, and helpers
-  related to a domain concept rather than splitting by type.
-- **Use consistent spelling and grammar.** Comments must use en-GB-oxendict
+- **Small, meaningful functions.** Functions remain small, clear in purpose,
+  single responsibility, and obedient to command/query segregation.
+- **Clear commit messages.** Commit messages are descriptive, explaining what
+  changed and why.
+- **Name things precisely.** Variable and function names are clear and
+  descriptive. Boolean names prefer `is`, `has`, or `should`.
+- **Structure logically.** Each file encapsulates a coherent module. Related
+  code (e.g., models + utilities + fixtures) stays close together.
+- **Group by feature, not layer.** Views, logic, fixtures, and helpers related
+  to a domain concept are colocated rather than split by type.
+- **Use consistent spelling and grammar.** Comments use en-GB-oxendict
   ("-ize" / "-yse" / "-our") spelling and grammar, with the exception of
   references to external APIs.
-- **Illustrate with clear examples.** Function documentation must include clear
-  examples demonstrating the usage and outcome of the function. Test
-  documentation should omit examples where the example serves only to reiterate
-  the test logic.
-- **Keep file size manageable.** No single code file may be longer than 400
-  lines. Long switch statements or dispatch tables should be broken up by
-  feature and constituents colocated with targets. Large blocks of test data
-  should be moved to external data files.
+- **Illustrate with clear examples.** Function documentation includes clear
+  examples demonstrating usage and outcome. Test documentation omits examples
+  when the example merely reiterates the test logic.
+- **Keep file size manageable.** No single code file exceeds 400 lines. Long
+  switch statements or dispatch tables are broken up by feature and
+  constituents colocated with targets. Large blocks of test data move to
+  external data files.
 
 ## Documentation Maintenance
 

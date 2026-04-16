@@ -13,6 +13,18 @@ import {githubAppInstallationSchema, type GitHubAppInstallation} from './entitie
 import {githubOrganizationSchema, type GitHubOrganization} from './entities/organization.ts';
 import {githubRepositorySchema, repositoryStoreKey, type GitHubRepository} from './entities/repository.ts';
 
+export interface GitHubUser {
+  id: number;
+  login: string;
+  name: string;
+  bio: string;
+  email: string;
+  url?: string | undefined;
+  avatar_url: string;
+  organizations: string[];
+  created_at: string;
+}
+
 export const githubUserSchema = z
   .object({
     id: z
@@ -31,17 +43,18 @@ export const githubUserSchema = z
       .optional()
       .default(() => faker.date.recent().toISOString())
   })
-  .transform((user) => {
-    if (!user.name) {
-      user.name = user.login;
-    }
-    if (!user.email) {
-      user.email = faker.internet.email({firstName: user.name});
-    }
-    return user;
-  });
+  .transform((user): GitHubUser => {
+    const id = user.id ?? faker.number.int({min: 1000});
+    const name = user.name ?? user.login;
+    const email = user.email ?? faker.internet.email({firstName: name});
 
-export type GitHubUser = z.infer<typeof githubUserSchema>;
+    return {
+      ...user,
+      id,
+      name,
+      email
+    };
+  });
 
 export const githubInitialStoreSchema = z
   .object({
@@ -95,14 +108,7 @@ export const convertInitialStateToStoreState = (initialState: GitHubStore | unde
     repositories: convertObjByKey(initialState.repositories, repositoryStoreKey),
     branches: convertObjByKey(initialState.branches, branchStoreKey),
     organizations: convertObjToProp(initialState.organizations, 'login'),
-    blobs: convertObjByKey(initialState.blobs, (blob) => {
-      const key = blobStoreKey(blob);
-      if (!key) {
-        throw new Error(`Blob fixture for ${blob.owner}/${blob.repo} is missing both path and sha`);
-      }
-
-      return key;
-    })
+    blobs: convertObjByKey(initialState.blobs, (blob) => blobStoreKey(blob)!)
   };
 };
 
