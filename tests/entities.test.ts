@@ -1,6 +1,7 @@
 /** @file Unit tests for fixture schemas and state-table conversion helpers. */
 import {beforeEach, describe, expect, it} from 'bun:test';
 import {
+  convertObjByKey,
   convertInitialStateToStoreState,
   githubBlobSchema,
   githubInitialStoreSchema,
@@ -208,6 +209,26 @@ describe('initialState schema transforms', () => {
     );
   });
 
+  it('assigns deterministic unique ids to synthesized installations', () => {
+    const parsed = parseGithubInitialStore({
+      organizations: [
+        {id: 4401, login: 'test-org'},
+        {id: 4402, login: 'other-org'}
+      ],
+      installations: [
+        {
+          id: 2000,
+          account: 'existing-account',
+          target_id: 9999,
+          target_type: 'Organization'
+        }
+      ]
+    });
+
+    expect(parsed.installations.map((installation) => installation.id)).toEqual([2000, 2001, 2002]);
+    expect(new Set(parsed.installations.map((installation) => installation.id)).size).toBe(parsed.installations.length);
+  });
+
   it('preserves caller-supplied installation fields', () => {
     const parsed = parseGithubInitialStore({
       installations: [
@@ -317,5 +338,14 @@ describe('initialState schema transforms', () => {
     });
 
     expect(() => convertInitialStateToStoreState(parsed)).toThrow('Duplicate key "test-org/test-repo"');
+  });
+});
+
+describe('convertObjByKey', () => {
+  it('uses a null-prototype object for keyed results', () => {
+    const keyedObjects = convertObjByKey([{name: 'prototype-guard'}], () => '__proto__');
+
+    expect(Object.getPrototypeOf(keyedObjects)).toBeNull();
+    expect(Object.getOwnPropertyDescriptor(keyedObjects, '__proto__')?.value).toEqual({name: 'prototype-guard'});
   });
 });

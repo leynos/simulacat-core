@@ -67,16 +67,27 @@ export const githubInitialStoreSchema = z
   })
   .transform((initialStore) => {
     const existingAccounts = new Set(initialStore.installations.map((installation) => installation.account));
+    const usedInstallationIds = new Set(initialStore.installations.map((installation) => installation.id));
+    let nextGeneratedInstallationId = Math.max(1999, ...usedInstallationIds) + 1;
 
     const generatedInstallations = initialStore.organizations
       .filter((org) => !existingAccounts.has(org.login))
-      .map((org) =>
-        githubAppInstallationSchema.parse({
+      .map((org) => {
+        while (usedInstallationIds.has(nextGeneratedInstallationId)) {
+          nextGeneratedInstallationId += 1;
+        }
+
+        const installationId = nextGeneratedInstallationId;
+        usedInstallationIds.add(installationId);
+        nextGeneratedInstallationId += 1;
+
+        return githubAppInstallationSchema.parse({
+          id: installationId,
           account: org.login,
           target_id: org.id,
           target_type: org.type
-        })
-      );
+        });
+      });
 
     return {
       ...initialStore,
@@ -88,7 +99,7 @@ export type GitHubStore = z.output<typeof githubInitialStoreSchema>;
 export type GitHubInitialStore = z.input<typeof githubInitialStoreSchema>;
 
 export const convertObjByKey = <T>(objects: T[], key: (object: T) => string) => {
-  const keyedObjects: Record<string, T> = {};
+  const keyedObjects = Object.create(null) as Record<string, T>;
   const keyIndexes = new Map<string, number>();
 
   for (const [index, object] of objects.entries()) {

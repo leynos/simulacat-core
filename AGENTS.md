@@ -72,7 +72,9 @@
     above. (`bun test` verifies this.)
   - Passes lint checks. (`bun lint` verifies this.)
   - Adheres to formatting standards tested using a formatting validator. (Use
-    `bun fmt` to verify.)
+    `make check-fmt` to verify, or run the underlying `biome check`
+    command directly. `bun fmt` is mutating and should be used to apply
+    formatting fixes, not to verify them.)
 
 - **Committing:**
 
@@ -126,7 +128,7 @@
 
 ## Markdown Guidance
 
-- Validate Markdown files using `bunx markdownlint-cli2 "docs/**/*.md"`.
+- Validate Markdown files using `bunx markdownlint-cli2 "**/*.md"`.
 - Run `bun fmt` after any documentation changes to format all Markdown
   files and fix table markup.
 - Validate Mermaid diagrams in Markdown files by running `nixie --no-sandbox`.
