@@ -25,6 +25,20 @@ export interface GitHubUser {
   created_at: string;
 }
 
+const getNextInstallationId = (usedInstallationIds: Set<number>, nextInstallationId: number) => {
+  let candidateId = nextInstallationId;
+
+  while (usedInstallationIds.has(candidateId)) {
+    candidateId += 1;
+  }
+
+  usedInstallationIds.add(candidateId);
+  return {
+    installationId: candidateId,
+    nextInstallationId: candidateId + 1
+  };
+};
+
 export const githubUserSchema = z
   .object({
     id: z
@@ -66,23 +80,35 @@ export const githubInitialStoreSchema = z
     blobs: z.array(githubBlobSchema)
   })
   .transform((initialStore) => {
-    const existingAccounts = new Set(initialStore.installations.map((installation) => installation.account));
-    const usedInstallationIds = new Set(initialStore.installations.map((installation) => installation.id));
+    const usedInstallationIds = new Set(
+      initialStore.installations.flatMap((installation) => (installation.id === undefined ? [] : [installation.id]))
+    );
     let nextGeneratedInstallationId = Math.max(1999, ...usedInstallationIds) + 1;
+
+    const normalizedInstallations = initialStore.installations.map((installation) => {
+      if (installation.id !== undefined) {
+        return installation;
+      }
+
+      const allocatedId = getNextInstallationId(usedInstallationIds, nextGeneratedInstallationId);
+      nextGeneratedInstallationId = allocatedId.nextInstallationId;
+
+      return githubAppInstallationSchema.parse({
+        ...installation,
+        id: allocatedId.installationId
+      });
+    });
+
+    const existingAccounts = new Set(normalizedInstallations.map((installation) => installation.account));
 
     const generatedInstallations = initialStore.organizations
       .filter((org) => !existingAccounts.has(org.login))
       .map((org) => {
-        while (usedInstallationIds.has(nextGeneratedInstallationId)) {
-          nextGeneratedInstallationId += 1;
-        }
-
-        const installationId = nextGeneratedInstallationId;
-        usedInstallationIds.add(installationId);
-        nextGeneratedInstallationId += 1;
+        const allocatedId = getNextInstallationId(usedInstallationIds, nextGeneratedInstallationId);
+        nextGeneratedInstallationId = allocatedId.nextInstallationId;
 
         return githubAppInstallationSchema.parse({
-          id: installationId,
+          id: allocatedId.installationId,
           account: org.login,
           target_id: org.id,
           target_type: org.type
@@ -91,7 +117,7 @@ export const githubInitialStoreSchema = z
 
     return {
       ...initialStore,
-      installations: [...initialStore.installations, ...generatedInstallations]
+      installations: [...normalizedInstallations, ...generatedInstallations]
     };
   });
 

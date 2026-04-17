@@ -229,6 +229,32 @@ describe('initialState schema transforms', () => {
     expect(new Set(parsed.installations.map((installation) => installation.id)).size).toBe(parsed.installations.length);
   });
 
+  it('assigns deterministic ids to caller-provided installations missing ids', () => {
+    const parsed = parseGithubInitialStore({
+      organizations: [
+        {id: 4401, login: 'test-org'},
+        {id: 4402, login: 'other-org'}
+      ],
+      installations: [
+        {
+          account: 'existing-account',
+          target_id: 9999,
+          target_type: 'Organization'
+        }
+      ]
+    });
+    const store = requireStoreState(convertInitialStateToStoreState(parsed));
+
+    expect(parsed.installations.map((installation) => installation.id)).toEqual([2000, 2001, 2002]);
+    expect(Object.keys(store.installations)).toEqual(['2000', '2001', '2002']);
+    expect(store.installations['2000']).toEqual(
+      expect.objectContaining({
+        id: 2000,
+        account: 'existing-account'
+      })
+    );
+  });
+
   it('preserves caller-supplied installation fields', () => {
     const parsed = parseGithubInitialStore({
       installations: [
