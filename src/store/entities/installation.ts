@@ -11,7 +11,7 @@ import {githubEntityPermissionSchema} from './shared.ts';
 
 export const githubAppInstallationSchema = z.object({
   id: z.number().optional(),
-  account: z.string(),
+  account: z.string().trim().min(1),
   repository_selection: z.enum(['all', 'selected']).optional().default('all'),
   app_id: z.number().default(1),
   access_tokens_url: z.string().optional(),

@@ -1,6 +1,7 @@
 /** @file Unit tests for fixture schemas and state-table conversion helpers. */
 import {beforeEach, describe, expect, it} from 'bun:test';
 import {
+  githubAppInstallationSchema,
   convertObjByKey,
   convertInitialStateToStoreState,
   githubBlobSchema,
@@ -189,6 +190,12 @@ describe('githubOrganizationSchema', () => {
 
     expect(organization.html_url).toBe('https://example.test/orgs/test-org');
     expect(organization.members_url).toBe('https://example.test/custom-members{/member}');
+  });
+});
+
+describe('githubAppInstallationSchema', () => {
+  it('rejects blank accounts', () => {
+    expect(() => githubAppInstallationSchema.parse({account: '   '})).toThrow();
   });
 });
 
