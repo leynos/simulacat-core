@@ -9,33 +9,48 @@ import {faker} from '@faker-js/faker';
 import {z} from 'zod';
 import {githubEntityPermissionSchema} from './shared.ts';
 
-export const githubAppInstallationSchema = z.object({
-  id: z.number().optional(),
-  account: z.string().trim().min(1),
-  repository_selection: z.enum(['all', 'selected']).optional().default('all'),
-  app_id: z.number().default(1),
-  access_tokens_url: z.string().optional(),
-  repositories_url: z.string().optional(),
-  html_url: z.string().optional(),
-  client_id: z.string().optional().default('Iv1.ab1112223334445c'),
-  target_id: z.number().optional(),
-  target_type: z.enum(['Organization', 'User']).optional(),
-  permissions: githubEntityPermissionSchema,
-  events: z.array(z.string()).optional().default([]),
-  updated_at: z
-    .string()
-    .optional()
-    .default(() => faker.date.recent().toISOString()),
-  created_at: z
-    .string()
-    .optional()
-    .default(() => faker.date.recent().toISOString()),
-  single_file_name: z.string().optional().default('config.yml'),
-  has_multiple_single_files: z.boolean().optional().default(true),
-  single_file_paths: z.array(z.string()).optional().default([]),
-  app_slug: z.string().optional().default('simulator-app'),
-  suspended_at: z.nullable(z.string()).optional().default(null),
-  suspended_by: z.nullable(z.string()).optional().default(null)
-});
+export const githubAppInstallationSchema = z
+  .object({
+    id: z.number().optional(),
+    account: z.string().trim().min(1),
+    repository_selection: z.enum(['all', 'selected']).optional().default('all'),
+    app_id: z.number().default(1),
+    access_tokens_url: z.string().optional(),
+    repositories_url: z.string().optional(),
+    html_url: z.string().optional(),
+    client_id: z.string().optional().default('Iv1.ab1112223334445c'),
+    target_id: z.number().optional(),
+    target_type: z.enum(['Organization', 'User']).optional(),
+    permissions: githubEntityPermissionSchema,
+    events: z.array(z.string()).optional().default([]),
+    updated_at: z.string().optional(),
+    created_at: z
+      .string()
+      .optional()
+      .default(() => faker.date.recent().toISOString()),
+    single_file_name: z.string().optional().default('config.yml'),
+    has_multiple_single_files: z.boolean().optional().default(true),
+    single_file_paths: z.array(z.string()).optional().default([]),
+    app_slug: z.string().optional().default('simulator-app'),
+    suspended_at: z.nullable(z.string()).optional().default(null),
+    suspended_by: z.nullable(z.string()).optional().default(null)
+  })
+  .transform((install) => {
+    const createdAt = install.created_at;
+    const createdAtDate = new Date(createdAt);
+
+    return {
+      ...install,
+      created_at: createdAt,
+      updated_at:
+        install.updated_at ??
+        faker.date
+          .between({
+            from: createdAtDate,
+            to: new Date()
+          })
+          .toISOString()
+    };
+  });
 
 export type GitHubAppInstallation = z.infer<typeof githubAppInstallationSchema>;

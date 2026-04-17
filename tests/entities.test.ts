@@ -197,6 +197,14 @@ describe('githubAppInstallationSchema', () => {
   it('rejects blank accounts', () => {
     expect(() => githubAppInstallationSchema.parse({account: '   '})).toThrow();
   });
+
+  it('defaults updated_at no earlier than created_at', () => {
+    const installation = githubAppInstallationSchema.parse({account: 'test-org'});
+
+    expect(new Date(installation.updated_at).getTime()).toBeGreaterThanOrEqual(
+      new Date(installation.created_at).getTime()
+    );
+  });
 });
 
 describe('initialState schema transforms', () => {
