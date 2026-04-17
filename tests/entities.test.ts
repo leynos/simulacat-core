@@ -20,22 +20,22 @@ type GitHubInitialStoreFixture = {
   blobs: Array<Record<string, unknown>>;
 };
 
-const buildGithubInitialStore = (
-  overrides: Partial<GitHubInitialStoreFixture> = {},
-  userOverrides: Record<string, unknown> = {}
-) => ({
-  users: [{login: 'dev', organizations: [], ...userOverrides}],
+type BuildGithubInitialStoreOptions = {
+  storeOverrides?: Partial<GitHubInitialStoreFixture>;
+  userOverrides?: Record<string, unknown>;
+};
+
+const buildGithubInitialStore = (options: BuildGithubInitialStoreOptions = {}) => ({
+  users: [{login: 'dev', organizations: [], ...(options.userOverrides ?? {})}],
   organizations: [{login: 'test-org'}],
   repositories: [{owner: 'test-org', name: 'test-repo'}],
   branches: [{owner: 'test-org', repo: 'test-repo', name: 'main'}],
   blobs: [],
-  ...overrides
+  ...(options.storeOverrides ?? {})
 });
 
-const parseGithubInitialStore = (
-  overrides: Partial<GitHubInitialStoreFixture> = {},
-  userOverrides: Record<string, unknown> = {}
-) => githubInitialStoreSchema.parse(buildGithubInitialStore(overrides, userOverrides));
+const parseGithubInitialStore = (options: BuildGithubInitialStoreOptions = {}) =>
+  githubInitialStoreSchema.parse(buildGithubInitialStore(options));
 
 type StoreState = ReturnType<typeof convertInitialStateToStoreState>;
 
@@ -49,14 +49,13 @@ const requireStoreState = (store: StoreState) => {
 
 describe('initialState user fields', () => {
   it('preserves all provided fields through to store state', () => {
-    const parsed = parseGithubInitialStore(
-      {},
-      {
+    const parsed = parseGithubInitialStore({
+      userOverrides: {
         id: 99887766,
         name: 'dev User',
         email: 'dev@example.io'
       }
-    );
+    });
     const store = requireStoreState(convertInitialStateToStoreState(parsed));
     const {dev: user} = store.users;
 
@@ -123,7 +122,9 @@ describe('githubBlobSchema', () => {
 describe('initialState blob fields', () => {
   it('stores path-only blobs using a repository-scoped fallback key', () => {
     const parsed = parseGithubInitialStore({
-      blobs: [{owner: 'test-org', repo: 'test-repo', path: 'README.md'}]
+      storeOverrides: {
+        blobs: [{owner: 'test-org', repo: 'test-repo', path: 'README.md'}]
+      }
     });
     const store = requireStoreState(convertInitialStateToStoreState(parsed));
 
@@ -139,18 +140,20 @@ describe('initialState blob fields', () => {
 
   it('keeps path-only blobs from different repositories distinct', () => {
     const parsed = parseGithubInitialStore({
-      repositories: [
-        {owner: 'test-org', name: 'test-repo'},
-        {owner: 'test-org', name: 'docs-repo'}
-      ],
-      branches: [
-        {owner: 'test-org', repo: 'test-repo', name: 'main'},
-        {owner: 'test-org', repo: 'docs-repo', name: 'main'}
-      ],
-      blobs: [
-        {owner: 'test-org', repo: 'test-repo', path: 'README.md'},
-        {owner: 'test-org', repo: 'docs-repo', path: 'README.md'}
-      ]
+      storeOverrides: {
+        repositories: [
+          {owner: 'test-org', name: 'test-repo'},
+          {owner: 'test-org', name: 'docs-repo'}
+        ],
+        branches: [
+          {owner: 'test-org', repo: 'test-repo', name: 'main'},
+          {owner: 'test-org', repo: 'docs-repo', name: 'main'}
+        ],
+        blobs: [
+          {owner: 'test-org', repo: 'test-repo', path: 'README.md'},
+          {owner: 'test-org', repo: 'docs-repo', path: 'README.md'}
+        ]
+      }
     });
     const store = requireStoreState(convertInitialStateToStoreState(parsed));
 
@@ -198,12 +201,33 @@ describe('githubAppInstallationSchema', () => {
     expect(() => githubAppInstallationSchema.parse({account: '   '})).toThrow();
   });
 
+  it('rejects invalid ISO datetimes', () => {
+    expect(() => githubAppInstallationSchema.parse({account: 'test-org', created_at: 'not-a-date'})).toThrow();
+    expect(() => githubAppInstallationSchema.parse({account: 'test-org', updated_at: 'not-a-date'})).toThrow();
+  });
+
   it('defaults updated_at no earlier than created_at', () => {
     const installation = githubAppInstallationSchema.parse({account: 'test-org'});
+
+    if (!installation.updated_at) {
+      throw new Error('expected updated_at to be defaulted');
+    }
 
     expect(new Date(installation.updated_at).getTime()).toBeGreaterThanOrEqual(
       new Date(installation.created_at).getTime()
     );
+  });
+
+  it('handles future-dated created_at without throwing', () => {
+    const futureCreatedAt = new Date(Date.now() + 60_000).toISOString();
+
+    const installation = githubAppInstallationSchema.parse({
+      account: 'test-org',
+      created_at: futureCreatedAt
+    });
+
+    expect(installation.created_at).toBe(futureCreatedAt);
+    expect(installation.updated_at).toBeDefined();
   });
 });
 
@@ -226,18 +250,20 @@ describe('initialState schema transforms', () => {
 
   it('assigns deterministic unique ids to synthesized installations', () => {
     const parsed = parseGithubInitialStore({
-      organizations: [
-        {id: 4401, login: 'test-org'},
-        {id: 4402, login: 'other-org'}
-      ],
-      installations: [
-        {
-          id: 2000,
-          account: 'existing-account',
-          target_id: 9999,
-          target_type: 'Organization'
-        }
-      ]
+      storeOverrides: {
+        organizations: [
+          {id: 4401, login: 'test-org'},
+          {id: 4402, login: 'other-org'}
+        ],
+        installations: [
+          {
+            id: 2000,
+            account: 'existing-account',
+            target_id: 9999,
+            target_type: 'Organization'
+          }
+        ]
+      }
     });
 
     expect(parsed.installations.map((installation) => installation.id)).toEqual([2000, 2001, 2002]);
@@ -246,17 +272,19 @@ describe('initialState schema transforms', () => {
 
   it('assigns deterministic ids to caller-provided installations missing ids', () => {
     const parsed = parseGithubInitialStore({
-      organizations: [
-        {id: 4401, login: 'test-org'},
-        {id: 4402, login: 'other-org'}
-      ],
-      installations: [
-        {
-          account: 'existing-account',
-          target_id: 9999,
-          target_type: 'Organization'
-        }
-      ]
+      storeOverrides: {
+        organizations: [
+          {id: 4401, login: 'test-org'},
+          {id: 4402, login: 'other-org'}
+        ],
+        installations: [
+          {
+            account: 'existing-account',
+            target_id: 9999,
+            target_type: 'Organization'
+          }
+        ]
+      }
     });
     const store = requireStoreState(convertInitialStateToStoreState(parsed));
 
@@ -272,15 +300,17 @@ describe('initialState schema transforms', () => {
 
   it('preserves caller-supplied installation fields', () => {
     const parsed = parseGithubInitialStore({
-      installations: [
-        {
-          id: 4242,
-          account: 'test-org',
-          access_tokens_url: 'https://example.test/custom/access_tokens',
-          repositories_url: 'https://example.test/custom/repositories',
-          html_url: 'https://example.test/custom/html'
-        }
-      ]
+      storeOverrides: {
+        installations: [
+          {
+            id: 4242,
+            account: 'test-org',
+            access_tokens_url: 'https://example.test/custom/access_tokens',
+            repositories_url: 'https://example.test/custom/repositories',
+            html_url: 'https://example.test/custom/html'
+          }
+        ]
+      }
     });
 
     expect(parsed.installations).toEqual([
@@ -303,7 +333,7 @@ describe('initialState schema transforms', () => {
         html_url: 'https://example.test/custom/html'
       }
     ];
-    const input = buildGithubInitialStore({installations});
+    const input = buildGithubInitialStore({storeOverrides: {installations}});
 
     githubInitialStoreSchema.parse(input);
 
@@ -332,8 +362,10 @@ describe('initialState schema transforms', () => {
 
   it('preserves caller-supplied repository and organization ids', () => {
     const parsed = parseGithubInitialStore({
-      organizations: [{id: 4401, login: 'test-org'}],
-      repositories: [{id: 3301, owner: 'test-org', name: 'test-repo'}]
+      storeOverrides: {
+        organizations: [{id: 4401, login: 'test-org'}],
+        repositories: [{id: 3301, owner: 'test-org', name: 'test-repo'}]
+      }
     });
 
     expect(parsed.organizations[0]?.id).toBe(4401);
@@ -342,14 +374,16 @@ describe('initialState schema transforms', () => {
 
   it('assigns distinct generated ids to multiple seeded repositories', () => {
     const parsed = parseGithubInitialStore({
-      repositories: [
-        {owner: 'test-org', name: 'test-repo'},
-        {owner: 'test-org', name: 'second-repo'}
-      ],
-      branches: [
-        {owner: 'test-org', repo: 'test-repo', name: 'main'},
-        {owner: 'test-org', repo: 'second-repo', name: 'main'}
-      ]
+      storeOverrides: {
+        repositories: [
+          {owner: 'test-org', name: 'test-repo'},
+          {owner: 'test-org', name: 'second-repo'}
+        ],
+        branches: [
+          {owner: 'test-org', repo: 'test-repo', name: 'main'},
+          {owner: 'test-org', repo: 'second-repo', name: 'main'}
+        ]
+      }
     });
 
     const firstRepository = parsed.repositories[0];
@@ -368,14 +402,16 @@ describe('initialState schema transforms', () => {
 
   it('rejects duplicate keyed entities instead of overwriting them', () => {
     const parsed = parseGithubInitialStore({
-      repositories: [
-        {owner: 'test-org', name: 'test-repo'},
-        {owner: 'test-org', name: 'test-repo'}
-      ],
-      branches: [
-        {owner: 'test-org', repo: 'test-repo', name: 'main'},
-        {owner: 'test-org', repo: 'test-repo', name: 'release'}
-      ]
+      storeOverrides: {
+        repositories: [
+          {owner: 'test-org', name: 'test-repo'},
+          {owner: 'test-org', name: 'test-repo'}
+        ],
+        branches: [
+          {owner: 'test-org', repo: 'test-repo', name: 'main'},
+          {owner: 'test-org', repo: 'test-repo', name: 'release'}
+        ]
+      }
     });
 
     expect(() => convertInitialStateToStoreState(parsed)).toThrow('Duplicate key "test-org/test-repo"');

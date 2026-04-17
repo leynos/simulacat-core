@@ -9,6 +9,8 @@ import {faker} from '@faker-js/faker';
 import {z} from 'zod';
 import {githubEntityPermissionSchema} from './shared.ts';
 
+const fallbackInstallationTimestamp = () => faker.date.recent().toISOString();
+
 export const githubAppInstallationSchema = z
   .object({
     id: z.number().optional(),
@@ -23,11 +25,8 @@ export const githubAppInstallationSchema = z
     target_type: z.enum(['Organization', 'User']).optional(),
     permissions: githubEntityPermissionSchema,
     events: z.array(z.string()).optional().default([]),
-    updated_at: z.string().optional(),
-    created_at: z
-      .string()
-      .optional()
-      .default(() => faker.date.recent().toISOString()),
+    updated_at: z.string().datetime().optional(),
+    created_at: z.string().datetime().optional().default(fallbackInstallationTimestamp),
     single_file_name: z.string().optional().default('config.yml'),
     has_multiple_single_files: z.boolean().optional().default(true),
     single_file_paths: z.array(z.string()).optional().default([]),
@@ -36,20 +35,38 @@ export const githubAppInstallationSchema = z
     suspended_by: z.nullable(z.string()).optional().default(null)
   })
   .transform((install) => {
-    const createdAt = install.created_at;
-    const createdAtDate = new Date(createdAt);
+    if (install.updated_at) {
+      return install;
+    }
+
+    const createdAtDate = new Date(install.created_at);
+    const now = new Date();
+
+    if (Number.isNaN(createdAtDate.getTime()) || Number.isNaN(now.getTime())) {
+      return {
+        ...install,
+        updated_at: fallbackInstallationTimestamp()
+      };
+    }
+
+    const minDate = createdAtDate.getTime() <= now.getTime() ? createdAtDate : now;
+    const maxDate = createdAtDate.getTime() <= now.getTime() ? now : createdAtDate;
+
+    if (minDate.getTime() >= maxDate.getTime()) {
+      return {
+        ...install,
+        updated_at: fallbackInstallationTimestamp()
+      };
+    }
 
     return {
       ...install,
-      created_at: createdAt,
-      updated_at:
-        install.updated_at ??
-        faker.date
-          .between({
-            from: createdAtDate,
-            to: new Date()
-          })
-          .toISOString()
+      updated_at: faker.date
+        .between({
+          from: minDate,
+          to: maxDate
+        })
+        .toISOString()
     };
   });
 
