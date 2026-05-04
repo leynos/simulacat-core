@@ -16,15 +16,16 @@ Today Simulacat Core can only seed one repository called `awesome-repo`
 across the whole simulation, even if the seed data places it under two
 different owners. The store tables themselves are already keyed by
 `owner/name` and `owner/repo:ref`, but downstream identity derivations
-(notably `Repository.node_id` in `src/store/entities/repository.ts:147` and
-the placeholder `node_id` literal in `src/rest/utils.ts:38`) collapse back
-onto the unqualified name, and there are no exported keyed selectors or
-fixture builders that consumers can rely on. The goal of this change is to
-make `(owner, name)` the only canonical handle for a repository and
-`(owner, repo, name)` the only canonical handle for a branch or ref,
-end-to-end, so that two repositories sharing a name under different owners
-coexist and remain independently addressable through REST, GraphQL, and the
-exported store selectors.
+(notably the `node_id` assignment inside the `githubRepositorySchema`
+transform in `src/store/entities/repository.ts` and the hard-coded
+`node_id: 'node_id'` in `blobAsBase64` in `src/rest/utils.ts`) collapse
+back onto the unqualified name, and there are no exported keyed
+selectors or fixture builders that consumers can rely on. The goal of
+this change is to make `(owner, name)` the only canonical handle for a
+repository and `(owner, repo, name)` the only canonical handle for a
+branch or ref, end-to-end, so that two repositories sharing a name
+under different owners coexist and remain independently addressable
+through REST, GraphQL, and the exported store selectors.
 
 Observable outcome: a new behavioural test seeds two organizations
 (`acme` and `globex`) each with a repository called `awesome-repo` and a
@@ -101,9 +102,9 @@ suggestions; violation requires escalation, not workarounds.
   Document the new encoding (base64 of `Repository:owner/name`) in
   `docs/api-reference.md` and `docs/architecture.md`.
 - Risk: the GraphQL `Repository.id` falls back to `repo.full_name` when
-  numeric `id` is absent (`src/graphql/converters/repository.ts:39`). Any
-  test relying on a string `id` may now see a different value if we tighten
-  the fallback to use the canonical key.
+  the numeric `id` is absent in `convertRepositoryToGraphql`. Any test
+  relying on a string `id` may now see a different value once that
+  fallback is tightened to the canonical key.
   Severity: low.
   Likelihood: medium.
   Mitigation: keep numeric `id` precedence unchanged; only adjust the
@@ -136,7 +137,7 @@ suggestions; violation requires escalation, not workarounds.
 - [ ] Stage B — introduce canonical-key helpers, owner-qualified
   `node_id` derivation, keyed store selectors, and adapter updates.
 - [ ] Stage C — add property tests with `fast-check` (or a justified
-  parameterised alternative) covering store-key invariants.
+  parameterized alternative) covering store-key invariants.
 - [ ] Stage D — fixture builders, documentation updates, roadmap tick,
   and final gating.
 
@@ -158,8 +159,9 @@ Use timestamps to measure rates of progress and detect tolerance breaches.
   Date/Author: 2026-05-02, plan author.
 - Decision: encode repository `node_id` as
   `Buffer.from('Repository:' + repositoryStoreKey(repo)).toString('base64')`
-  by analogy with the organization `node_id` derivation in
-  `src/store/entities/organization.ts:92`.
+  by analogy with the organization `node_id` derivation already present
+  in the `githubOrganizationSchema` transform in
+  `src/store/entities/organization.ts`.
   Rationale: matches the existing pattern in the codebase, is owner-
   qualified, and stays close to GitHub's actual GraphQL node-ID style.
   Date/Author: 2026-05-02, plan author.
@@ -192,8 +194,8 @@ Reading order for a newcomer:
 Key files that this task touches:
 
 - `src/store/entities/repository.ts` — Zod schema, transform, and
-  `repositoryStoreKey`. Currently sets `node_id: repo.name` (line 147),
-  which is the principal bug.
+  `repositoryStoreKey`. The transform currently sets
+  `node_id: repo.name`, which is the principal bug.
 - `src/store/entities/branch.ts` — `githubBranchSchema` and
   `branchStoreKey`. Already canonical; will be reused, not changed,
   except for an exported parse helper.
@@ -203,15 +205,16 @@ Key files that this task touches:
   duplicate-key error messaging lives here.
 - `src/store/index.ts` — slice/selector wiring. Lacks `getRepository`
   and `getBranch` keyed selectors; this plan adds them.
-- `src/rest/index.ts` — REST handlers. Today they use linear `.find`
-  scans; we will switch them to the new keyed selectors and confirm
-  they correctly require both `owner` and the entity name.
-- `src/rest/utils.ts` — `blobAsBase64` currently sets
-  `node_id: 'node_id'` (line 38). This will be replaced with an
+- `src/rest/index.ts` — REST handlers. The `repos/list-branches` and
+  `git/get-tree` operations currently use linear `.find` scans; the
+  plan switches them to the new keyed selectors and confirms each
+  lookup requires both `owner` and the entity name.
+- `src/rest/utils.ts` — `blobAsBase64` currently emits a hard-coded
+  `node_id: 'node_id'` placeholder. The plan replaces it with an
   owner-qualified encoding derived from `blobStoreKey`.
-- `src/graphql/resolvers.ts` — `repository(owner, name)` lookup. Already
-  filters by both fields case-insensitively; this plan converts it to
-  use the new keyed selector.
+- `src/graphql/resolvers.ts` — the `repository(owner, name)` resolver
+  already filters by both fields case-insensitively; the plan rewires
+  it to call the new keyed selector.
 - `src/graphql/converters/repository.ts` — emits `Repository.id` and
   `defaultBranchRef.id`. Both must be owner-qualified.
 - `tests/repositories.test.ts`, `tests/graphql.test.ts`,
@@ -261,8 +264,9 @@ Term definitions:
    transcript in `Concrete steps` below.
 
 Validation gate for Stage A: at least one of the new behavioural
-assertions fails (specifically the `node_id` distinctness assertion is
-expected to fail because of `src/store/entities/repository.ts:147`).
+assertions fails — specifically the `node_id` distinctness assertion
+is expected to fail because of the unqualified `node_id` assignment in
+the `githubRepositorySchema` transform.
 
 ### Stage B — owner-qualified identity in the store and adapters
 
@@ -312,7 +316,8 @@ expected to fail because of `src/store/entities/repository.ts:147`).
    - Verify `get-combined-status-for-ref` still composes the response
      using both `owner` and `repo` from the path; no behavioural change
      beyond replacing `repository.node_id` once the schema fix lands.
-5. In `src/rest/utils.ts`, replace `node_id: 'node_id'` (line 38) with
+5. In `src/rest/utils.ts`, inside `blobAsBase64`, replace the
+   hard-coded `node_id: 'node_id'` placeholder with
    `node_id: Buffer.from('Blob:' + blobStoreKey(blob)).toString('base64')`.
    This is consistent with the new repository encoding and keeps blob
    identities owner-qualified.
@@ -323,12 +328,13 @@ expected to fail because of `src/store/entities/repository.ts:147`).
    `convertObjByKey` keying preserves the original casing. If a
    case-insensitive match is required, fall back to a list scan and add
    a follow-up note in `Surprises`. Otherwise the lookup is exact.
-7. In `src/graphql/converters/repository.ts`, replace line 35's
-   `defaultBranchId` derivation with the snippet shown below so the
-   default branch identity is owner-qualified even when the numeric
-   repository `id` is missing. Change line 39's fallback from
-   `repo.full_name` to `repositoryNodeId(repo.owner, repo.name)` so the
-   `Repository.id` fallback is also owner-qualified.
+7. In `src/graphql/converters/repository.ts`, inside
+   `convertRepositoryToGraphql`, replace the existing `defaultBranchId`
+   derivation with the snippet shown below so the default branch
+   identity is owner-qualified even when the numeric repository `id`
+   is missing. Change the `Repository.id` fallback in the same function
+   from `String(repo.full_name)` to `repositoryNodeId(repo.owner,
+   repo.name)` so it is also owner-qualified.
 
    ```ts
    const defaultBranchId = Buffer.from(
@@ -398,9 +404,8 @@ the default Bun test environment.
    substitution in `Decision log` for transparency.
 6. Tick the `1.1.1` checkbox in `docs/roadmap.md` only after `make
    check-fmt`, `make lint`, and `make test` all pass.
-7. Run `bunx markdownlint-cli2 "**/*.md"` to confirm the documentation
-   changes pass markdown lint, and `bun fmt` to format any updated
-   markdown.
+7. Run `make markdownlint` to confirm the documentation changes pass
+   markdown lint, and `bun fmt` to format any updated markdown.
 
 Validation gate for Stage D: full quality gate (`make check-fmt`,
 `make lint`, `make test`) passes; documentation lint passes;
@@ -409,8 +414,10 @@ and pushed per the user instructions.
 
 ## Concrete steps
 
-Run all commands from the worktree root
-(`/home/leynos/.lody/repos/github---leynos---simulacat-core/worktrees/7ab52e9a-b68c-43b8-b9cd-6f458b42f4b8`).
+Run all commands from the project worktree root (the directory
+containing `package.json` and `Makefile`). Substitute the actual path
+on the executor's machine; the absolute path is intentionally not
+recorded here because it is environment-specific.
 
 1. Sanity check the working tree:
 
@@ -419,21 +426,23 @@ Run all commands from the worktree root
    git branch --show-current
    ```
 
-   Expect a clean tree on `session/7ab52e9a` (this branch will be
-   renamed to `1-1-1-re-key-repositories-and-refs-by-canonical-identifiers`
-   at the end of Stage D, immediately before opening the PR).
+   Expect a clean tree on the branch
+   `1-1-1-re-key-repositories-and-refs-by-canonical-identifiers`. That
+   branch was renamed and pushed alongside the draft of this plan, so
+   no further rename is required before opening the implementation
+   pull request (PR).
 
 2. Capture the baseline test result so regressions are easy to spot:
 
    ```bash
-   make test 2>&1 | tee /tmp/test-simulacat-core-session-7ab52e9a-baseline.out
+   make test 2>&1 | tee /tmp/test-simulacat-core-1-1-1-baseline.out
    ```
 
 3. Implement Stage A (failing tests). Re-run only the new file:
 
    ```bash
    bun test tests/cross-owner-identity.test.ts \
-     2>&1 | tee /tmp/test-simulacat-core-session-7ab52e9a-stageA.out
+     2>&1 | tee /tmp/test-simulacat-core-1-1-1-stageA.out
    ```
 
    Expect failures on the `node_id` distinctness assertion before any
@@ -443,42 +452,43 @@ Run all commands from the worktree root
    guidance to avoid parallel runs):
 
    ```bash
-   make check-fmt 2>&1 | tee /tmp/check-fmt-simulacat-core-session-7ab52e9a-stageB.out
-   make lint     2>&1 | tee /tmp/lint-simulacat-core-session-7ab52e9a-stageB.out
-   make test     2>&1 | tee /tmp/test-simulacat-core-session-7ab52e9a-stageB.out
+   make check-fmt 2>&1 | tee /tmp/check-fmt-simulacat-core-1-1-1-stageB.out
+   make lint     2>&1 | tee /tmp/lint-simulacat-core-1-1-1-stageB.out
+   make test     2>&1 | tee /tmp/test-simulacat-core-1-1-1-stageB.out
    ```
 
    All three must pass before continuing.
 
 5. Implement Stage C (property tests). Re-run `make test` and confirm
-   the property suite stabilises within a few seconds:
+   the property suite stabilizes within a few seconds:
 
    ```bash
-   make test 2>&1 | tee /tmp/test-simulacat-core-session-7ab52e9a-stageC.out
+   make test 2>&1 | tee /tmp/test-simulacat-core-1-1-1-stageC.out
    ```
 
 6. Implement Stage D (builders, docs, roadmap tick). Re-run all gates
    one more time:
 
    ```bash
-   make check-fmt 2>&1 | tee /tmp/check-fmt-simulacat-core-session-7ab52e9a-stageD.out
-   make lint     2>&1 | tee /tmp/lint-simulacat-core-session-7ab52e9a-stageD.out
-   make test     2>&1 | tee /tmp/test-simulacat-core-session-7ab52e9a-stageD.out
-   bunx markdownlint-cli2 "**/*.md" \
-     2>&1 | tee /tmp/markdownlint-simulacat-core-session-7ab52e9a-stageD.out
+   make check-fmt 2>&1 | tee /tmp/check-fmt-simulacat-core-1-1-1-stageD.out
+   make lint     2>&1 | tee /tmp/lint-simulacat-core-1-1-1-stageD.out
+   make test     2>&1 | tee /tmp/test-simulacat-core-1-1-1-stageD.out
+   make markdownlint \
+     2>&1 | tee /tmp/markdownlint-simulacat-core-1-1-1-stageD.out
    ```
 
-7. Rename the branch, push, and open a PR (after the user approves
-   this plan):
+7. Push the implementation commits to the existing branch and update
+   the open pull request (PR), or open a fresh PR if none is open:
 
    ```bash
-   git branch -m 1-1-1-re-key-repositories-and-refs-by-canonical-identifiers
-   git push -u origin 1-1-1-re-key-repositories-and-refs-by-canonical-identifiers
+   git push origin 1-1-1-re-key-repositories-and-refs-by-canonical-identifiers
    ```
 
-   Then create the PR with the title prefix `(1.1.1)` and a body that
-   references this ExecPlan path. Use `$'...'` heredoc syntax with real
-   newlines for the body, per the system instructions.
+   The branch and the planning PR were created at draft time, so this
+   step is normally just `git push`. The PR title must keep the
+   `(1.1.1)` roadmap tag, and the body must reference this ExecPlan
+   path. When updating the body, use `$'...'` heredoc syntax with real
+   newlines, per the system instructions.
 
 ## Validation and acceptance
 
@@ -504,16 +514,16 @@ Acceptance is a behavioural statement, not a code-shape statement.
 Quality criteria (what "done" means):
 
 - Tests: `make test` passes, including the new behavioural,
-  parameterised, and property tests.
+  parameterized, and property tests.
 - Lint and types: `make lint` and `bun check:types` (invoked via
   `make typecheck`) pass without warnings.
 - Format: `make check-fmt` reports no changes.
-- Markdown: `bunx markdownlint-cli2 "**/*.md"` exits cleanly.
+- Markdown: `make markdownlint` exits cleanly.
 - Documentation: `docs/api-reference.md`, `docs/architecture.md`,
   `README.md`, and `docs/development.md` reflect the canonical-key
   contract.
 
-Quality method (how we check):
+Quality method (how compliance is checked):
 
 - Run the gating commands captured under `Concrete steps` and inspect
   the tee'd logs.
@@ -643,3 +653,16 @@ will be tackled in later roadmap items:
 - Tree-object modelling, status mutability, and any work flagged for
   later phases in `docs/github-rest-api-audit.md` §Recommended
   Follow-Ups.
+
+## Revision note
+
+- 2026-05-04: Code review pass. Replaced absolute file:line references
+  with symbolic references (function or transform names) so the plan
+  survives line-number drift. Standardized the plan's documentation
+  lint command on `make markdownlint` to match the project's gating
+  surface. Removed first-person plural ("we") in favour of neutral or
+  passive voice. Switched non-Oxford "parameterised" and "stabilises"
+  to the en-GB-oxendict "-ize" spellings. Defined "pull request (PR)"
+  on first use. Reflowed the Concrete steps preamble to drop the
+  environment-specific absolute path and to reflect that the branch
+  rename and planning PR were completed during the draft phase.
