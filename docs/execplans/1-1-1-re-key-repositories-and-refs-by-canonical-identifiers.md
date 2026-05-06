@@ -168,11 +168,12 @@ suggestions; violation requires escalation, not workarounds.
   `node_id` derivation, keyed store selectors, and adapter updates. Started
   2026-05-06T20:44:22+02:00; completed 2026-05-06T20:47:11+02:00 with
   `make check-fmt`, `make lint`, and `make test` passing.
-- [ ] Stage C — add property tests with `fast-check` (or a justified
+- [x] Stage C — add property tests with `fast-check` (or a justified
   parameterized alternative) covering store-key invariants. Started
-  2026-05-06T20:47:11+02:00.
+  2026-05-06T20:47:11+02:00; completed 2026-05-06T20:48:39+02:00 with
+  `make check-fmt`, `make lint`, and `make test` passing.
 - [ ] Stage D — fixture builders, documentation updates, roadmap tick,
-  and final gating.
+  and final gating. Started 2026-05-06T20:48:39+02:00.
 
 Use timestamps to measure rates of progress and detect tolerance breaches.
 
@@ -197,6 +198,10 @@ Use timestamps to measure rates of progress and detect tolerance breaches.
 - 2026-05-06T20:47:11+02:00: the GraphQL repository resolver now tries an exact
   keyed lookup first and retains the previous case-insensitive list-scan
   fallback so existing caller behaviour is preserved.
+- 2026-05-06T20:48:39+02:00: Stage C added a `parseBlobStoreKey` helper even
+  though Stage B only named repository and branch parsers. The property-test
+  requirements include blob round-trips, so exporting the blob parser keeps the
+  invariant surface symmetrical.
 
 ## Decision log
 
@@ -235,6 +240,13 @@ Use timestamps to measure rates of progress and detect tolerance breaches.
   register, and pure-helper unit tests stay on plain `bun test` for
   the same reason.
   Date/Author: 2026-05-06, plan author.
+- Decision: do not introduce LemmaScript for this task.
+  Rationale: the identity rules are total string transformations over
+  delimiter-free key segments, and the `fast-check` properties directly
+  exercise the collision and round-trip invariants that matter to consumers.
+  A separate proof artefact would restate those properties without increasing
+  confidence in this codebase.
+  Date/Author: 2026-05-06, implementation agent.
 
 ## Outcomes & retrospective
 

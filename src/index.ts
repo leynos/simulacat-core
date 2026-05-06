@@ -87,6 +87,7 @@ export {
   blobStoreKey,
   branchStoreKey,
   parseBranchStoreKey,
+  parseBlobStoreKey,
   parseRepositoryStoreKey,
   repositoryNodeId,
   repositoryStoreKey

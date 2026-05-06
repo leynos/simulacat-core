@@ -16,6 +16,12 @@ export type BranchStoreKeyParts = {
   name: string;
 };
 
+export type BlobStoreKeyParts = {
+  owner: string;
+  repo: string;
+  reference: string;
+};
+
 export const repositoryNodeId = (owner: string, name: string): string => {
   return Buffer.from(`Repository:${repositoryStoreKey({owner, name})}`).toString('base64');
 };
@@ -45,5 +51,20 @@ export const parseBranchStoreKey = (key: string): BranchStoreKeyParts => {
     owner: repository.owner,
     repo: repository.name.slice(0, separator),
     name: repository.name.slice(separator + 1)
+  };
+};
+
+export const parseBlobStoreKey = (key: string): BlobStoreKeyParts => {
+  const repository = parseRepositoryStoreKey(key);
+  const separator = repository.name.indexOf(':');
+
+  if (separator <= 0 || separator === repository.name.length - 1) {
+    throw new Error(`Malformed blob store key "${key}"; expected "owner/repo:reference"`);
+  }
+
+  return {
+    owner: repository.owner,
+    repo: repository.name.slice(0, separator),
+    reference: repository.name.slice(separator + 1)
   };
 };
