@@ -55,8 +55,14 @@ suggestions; violation requires escalation, not workarounds.
   remain: seeding two repositories with identical `owner/name` is an error.
 - No new external runtime dependency. `fast-check` is acceptable as a
   `devDependency` because the roadmap task explicitly calls for property
-  tests; if it is already present, reuse it; otherwise add it as a
-  `devDependency` only.
+  tests; it is already present, so reuse the existing range.
+  `@aboviq/bun-test-cucumber` is acceptable as a `devDependency` only;
+  no part of the published package surface may import it.
+- The `features/` directory and the harness configuration files
+  (`test-plugins.ts`, `bunfig.toml` `preload` entry) belong to the
+  testing seam, not to the published library. They must not be added
+  to the `files` whitelist in `package.json`, and nothing exported by
+  the package may import them.
 - Domain logic (key construction, identity invariants) must live in the
   store entities under `src/store/entities/*` and pure helpers; REST and
   GraphQL adapters must consume those keys rather than re-derive identity.
@@ -77,7 +83,12 @@ suggestions; violation requires escalation, not workarounds.
   and escalate. `fast-check` is already a `devDependency`. Adding
   `markdownlint-cli2` as a `devDependency` is pre-approved because the
   Makefile's `markdownlint` target depends on it and the binary is not
-  otherwise resolvable in the gating environment.
+  otherwise resolvable in the gating environment. Adding
+  `@aboviq/bun-test-cucumber` as a `devDependency` is pre-approved
+  because it is the chosen Gherkin runner for this task; if its API
+  proves insufficient (for example, missing Background or Scenario
+  Outline support that the scenarios rely on), stop and escalate
+  before forking off a custom harness.
 - Iterations: if `make check-fmt`, `make lint`, or `make test` still fail
   after three remediation attempts on the same milestone, stop and
   escalate.
@@ -123,6 +134,23 @@ suggestions; violation requires escalation, not workarounds.
   Mitigation: `fast-check` is already a `devDependency` in
   `package.json` (`^4.3.0`). Reuse it; do not bump or change the range
   as part of this task.
+- Risk: `@aboviq/bun-test-cucumber` is at version `0.2.0` and its
+  documented API surface is small. Background, Scenario Outline, Data
+  Tables, Doc Strings, tags, and hooks are not explicitly documented,
+  and the harness requires a `loadFeatures(...)` entry file because
+  Bun's glob handling cannot self-discover `.feature` files.
+  Severity: medium.
+  Likelihood: medium.
+  Mitigation: keep the Gherkin scenarios within the documented happy
+  path (plain `Given`/`When`/`Then` plus `Background`); avoid
+  Scenario Outline and Data Tables in this task and express
+  per-scenario variation by enumerating scenarios. Pin the
+  `devDependency` with a caret range and capture the harness version
+  in the commit body. If the harness misbehaves under Bun, fall back
+  to plain `bun test` describe/it suites that consume the same
+  `.feature` files via a small parser, recording the fallback in
+  `Decision log`. The `.feature` files remain the deliverable in
+  either case.
 - Risk: regenerated `src/__generated__/resolvers-types.ts` diffs creep
   into the change set.
   Severity: low.
@@ -170,6 +198,20 @@ Use timestamps to measure rates of progress and detect tolerance breaches.
   Rationale: roadmap §1.2 is a separate step with its own success
   criteria.
   Date/Author: 2026-05-02, plan author.
+- Decision: express the cross-owner behavioural tests as Gherkin
+  feature files under `features/`, run them through
+  `@aboviq/bun-test-cucumber`, and treat the `.feature` files as
+  deliverable artefacts.
+  Rationale: the cross-owner contract is exactly the kind of
+  user-visible behaviour Gherkin is good at capturing, the `.feature`
+  file becomes a living specification a non-developer can read, and
+  the harness is a thin wrapper over `bun test` so the existing
+  gating surface (`make test`) keeps working unchanged. Property
+  tests stay on `fast-check` because algebraic invariants over
+  arbitrary inputs are a poor fit for Gherkin's example-driven
+  register, and pure-helper unit tests stay on plain `bun test` for
+  the same reason.
+  Date/Author: 2026-05-06, plan author.
 
 ## Outcomes & retrospective
 
@@ -234,39 +276,111 @@ Term definitions:
 - "Identity leakage": any code path where an entity's identity is
   derived from a substring of its canonical key, such that two entities
   in different owner namespaces could be confused.
+- "Gherkin": the keyword-driven specification language behind Cucumber,
+  used in `.feature` files. In this task it is parsed and executed by
+  `@aboviq/bun-test-cucumber`, a Bun-native cucumber runner whose
+  function-based `Given`, `When`, and `Then` decorators register step
+  definitions and whose `loadFeatures(...)` entry point makes Bun's
+  test runner discover the scenarios.
 
 ## Plan of work
 
 ### Stage A — behavioural tests for cross-owner coexistence (red phase)
 
-1. Add `tests/cross-owner-identity.test.ts`. This is a new test file
-   that seeds two organizations (`acme` and `globex`) each owning a
-   repository called `awesome-repo` with a `main` branch and a
-   `README.md` blob, then asserts:
-   - `GET /orgs/acme/repos` returns exactly one repository whose
-     `full_name` is `acme/awesome-repo`, and the same for `globex`.
-   - `GET /repos/acme/awesome-repo/branches` returns the `acme` branch
-     only; the `globex` branch is not present.
-   - `GET /repos/globex/awesome-repo/branches` returns the `globex`
-     branch only.
-   - The two repositories' `node_id` values are non-empty, distinct,
-     and decode to different owner-qualified strings.
-   - GraphQL `repository(owner: "acme", name: "awesome-repo")` returns
-     the `acme` repository with `nameWithOwner` `acme/awesome-repo` and
-     a `Repository.id` distinct from the `globex` query.
-   - Seeding two repositories with identical `owner/name` throws a
-     descriptive error from `convertObjByKey`.
-2. Add a focused unit test in `tests/entities.test.ts` (or a new
-   `tests/store-keys.test.ts`) for `repositoryStoreKey`, `branchStoreKey`,
-   and `blobStoreKey`, covering the happy path and an explicit case
-   where two inputs differ only in `owner` and yield different keys.
-3. Run `bun test` and confirm the new tests fail. Capture the failing
-   transcript in `Concrete steps` below.
+The behavioural tests for this stage are expressed as Gherkin so that
+the `.feature` files themselves are the deliverable artefacts: a
+non-developer reader can verify the cross-owner coexistence contract
+by reading the scenarios. The Bun runner harness used here is
+`@aboviq/bun-test-cucumber` (MIT, currently `0.2.0`), which integrates
+Gherkin scenarios into Bun's native test runner via function-based
+`Given`, `When`, and `Then` step definitions.
 
-Validation gate for Stage A: at least one of the new behavioural
-assertions fails — specifically the `node_id` distinctness assertion
-is expected to fail because of the unqualified `node_id` assignment in
-the `githubRepositorySchema` transform.
+1. Install the harness and wire it in:
+
+   ```bash
+   bun add -d @aboviq/bun-test-cucumber
+   ```
+
+   Add `test-plugins.ts` at the project root configuring the plugin,
+   and add a `preload` entry to `bunfig.toml` so the plugin runs
+   before tests start. Both files are owned by the testing seam and
+   must not leak into the published package surface (verify via
+   `package.json` `files` and `exports`).
+
+2. Create `features/cross-owner-identity.feature`. The file is
+   versioned alongside source code and is the canonical specification
+   of the cross-owner coexistence contract. The scenarios cover, at a
+   minimum:
+
+   ```gherkin
+   Feature: Repository identity is owner-scoped and ref-safe
+
+     Background:
+       Given a simulator seeded with organizations "acme" and "globex"
+       And each organization owns a repository named "awesome-repo"
+       And each repository has a "main" branch
+       And each repository has a "README.md" blob
+
+     Scenario: Listing repositories under one owner does not leak the other
+       When the client GETs "/orgs/acme/repos"
+       Then the response status is 200
+       And the response contains exactly one repository
+       And the repository "full_name" is "acme/awesome-repo"
+
+     Scenario: Listing branches is scoped to the requested repository
+       When the client GETs "/repos/acme/awesome-repo/branches"
+       Then the response status is 200
+       And the response contains exactly one branch
+       And the branch belongs to "acme/awesome-repo"
+
+     Scenario: GraphQL repository lookup resolves the correct owner
+       When the client queries GraphQL for repository "acme/awesome-repo"
+       Then the result has nameWithOwner "acme/awesome-repo"
+       And the result has a Repository.id distinct from "globex/awesome-repo"
+
+     Scenario: Repository node_id values are owner-qualified and distinct
+       Then the seeded repositories have non-empty node_id values
+       And the two repositories' node_id values decode to different strings
+       And every node_id begins with "Repository:"
+
+     Scenario: Seeding duplicate canonical keys is rejected
+       When the simulator is seeded with two repositories whose owner and
+         name are both "acme/awesome-repo"
+       Then parsing the initial state throws an error
+       And the error message includes the duplicated key
+   ```
+
+3. Add the matching step definitions in
+   `tests/cross-owner-identity.steps.ts`. Steps must use the harness's
+   `Given`/`When`/`Then` decorators, share a typed scenario state via
+   `withState<ScenarioState>()`, and must not bypass the simulator's
+   public surface — REST calls go through `fetch` against a started
+   server, GraphQL goes through the same surface, and seed errors are
+   surfaced through the published `simulation()` factory.
+
+4. Add `tests/cross-owner-identity.features.test.ts` (or a single
+   `tests/features.test.ts` if more `.feature` files land later) that
+   calls `loadFeatures('features/**/*.feature')` so Bun's test runner
+   discovers the scenarios. The harness's documented limitation that
+   feature globs cannot self-discover under Bun makes this entry file
+   mandatory.
+
+5. Add a focused, non-Gherkin unit test in
+   `tests/store-keys.test.ts` for `repositoryStoreKey`,
+   `branchStoreKey`, and `blobStoreKey`, covering the happy path and
+   an explicit case where two inputs differ only in `owner` and yield
+   different keys. This unit test is intentionally separate from the
+   Gherkin suite because it exercises pure helpers, not user-visible
+   behaviour, and Gherkin would be the wrong register for it.
+
+6. Run `bun test` and confirm the new feature scenarios fail (red
+   phase). Capture the failing transcript in `Concrete steps` below.
+
+Validation gate for Stage A: at least one of the Gherkin scenarios
+fails — specifically the "Repository node_id values are owner-
+qualified and distinct" scenario is expected to fail because of the
+unqualified `node_id` assignment in the `githubRepositorySchema`
+transform.
 
 ### Stage B — owner-qualified identity in the store and adapters
 
@@ -395,7 +509,11 @@ the default Bun test environment.
    Update the surrounding prose to make clear that two repositories
    with the same name under different owners coexist.
 4. Update `docs/architecture.md` §State model to describe the
-   canonical keys explicitly.
+   canonical keys explicitly. Add a short subsection to
+   `docs/development.md` describing the Gherkin testing seam: where
+   `.feature` files live, how step definitions are organized, how
+   `loadFeatures()` is wired in, and that `bun test` (and therefore
+   `make test`) runs the scenarios alongside the rest of the suite.
 5. The user request mentions `docs/users-guide.md` and
    `docs/developers-guide.md`. Those files do not exist in this
    repository. The closest equivalents are `README.md` (user-facing)
@@ -438,15 +556,17 @@ recorded here because it is environment-specific.
    make test 2>&1 | tee /tmp/test-simulacat-core-1-1-1-baseline.out
    ```
 
-3. Implement Stage A (failing tests). Re-run only the new file:
+3. Implement Stage A (failing tests). Run the Gherkin entry file and
+   the focused store-key unit tests:
 
    ```bash
-   bun test tests/cross-owner-identity.test.ts \
+   bun test tests/cross-owner-identity.features.test.ts \
+            tests/store-keys.test.ts \
      2>&1 | tee /tmp/test-simulacat-core-1-1-1-stageA.out
    ```
 
-   Expect failures on the `node_id` distinctness assertion before any
-   source changes.
+   Expect failures on the "node_id values are owner-qualified and
+   distinct" scenario before any source changes.
 
 4. Implement Stage B and re-run the gates sequentially (per AGENTS.md
    guidance to avoid parallel runs):
@@ -513,15 +633,20 @@ Acceptance is a behavioural statement, not a code-shape statement.
 
 Quality criteria (what "done" means):
 
-- Tests: `make test` passes, including the new behavioural,
-  parameterized, and property tests.
+- Tests: `make test` passes, including the new Gherkin scenarios under
+  `features/`, the focused store-key unit tests, and the property
+  tests under `tests/store-keys.property.test.ts`.
 - Lint and types: `make lint` and `bun check:types` (invoked via
   `make typecheck`) pass without warnings.
 - Format: `make check-fmt` reports no changes.
 - Markdown: `make markdownlint` exits cleanly.
 - Documentation: `docs/api-reference.md`, `docs/architecture.md`,
   `README.md`, and `docs/development.md` reflect the canonical-key
-  contract.
+  contract; `docs/development.md` additionally documents the Gherkin
+  testing seam.
+- Deliverable artefacts: `features/cross-owner-identity.feature` is
+  committed and tracked in version control as the human-readable
+  specification of the cross-owner coexistence contract.
 
 Quality method (how compliance is checked):
 
@@ -666,3 +791,11 @@ will be tackled in later roadmap items:
   on first use. Reflowed the Concrete steps preamble to drop the
   environment-specific absolute path and to reflect that the branch
   rename and planning PR were completed during the draft phase.
+- 2026-05-06: Adopted `@aboviq/bun-test-cucumber` as the Gherkin
+  runner for Stage A behavioural tests. Added the harness as a
+  pre-approved `devDependency`, introduced a `features/` directory
+  whose `.feature` files are the deliverable specification artefacts,
+  and split Stage A into a Gherkin scenario suite plus a focused
+  pure-helper unit test. Property tests stay on `fast-check`. Updated
+  Constraints, Tolerances, Risks, Decision log, Validation and
+  acceptance, and the Stage A and Stage D concrete steps accordingly.
