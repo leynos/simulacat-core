@@ -218,9 +218,11 @@ Then('the result has nameWithOwner {string}', (state, args) => {
   return state;
 });
 
-Then('the result has a Repository.id distinct from {string}', (state, args) => {
+Then('the result has Repository.id {string}', (state, args) => {
+  const expected = requireStepArg(args, 0);
   expect(state.graphQlRepository?.id).toBeDefined();
-  expect(state.graphQlRepository?.id).not.toBe(requireStepArg(args, 0));
+  const decoded = Buffer.from(state.graphQlRepository?.id ?? '', 'base64').toString('utf8');
+  expect(decoded).toBe(expected);
   return state;
 });
 

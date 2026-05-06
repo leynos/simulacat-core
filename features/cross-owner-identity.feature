@@ -21,7 +21,7 @@ Feature: Repository identity is owner-scoped and ref-safe
   Scenario: GraphQL repository lookup resolves the correct owner
     When the client queries GraphQL for repository "acme/awesome-repo"
     Then the result has nameWithOwner "acme/awesome-repo"
-    And the result has a Repository.id distinct from "globex/awesome-repo"
+    And the result has Repository.id "Repository:acme/awesome-repo"
 
   Scenario: Repository node_id values are owner-qualified and distinct
     Then the seeded repositories have non-empty node_id values

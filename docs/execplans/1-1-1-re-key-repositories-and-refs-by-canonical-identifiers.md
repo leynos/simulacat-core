@@ -118,9 +118,9 @@ suggestions; violation requires escalation, not workarounds.
   fallback is tightened to the canonical key.
   Severity: low.
   Likelihood: medium.
-  Mitigation: keep numeric `id` precedence unchanged; only adjust the
-  fallback when it would otherwise produce a non-owner-qualified value,
-  and capture the previous behaviour in a regression test before changing.
+  Mitigation: expose `repo.node_id` as GraphQL `Repository.id` so normal
+  parsed fixtures exercise the canonical node identity. Keep the numeric
+  REST `id` field available on repository fixtures and REST payloads only.
 - Risk: `convertObjByKey` collisions in seeded fixtures previously masked
   by the loose key derivation will now surface as parse errors.
   Severity: low.
@@ -195,11 +195,14 @@ Use timestamps to measure rates of progress and detect tolerance breaches.
   the same unqualified `node_id` value.
 - 2026-05-06T20:47:11+02:00: the existing GraphQL converter test expected the
   previous `Repository.id` fallback of `full_name`. It was updated to assert
-  the new canonical base64 `Repository:owner/name` fallback, while preserving
-  numeric repository ID precedence.
+  the new canonical base64 `Repository:owner/name` fallback.
 - 2026-05-06T20:47:11+02:00: the GraphQL repository resolver now tries an exact
   keyed lookup first and retains the previous case-insensitive list-scan
   fallback so existing caller behaviour is preserved.
+- 2026-05-06T21:00:10+02:00: review found that GraphQL `Repository.id` still
+  preferred numeric REST `id`, so normal parsed fixtures never reached the
+  canonical fallback. The converter now exposes `repo.node_id` directly and
+  derives an owner-qualified node ID only when `node_id` is absent.
 - 2026-05-06T20:48:39+02:00: Stage C added a `parseBlobStoreKey` helper even
   though Stage B only named repository and branch parsers. The property-test
   requirements include blob round-trips, so exporting the blob parser keeps the
@@ -264,6 +267,12 @@ Use timestamps to measure rates of progress and detect tolerance breaches.
   Rationale: the requested guide files are absent; `README.md` is the existing
   user-facing entry point and `docs/development.md` is the existing contributor
   guide.
+  Date/Author: 2026-05-06, implementation agent.
+- Decision: GraphQL `Repository.id` exposes repository `node_id`, not the
+  numeric REST `id`.
+  Rationale: GraphQL node IDs are opaque node identifiers and the observable
+  outcome for this task requires owner-qualified repository identity through
+  GraphQL. REST payloads still preserve the numeric `id` field separately.
   Date/Author: 2026-05-06, implementation agent.
 
 ## Outcomes & retrospective
@@ -401,7 +410,7 @@ Gherkin scenarios into Bun's native test runner via function-based
      Scenario: GraphQL repository lookup resolves the correct owner
        When the client queries GraphQL for repository "acme/awesome-repo"
        Then the result has nameWithOwner "acme/awesome-repo"
-       And the result has a Repository.id distinct from "globex/awesome-repo"
+       And the result has Repository.id "Repository:acme/awesome-repo"
 
      Scenario: Repository node_id values are owner-qualified and distinct
        Then the seeded repositories have non-empty node_id values
@@ -510,10 +519,9 @@ transform.
 7. In `src/graphql/converters/repository.ts`, inside
    `convertRepositoryToGraphql`, replace the existing `defaultBranchId`
    derivation with the snippet shown below so the default branch
-   identity is owner-qualified even when the numeric repository `id`
-   is missing. Change the `Repository.id` fallback in the same function
-   from `String(repo.full_name)` to `repositoryNodeId(repo.owner,
-   repo.name)` so it is also owner-qualified.
+   identity is owner-qualified. Set GraphQL `Repository.id` from
+   `repo.node_id`, falling back to `repositoryNodeId(repo.owner, repo.name)`
+   only for defensive converter inputs where `node_id` is unavailable.
 
    ```ts
    const defaultBranchId = Buffer.from(

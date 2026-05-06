@@ -172,6 +172,7 @@ flat route list.
 | `organization(login: String!)`          | Fully scriptable | Store-backed organization lookup by login.                                               |
 | `repository(...)`                       | Fully scriptable | Store-backed repository lookup with case-insensitive owner/name matching.                |
 | `repositoryOwner(login: String!)`       | Fully scriptable | Resolves to either a user or organization from the store.                                |
+| `Repository.id`                         | Fully scriptable | Exposes the repository `node_id`, derived as base64 `Repository:owner/name` by default.  |
 | `Repository.owner`                      | Fully scriptable | Derived from seeded owner data and mapped into the GraphQL owner shape.                  |
 | `Repository.languages`                  | Schema-stubbed   | Exposed through the schema, but still derived from lightweight placeholder data.         |
 | `Repository.repositoryTopics`           | Schema-stubbed   | Returns topic names from repository fixture metadata rather than a richer topic model.   |
