@@ -600,8 +600,8 @@ the default Bun test environment.
 
 Validation gate for Stage D: full quality gate (`make check-fmt`,
 `make lint`, `make test`) passes; documentation lint passes;
-`docs/roadmap.md` shows the task as complete; the branch is renamed
-and pushed per the user instructions.
+`docs/roadmap.md` shows the task as complete; the existing branch is
+pushed or updated per the user instructions.
 
 ## Concrete steps
 
@@ -736,9 +736,9 @@ two `node_id` lines and a small set of resolver and adapter call
 sites. If a step fails partway, fix the underlying cause and re-run
 the gate from Stage B onward; the test suite is the source of truth
 for whether a checkpoint has been reached. No destructive operations
-are required at any stage; the branch rename happens only once at the
-end of Stage D and uses GitHub's branch rename flow only if a PR has
-already been opened.
+are required at any stage; the branch was already renamed during draft
+creation, so recovery only requires pushing or updating the existing
+branch.
 
 ## Artifacts and notes
 
