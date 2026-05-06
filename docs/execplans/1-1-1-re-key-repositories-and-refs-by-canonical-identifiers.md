@@ -5,7 +5,7 @@ This ExecPlan (execution plan) is a living document. The sections
 `Decision Log`, and `Outcomes & Retrospective` must be kept up to date as work
 proceeds.
 
-Status: DRAFT
+Status: IN PROGRESS
 
 Roadmap reference: docs/roadmap.md task `1.1.1` under §1.1
 "Prove repository identity is owner-scoped and ref-safe".
@@ -160,12 +160,17 @@ suggestions; violation requires escalation, not workarounds.
 
 ## Progress
 
-- [ ] Stage A — write failing behavioural tests for cross-owner same-name
-  coexistence and identity uniqueness.
-- [ ] Stage B — introduce canonical-key helpers, owner-qualified
-  `node_id` derivation, keyed store selectors, and adapter updates.
+- [x] Stage A — write failing behavioural tests for cross-owner same-name
+  coexistence and identity uniqueness. Started 2026-05-06T20:41:58+02:00;
+  red-phase evidence captured 2026-05-06T20:44:22+02:00 in
+  `/tmp/test-simulacat-core-1-1-1-stageA.out`.
+- [x] Stage B — introduce canonical-key helpers, owner-qualified
+  `node_id` derivation, keyed store selectors, and adapter updates. Started
+  2026-05-06T20:44:22+02:00; completed 2026-05-06T20:47:11+02:00 with
+  `make check-fmt`, `make lint`, and `make test` passing.
 - [ ] Stage C — add property tests with `fast-check` (or a justified
-  parameterized alternative) covering store-key invariants.
+  parameterized alternative) covering store-key invariants. Started
+  2026-05-06T20:47:11+02:00.
 - [ ] Stage D — fixture builders, documentation updates, roadmap tick,
   and final gating.
 
@@ -173,7 +178,25 @@ Use timestamps to measure rates of progress and detect tolerance breaches.
 
 ## Surprises & discoveries
 
-- (none yet — populate during implementation)
+- 2026-05-06T20:41:58+02:00: branch is already named
+  `1-1-1-re-key-repositories-and-refs-by-canonical-identifiers` and the
+  initial working tree is clean, so no branch rename is required before
+  implementation.
+- 2026-05-06T20:41:58+02:00: `fast-check` and `markdownlint-cli2` are already
+  present in `devDependencies`, matching the plan tolerances; no dependency
+  change is required for those tools.
+- 2026-05-06T20:44:22+02:00: `@aboviq/bun-test-cucumber` works under the
+  project test runner with the documented `test-plugins.ts` preload and
+  explicit `loadFeatures(...)` entry file. The red-phase failure is the planned
+  repository identity failure: both owner-scoped repositories currently expose
+  the same unqualified `node_id` value.
+- 2026-05-06T20:47:11+02:00: the existing GraphQL converter test expected the
+  previous `Repository.id` fallback of `full_name`. It was updated to assert
+  the new canonical base64 `Repository:owner/name` fallback, while preserving
+  numeric repository ID precedence.
+- 2026-05-06T20:47:11+02:00: the GraphQL repository resolver now tries an exact
+  keyed lookup first and retains the previous case-insensitive list-scan
+  fallback so existing caller behaviour is preserved.
 
 ## Decision log
 

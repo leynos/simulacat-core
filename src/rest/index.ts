@@ -136,15 +136,11 @@ const handlers =
             response: Parameters<SimulationHandler>[2]
           ) => {
             const {owner, repo} = context.request.params;
-            const repository = simulationStore.schema.repositories
-              .selectTableAsList(getState())
-              .find((candidate) => candidate.owner === owner && candidate.name === repo);
+            const repository = simulationStore.selectors.getRepository(getState(), owner, repo);
             if (!repository) {
               return response.status(404).send('Not Found');
             }
-            const branches = simulationStore.schema.branches
-              .selectTableAsList(getState())
-              .filter((branch) => branch.owner === owner && branch.repo === repo);
+            const branches = simulationStore.selectors.listBranchesForRepository(getState(), owner, repo);
             return {status: 200, json: branches};
           },
           // GET /repos/{owner}/{repo}/commits/{ref}/status
@@ -217,9 +213,10 @@ const handlers =
             const owner = Array.isArray(ownerParam) ? ownerParam[0] : ownerParam;
             const repo = Array.isArray(repoParam) ? repoParam[0] : repoParam;
             const treeSha = Array.isArray(treeShaParam) ? treeShaParam[0] : treeShaParam;
-            const repository = simulationStore.schema.repositories
-              .selectTableAsList(simulationStore.store.getState())
-              .find((candidate) => candidate.owner === owner && candidate.name === repo);
+            const repository =
+              owner && repo
+                ? simulationStore.selectors.getRepository(simulationStore.store.getState(), owner, repo)
+                : undefined;
             const blobs = simulationStore.selectors.getBlobAtOwnerRepo(simulationStore.store.getState(), owner, repo);
             if (!owner || !repo || !treeSha || !repository) {
               response.status(404).send('fixture does not exist');

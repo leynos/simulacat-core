@@ -35,7 +35,7 @@ export const blobAsBase64 = ({
         : `${host}/repos/${owner}/${repo}/contents/${ref}`,
     sha: effectiveSha,
     size: blob.encoding === 'base64' ? Buffer.from(blob.content, 'base64').byteLength : Buffer.byteLength(blob.content),
-    node_id: 'node_id'
+    node_id: Buffer.from(`Blob:${blobStoreKey(blob)}`).toString('base64')
   };
 };
 

@@ -83,3 +83,11 @@ export {
   githubBranchSchema,
   githubBlobSchema
 } from './store/entities.ts';
+export {
+  blobStoreKey,
+  branchStoreKey,
+  parseBranchStoreKey,
+  parseRepositoryStoreKey,
+  repositoryNodeId,
+  repositoryStoreKey
+} from './store/keys.ts';

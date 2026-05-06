@@ -5,7 +5,7 @@ import type {DataSchemas, ToGraphqlDispatcher} from '../src/graphql/to-graphql-s
 import type {ExtendedSimulationStore} from '../src/store/index.ts';
 
 describe('convertRepositoryToGraphql', () => {
-  it('falls back to full_name when a repository id is unavailable', () => {
+  it('falls back to canonical owner-qualified ids when a repository id is unavailable', () => {
     const repository = {
       id: undefined,
       name: 'test-repo',
@@ -25,7 +25,7 @@ describe('convertRepositoryToGraphql', () => {
       throw new Error('owner resolution is not exercised in this test');
     }) as ToGraphqlDispatcher);
 
-    expect(graphqlRepository.id).toBe('test-org/test-repo');
+    expect(graphqlRepository.id).toBe(Buffer.from('Repository:test-org/test-repo').toString('base64'));
     expect(graphqlRepository.defaultBranchRef.id).toBe(
       Buffer.from('Branch:test-org/test-repo:main').toString('base64')
     );

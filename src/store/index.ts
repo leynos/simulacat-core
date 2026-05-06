@@ -22,6 +22,7 @@ import {
   type GitHubBranch,
   type GitHubAppInstallation
 } from './entities.ts';
+import {branchStoreKey, repositoryStoreKey} from './keys.ts';
 
 type ExtendedSchema = ReturnType<typeof inputSchema>;
 type ExtendActions = typeof inputActions;
@@ -199,6 +200,23 @@ const inputSelectors = ({createSelector, schema}: ExtendSimulationSelectors<Exte
       }
     );
 
+  const getRepository = (state: AnyState, owner: string, name: string): GitHubRepository | undefined => {
+    const key = repositoryStoreKey({owner, name});
+    return schema.repositories.selectTable(state)?.[key];
+  };
+
+  const getBranch = (state: AnyState, owner: string, repo: string, name: string): GitHubBranch | undefined => {
+    const key = branchStoreKey({owner, repo, name});
+    return schema.branches.selectTable(state)?.[key];
+  };
+
+  const listBranchesForRepository: (state: AnyState, owner: string, repo: string) => GitHubBranch[] = createSelector(
+    schema.branches.selectTableAsList,
+    (_state: AnyState, owner: string) => owner,
+    (_state: AnyState, _owner: string, repo: string) => repo,
+    (branches, owner, repo) => branches.filter((branch) => branchStoreKey(branch).startsWith(`${owner}/${repo}:`))
+  );
+
   const getBlob: (state: AnyState, owner: string, repo: string, sha_or_path: string) => GitHubBlob | undefined =
     createSelector(
       schema.blobs.selectTableAsList,
@@ -228,6 +246,9 @@ const inputSelectors = ({createSelector, schema}: ExtendSimulationSelectors<Exte
     allGithubOrganizations,
     getAppInstallation,
     allReposWithOrgs,
+    getRepository,
+    getBranch,
+    listBranchesForRepository,
     getBlob,
     getBlobAtOwnerRepo
   };

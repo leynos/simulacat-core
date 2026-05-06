@@ -144,7 +144,9 @@ export const githubRepositorySchema = z
     return {
       ...repo,
       id,
-      node_id: repo.name,
+      node_id:
+        repo.node_id ??
+        Buffer.from(`Repository:${repositoryStoreKey({owner: repo.owner, name: repo.name})}`).toString('base64'),
       full_name,
       url: `http://${host}/repos/${full_name}`,
       html_url: `http://${host}/repos/${full_name}`,
@@ -196,4 +198,5 @@ export const githubRepositorySchema = z
 
 export type GitHubRepository = z.infer<typeof githubRepositorySchema>;
 
-export const repositoryStoreKey = (repository: GitHubRepository) => `${repository.owner}/${repository.name}`;
+export const repositoryStoreKey = (repository: Pick<GitHubRepository, 'owner' | 'name'>) =>
+  `${repository.owner}/${repository.name}`;

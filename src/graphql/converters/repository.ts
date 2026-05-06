@@ -13,6 +13,7 @@ import {
 import {deriveOwner} from '../owners.ts';
 import type {DataSchemas, GraphQLData, ToGraphqlDispatcher} from '../to-graphql-shapes.ts';
 import type {ExtendedSimulationStore} from '../../store/index.ts';
+import {branchStoreKey, repositoryNodeId} from '../../store/keys.ts';
 import {RepositoryVisibility} from '../../__generated__/resolvers-types.ts';
 import type {User} from '../../__generated__/resolvers-types.ts';
 
@@ -32,11 +33,13 @@ export function convertRepositoryToGraphql(
   toGraphql: ToGraphqlDispatcher
 ): GraphQLData['Repository'] {
   const defaultBranchName = repo.default_branch ?? 'main';
-  const defaultBranchId = Buffer.from(`Branch:${repo.id ?? repo.full_name}:${defaultBranchName}`).toString('base64');
+  const defaultBranchId = Buffer.from(
+    `Branch:${branchStoreKey({owner: repo.owner, repo: repo.name, name: defaultBranchName})}`
+  ).toString('base64');
 
   return {
     __typename: 'Repository',
-    id: String(repo.id ?? repo.full_name),
+    id: repo.id === undefined ? repositoryNodeId(repo.owner, repo.name) : String(repo.id),
     name: repo.name,
     nameWithOwner: repo.full_name,
     url: repo.url,
