@@ -57,9 +57,15 @@ describe('graphql queries', () => {
     const app = simulation({
       initialState: {
         users: [{login: 'frontsidejack', organizations: ['lovely-org']}],
-        organizations: [{login: 'lovely-org'}],
-        repositories: [{owner: 'lovely-org', name: 'awesome-repo'}],
-        branches: [{owner: 'lovely-org', repo: 'awesome-repo', name: 'main'}],
+        organizations: [{login: 'lovely-org'}, {login: 'Acme'}],
+        repositories: [
+          {owner: 'lovely-org', name: 'awesome-repo'},
+          {owner: 'Acme', name: 'Awesome-Repo'}
+        ],
+        branches: [
+          {owner: 'lovely-org', repo: 'awesome-repo', name: 'main'},
+          {owner: 'Acme', repo: 'Awesome-Repo', name: 'main'}
+        ],
         blobs: []
       }
     });
@@ -100,6 +106,32 @@ describe('graphql queries', () => {
         node: expect.objectContaining({name: 'awesome-repo'})
       })
     ]);
+  });
+
+  it('preserves case-insensitive repository lookup for mixed-case fixtures', async () => {
+    const request = await fetch(`${url}/graphql`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        query: gql`
+          query repository($owner: String!, $name: String!) {
+            repository(owner: $owner, name: $name) {
+              name
+              nameWithOwner
+            }
+          }
+        `,
+        variables: {owner: 'acme', name: 'awesome-repo'}
+      })
+    });
+    const response = await request.json();
+
+    expect(request.status).toEqual(200);
+    expect(response.errors).toBe(undefined);
+    expect(response.data.repository).toEqual({
+      name: 'Awesome-Repo',
+      nameWithOwner: 'Acme/Awesome-Repo'
+    });
   });
 
   describe('getOrganizationUsers', () => {
