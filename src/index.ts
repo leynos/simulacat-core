@@ -77,6 +77,12 @@ export const simulation = (args: GitHubSimulatorArgs = {}): FoundationSimulator<
 };
 
 export {
+  buildBranchFixture,
+  buildRepositoryFixture,
+  type BranchFixtureInput,
+  type RepositoryFixtureInput
+} from './store/builders.ts';
+export {
   githubUserSchema,
   githubOrganizationSchema,
   githubRepositorySchema,

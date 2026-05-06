@@ -2,6 +2,8 @@
 import {describe, expect, it} from 'bun:test';
 import fc from 'fast-check';
 import {
+  buildBranchFixture,
+  buildRepositoryFixture,
   blobStoreKey,
   branchStoreKey,
   parseBlobStoreKey,
@@ -44,12 +46,8 @@ describe('canonical store keys', () => {
   });
 
   it('keys blobs by owner, repository, and path or sha', () => {
-    expect(
-      blobStoreKey({owner: 'acme', repo: 'awesome-repo', path: 'README.md', content: '', encoding: 'string'})
-    ).toBe('acme/awesome-repo:README.md');
-    expect(blobStoreKey({owner: 'globex', repo: 'awesome-repo', sha: 'abc123', content: '', encoding: 'string'})).toBe(
-      'globex/awesome-repo:abc123'
-    );
+    expect(blobStoreKey({owner: 'acme', repo: 'awesome-repo', path: 'README.md'})).toBe('acme/awesome-repo:README.md');
+    expect(blobStoreKey({owner: 'globex', repo: 'awesome-repo', sha: 'abc123'})).toBe('globex/awesome-repo:abc123');
   });
 
   it('round-trips repository keys through the parser', () => {
@@ -114,5 +112,19 @@ describe('canonical store keys', () => {
         expect(Buffer.from(nodeId, 'base64').toString('utf8')).toBe(`Repository:${repositoryStoreKey(parts)}`);
       })
     );
+  });
+
+  it('builds parsed repository fixtures through the public builder', () => {
+    const repository = buildRepositoryFixture({owner: 'acme', name: 'awesome-repo'});
+
+    expect(repository.full_name).toBe('acme/awesome-repo');
+    expect(Buffer.from(repository.node_id, 'base64').toString('utf8')).toBe('Repository:acme/awesome-repo');
+  });
+
+  it('builds parsed branch fixtures through the public builder', () => {
+    const branch = buildBranchFixture({owner: 'acme', repo: 'awesome-repo', name: 'main'});
+
+    expect(branchStoreKey(branch)).toBe('acme/awesome-repo:main');
+    expect(branch.commit.sha).toBeString();
   });
 });

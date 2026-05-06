@@ -1,6 +1,6 @@
 /** @file Step definitions for cross-owner repository identity features. */
 import {expect} from 'bun:test';
-import {withState} from '@aboviq/bun-test-cucumber';
+import {withState} from './cucumber.js';
 import {simulation} from '../src/index.ts';
 import {githubInitialStoreSchema} from '../src/store/entities.ts';
 
@@ -47,12 +47,34 @@ const port = 3521;
 
 const {After, Given, When, Then} = withState<ScenarioState>();
 
+const requireStepArg = (args: string[], index: number): string => {
+  const arg = args[index];
+
+  if (arg === undefined) {
+    throw new Error(`Missing step argument ${index}`);
+  }
+
+  return arg;
+};
+
+const parseFullName = (fullName: string): {owner: string; name: string} => {
+  const [owner, name] = fullName.split('/');
+
+  if (!owner || !name) {
+    throw new Error(`Expected owner/name, got "${fullName}"`);
+  }
+
+  return {owner, name};
+};
+
 After(async (state) => {
   await state.server?.ensureClose();
-  return {...state, server: undefined};
+  return state;
 });
 
-Given('a simulator seeded with organizations {string} and {string}', async (state, [firstOwner, secondOwner]) => {
+Given('a simulator seeded with organizations {string} and {string}', async (state, args) => {
+  const firstOwner = requireStepArg(args, 0);
+  const secondOwner = requireStepArg(args, 1);
   const owners = [firstOwner, secondOwner];
   const repositoryName = state.repositoryName ?? 'awesome-repo';
   const branchName = state.branchName ?? 'main';
@@ -84,28 +106,30 @@ Given('a simulator seeded with organizations {string} and {string}', async (stat
   };
 });
 
-Given('each organization owns a repository named {string}', (state, [repositoryName]) => {
-  return {...state, repositoryName};
+Given('each organization owns a repository named {string}', (state, args) => {
+  return {...state, repositoryName: requireStepArg(args, 0)};
 });
 
-Given('each repository has a {string} branch', (state, [branchName]) => {
-  return {...state, branchName};
+Given('each repository has a {string} branch', (state, args) => {
+  return {...state, branchName: requireStepArg(args, 0)};
 });
 
-Given('each repository has a {string} blob', (state, [blobPath]) => {
-  return {...state, blobPath};
+Given('each repository has a {string} blob', (state, args) => {
+  return {...state, blobPath: requireStepArg(args, 0)};
 });
 
-When('the client GETs {string}', async (state, [path]) => {
+When('the client GETs {string}', async (state, args) => {
+  const path = requireStepArg(args, 0);
   expect(state.baseUrl).toBeDefined();
   const response = await fetch(`${state.baseUrl}${path}`);
   const json = await response.json();
   return {...state, response, json};
 });
 
-When('the client queries GraphQL for repository {string}', async (state, [fullName]) => {
+When('the client queries GraphQL for repository {string}', async (state, args) => {
+  const fullName = requireStepArg(args, 0);
   expect(state.baseUrl).toBeDefined();
-  const [owner, name] = fullName.split('/');
+  const {owner, name} = parseFullName(fullName);
   const response = await fetch(`${state.baseUrl}/graphql`, {
     method: 'POST',
     headers: {
@@ -127,12 +151,18 @@ When('the client queries GraphQL for repository {string}', async (state, [fullNa
   const body = (await response.json()) as GraphqlRepositoryResponse;
   expect(body.errors).toBeUndefined();
   expect(body.data?.repository).toBeDefined();
+  const repository = body.data?.repository;
 
-  return {...state, response, json: body, graphQlRepository: body.data?.repository};
+  if (!repository) {
+    throw new Error('GraphQL repository response did not include a repository');
+  }
+
+  return {...state, response, json: body, graphQlRepository: repository};
 });
 
-When('the simulator is seeded with two repositories whose owner and name are both {string}', (state, [fullName]) => {
-  const [owner, name] = fullName.split('/');
+When('the simulator is seeded with two repositories whose owner and name are both {string}', (state, args) => {
+  const fullName = requireStepArg(args, 0);
+  const {owner, name} = parseFullName(fullName);
 
   try {
     const parsed = githubInitialStoreSchema.parse({
@@ -146,14 +176,14 @@ When('the simulator is seeded with two repositories whose owner and name are bot
       blobs: []
     });
     simulation({initialState: parsed});
-    return {...state, seedError: undefined};
+    return state;
   } catch (error) {
     return {...state, seedError: error instanceof Error ? error : new Error(String(error))};
   }
 });
 
-Then('the response status is {int}', (state, [status]) => {
-  expect(state.response?.status).toBe(status);
+Then('the response status is {int}', (state, args) => {
+  expect(state.response?.status).toBe(Number(requireStepArg(args, 0)));
   return state;
 });
 
@@ -162,7 +192,9 @@ Then('the response contains exactly one repository', (state) => {
   return state;
 });
 
-Then('the repository {string} is {string}', (state, [fieldName, expected]) => {
+Then('the repository {string} is {string}', (state, args) => {
+  const fieldName = requireStepArg(args, 0);
+  const expected = requireStepArg(args, 1);
   const [repo] = state.json as RepositoryResponse[];
   expect(repo?.[fieldName as keyof RepositoryResponse]).toBe(expected);
   return state;
@@ -173,21 +205,22 @@ Then('the response contains exactly one branch', (state) => {
   return state;
 });
 
-Then('the branch belongs to {string}', (state, [fullName]) => {
-  const [owner, repo] = fullName.split('/');
+Then('the branch belongs to {string}', (state, args) => {
+  const fullName = requireStepArg(args, 0);
+  const {owner, name: repo} = parseFullName(fullName);
   const [branch] = state.json as BranchResponse[];
   expect(branch).toEqual(expect.objectContaining({owner, repo}));
   return state;
 });
 
-Then('the result has nameWithOwner {string}', (state, [nameWithOwner]) => {
-  expect(state.graphQlRepository?.nameWithOwner).toBe(nameWithOwner);
+Then('the result has nameWithOwner {string}', (state, args) => {
+  expect(state.graphQlRepository?.nameWithOwner).toBe(requireStepArg(args, 0));
   return state;
 });
 
-Then('the result has a Repository.id distinct from {string}', (state, [otherFullName]) => {
+Then('the result has a Repository.id distinct from {string}', (state, args) => {
   expect(state.graphQlRepository?.id).toBeDefined();
-  expect(state.graphQlRepository?.id).not.toBe(otherFullName);
+  expect(state.graphQlRepository?.id).not.toBe(requireStepArg(args, 0));
   return state;
 });
 
@@ -213,7 +246,8 @@ Then("the two repositories' node_id values decode to different strings", (state)
   return {...state, json: decoded};
 });
 
-Then('every node_id begins with {string}', (state, [prefix]) => {
+Then('every node_id begins with {string}', (state, args) => {
+  const prefix = requireStepArg(args, 0);
   expect(state.json).toEqual([
     expect.stringMatching(new RegExp(`^${prefix}`)),
     expect.stringMatching(new RegExp(`^${prefix}`))

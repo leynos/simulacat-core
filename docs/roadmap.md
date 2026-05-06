@@ -53,7 +53,7 @@ mutation task. See docs/architecture.md §State model,
 docs/api-reference.md §Exported fixture schemas, and
 docs/github-rest-api-audit.md §Store and Modeling Constraints.
 
-- [ ] 1.1.1. Re-key repositories and refs by canonical identifiers.
+- [x] 1.1.1. Re-key repositories and refs by canonical identifiers.
   - Carries legacy task label `1.1.1`.
   - Use stable keys such as `owner/name` and `owner/name:ref`.
   - Remove assumptions that repository and branch names are globally unique.

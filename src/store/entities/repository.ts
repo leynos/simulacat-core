@@ -12,6 +12,13 @@ let nextGeneratedRepositoryId = 3000;
 
 const nextRepositoryId = () => nextGeneratedRepositoryId++;
 
+type RepositoryKeyInput = {
+  owner: string;
+  name: string;
+};
+
+export const repositoryStoreKey = (repository: RepositoryKeyInput) => `${repository.owner}/${repository.name}`;
+
 export const resetNextRepositoryId = (newValue = 3000) => {
   nextGeneratedRepositoryId = newValue;
 };
@@ -197,6 +204,3 @@ export const githubRepositorySchema = z
   });
 
 export type GitHubRepository = z.infer<typeof githubRepositorySchema>;
-
-export const repositoryStoreKey = (repository: Pick<GitHubRepository, 'owner' | 'name'>) =>
-  `${repository.owner}/${repository.name}`;

@@ -44,6 +44,15 @@ The package exports the schemas needed to validate and build seeded state:
 - `githubRepositorySchema`
 - `githubBranchSchema`
 - `githubBlobSchema`
+- `buildRepositoryFixture`
+- `buildBranchFixture`
+
+Repository identity is owner-scoped. Repositories are keyed as `owner/name`,
+branches are keyed as `owner/repo:name`, and blobs are keyed as
+`owner/repo:reference`, where `reference` is the seeded `path` or `sha`. Two
+repositories with the same `name` can coexist when their `owner` values differ.
+Repository `node_id` values are base64-encoded strings prefixed with
+`Repository:` and followed by the canonical `owner/name` key.
 
 ### `githubUserSchema`
 
@@ -73,6 +82,7 @@ The package exports the schemas needed to validate and build seeded state:
 | `owner` | `string` | Yes | None | Used with `name` to form the canonical `owner/name` key. |
 | `name` | `string` | Yes | None | Repository name within the owner namespace. |
 | `id` | `number` | No | Generated from a resettable counter seeded at `3000` | Preserved when supplied explicitly. |
+| `node_id` | `string` | No | Base64 `Repository:owner/name` | Preserved when supplied explicitly. |
 | `full_name` | `string` | No | Derived as `${owner}/${name}` | Recomputed during schema transform. |
 | `visibility` | `'public' \| 'private'` | No | `'public'` | Mapped into GraphQL repository visibility. |
 | `default_branch` | `string` | No | `'main'` | Used for the placeholder `defaultBranchRef`. |
@@ -98,6 +108,13 @@ The package exports the schemas needed to validate and build seeded state:
 | `sha` | `string` | Conditionally | None | Must be non-empty when present. At least one of `path` or `sha` must be present. |
 | `content` | `string` | No | Faker-generated paragraphs | Returned through contents and git-blob payload builders. |
 | `encoding` | `'string' \| 'base64'` | No | `'string'` | Determines whether `content` is re-encoded before REST responses. |
+
+### Fixture builders
+
+`buildRepositoryFixture(input)` and `buildBranchFixture(input)` parse their
+inputs through `githubRepositorySchema` and `githubBranchSchema` respectively.
+Use them when tests need a fully expanded repository or branch fixture without
+constructing a full `InitialState` object.
 
 ### `InitialState`
 

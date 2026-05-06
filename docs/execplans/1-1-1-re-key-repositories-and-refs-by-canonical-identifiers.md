@@ -5,7 +5,7 @@ This ExecPlan (execution plan) is a living document. The sections
 `Decision Log`, and `Outcomes & Retrospective` must be kept up to date as work
 proceeds.
 
-Status: IN PROGRESS
+Status: COMPLETE
 
 Roadmap reference: docs/roadmap.md task `1.1.1` under §1.1
 "Prove repository identity is owner-scoped and ref-safe".
@@ -172,8 +172,10 @@ suggestions; violation requires escalation, not workarounds.
   parameterized alternative) covering store-key invariants. Started
   2026-05-06T20:47:11+02:00; completed 2026-05-06T20:48:39+02:00 with
   `make check-fmt`, `make lint`, and `make test` passing.
-- [ ] Stage D — fixture builders, documentation updates, roadmap tick,
-  and final gating. Started 2026-05-06T20:48:39+02:00.
+- [x] Stage D — fixture builders, documentation updates, roadmap tick,
+  and final gating. Started 2026-05-06T20:48:39+02:00; completed
+  2026-05-06T20:54:20+02:00 with `make check-fmt`, `make typecheck`,
+  `make lint`, `make test`, and `make markdownlint` passing.
 
 Use timestamps to measure rates of progress and detect tolerance breaches.
 
@@ -202,6 +204,15 @@ Use timestamps to measure rates of progress and detect tolerance breaches.
   though Stage B only named repository and branch parsers. The property-test
   requirements include blob round-trips, so exporting the blob parser keeps the
   invariant surface symmetrical.
+- 2026-05-06T20:49:59+02:00: `docs/users-guide.md` and
+  `docs/developers-guide.md` do not exist in this repository. The Stage D
+  documentation update used `README.md` as the user-facing guide and
+  `docs/development.md` as the contributor-facing guide.
+- 2026-05-06T20:54:20+02:00: `@aboviq/bun-test-cucumber` publishes
+  TypeScript source, and the package source is stricter-incompatible with this
+  repository's `exactOptionalPropertyTypes` setting during `tsc --noEmit`.
+  Runtime imports now go through `tests/cucumber.js`, while
+  `tests/cucumber.d.ts` gives TypeScript the small local surface the tests use.
 
 ## Decision log
 
@@ -247,10 +258,29 @@ Use timestamps to measure rates of progress and detect tolerance breaches.
   A separate proof artefact would restate those properties without increasing
   confidence in this codebase.
   Date/Author: 2026-05-06, implementation agent.
+- Decision: document canonical-key behaviour in `README.md` and
+  `docs/development.md` instead of `docs/users-guide.md` and
+  `docs/developers-guide.md`.
+  Rationale: the requested guide files are absent; `README.md` is the existing
+  user-facing entry point and `docs/development.md` is the existing contributor
+  guide.
+  Date/Author: 2026-05-06, implementation agent.
 
 ## Outcomes & retrospective
 
-- (to be filled in at completion)
+- Implemented owner-qualified repository identity across store transforms,
+  REST handlers, GraphQL lookup/conversion, blob content payloads, and exported
+  store-key helpers.
+- Added Gherkin behavioural coverage proving same-name repositories under
+  different owners remain independently addressable through REST and GraphQL.
+- Added `fast-check` property coverage for repository, branch, and blob key
+  collision and round-trip invariants.
+- Added public repository and branch fixture builders backed by the existing
+  Zod schemas.
+- Updated `README.md`, `docs/api-reference.md`, `docs/architecture.md`, and
+  `docs/development.md`; ticked roadmap task `1.1.1`.
+- Final validation passed: `make check-fmt`, `make typecheck`, `make lint`,
+  `make test`, and `make markdownlint`.
 
 ## Context and orientation
 
