@@ -24,6 +24,12 @@ import {
 } from './entities.ts';
 import {branchStoreKey, repositoryStoreKey} from './keys.ts';
 
+/** Stateless parameter-extractor selectors, hoisted outside inputSelectors
+ * to keep its cyclomatic complexity within acceptable bounds. */
+const selectOwnerParam = (_state: AnyState, owner: string): string => owner;
+const selectRepoParam = (_state: AnyState, _owner: string, repo: string): string => repo;
+const selectShaOrPathParam = (_state: AnyState, _owner: string, _repo: string, shaOrPath: string): string => shaOrPath;
+
 type ExtendedSchema = ReturnType<typeof inputSchema>;
 type ExtendActions = typeof inputActions;
 type ExtendSelectors = typeof inputSelectors;
@@ -212,17 +218,17 @@ const inputSelectors = ({createSelector, schema}: ExtendSimulationSelectors<Exte
 
   const listBranchesForRepository: (state: AnyState, owner: string, repo: string) => GitHubBranch[] = createSelector(
     schema.branches.selectTableAsList,
-    (_state: AnyState, owner: string) => owner,
-    (_state: AnyState, _owner: string, repo: string) => repo,
+    selectOwnerParam,
+    selectRepoParam,
     (branches, owner, repo) => branches.filter((branch) => branchStoreKey(branch).startsWith(`${owner}/${repo}:`))
   );
 
   const getBlob: (state: AnyState, owner: string, repo: string, sha_or_path: string) => GitHubBlob | undefined =
     createSelector(
       schema.blobs.selectTableAsList,
-      (_state: AnyState, owner: string) => owner,
-      (_state: AnyState, _owner: string, repo: string) => repo,
-      (_state: AnyState, _owner: string, _repo: string, sha_or_path: string) => sha_or_path,
+      selectOwnerParam,
+      selectRepoParam,
+      selectShaOrPathParam,
       (blobs, owner, repo, sha_or_path) => {
         const blob = blobs.find(
           (blob) =>
@@ -234,8 +240,8 @@ const inputSelectors = ({createSelector, schema}: ExtendSimulationSelectors<Exte
 
   const getBlobAtOwnerRepo: (state: AnyState, owner: string, repo: string) => GitHubBlob[] = createSelector(
     schema.blobs.selectTableAsList,
-    (_state: AnyState, owner: string) => owner,
-    (_state: AnyState, _owner: string, repo: string) => repo,
+    selectOwnerParam,
+    selectRepoParam,
     (blobs, owner, repo) => {
       const blob = blobs.filter((blob) => blob.owner === owner && blob.repo === repo);
       return blob;
