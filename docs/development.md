@@ -17,6 +17,7 @@ Prefer the Makefile targets where available:
 
 - `make check-fmt`
 - `make lint`
+- `make markdownlint`
 - `make test`
 - `make all`
 - `make build`
