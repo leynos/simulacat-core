@@ -43,7 +43,6 @@ type ScenarioState = {
 };
 
 const gql = String.raw;
-const port = 3521;
 
 const {After, Given, When, Then} = withState<ScenarioState>();
 
@@ -93,7 +92,7 @@ Given('a simulator seeded with organizations {string} and {string}', async (stat
       }))
     }
   });
-  const server = await app.listen(port);
+  const server = await app.listen(0);
 
   return {
     ...state,
@@ -102,7 +101,7 @@ Given('a simulator seeded with organizations {string} and {string}', async (stat
     branchName,
     blobPath,
     server,
-    baseUrl: `http://localhost:${port}`
+    baseUrl: `http://127.0.0.1:${server.port}`
   };
 });
 

@@ -58,6 +58,12 @@ describe('canonical store keys', () => {
     );
   });
 
+  it('rejects repository keys with extra path separators', () => {
+    expect(() => parseRepositoryStoreKey('acme/awesome/repo')).toThrow(
+      'Malformed repository store key "acme/awesome/repo"; expected "owner/name"'
+    );
+  });
+
   it('keeps distinct repository coordinates distinct', () => {
     fc.assert(
       fc.property(repositoryParts, repositoryParts, (first, second) => {

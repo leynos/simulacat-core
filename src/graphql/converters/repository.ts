@@ -61,7 +61,7 @@ export function convertRepositoryToGraphql(
       return convertLanguageConnection(applyRelayPagination(languages, pageArgs), totalSize);
     },
     repositoryTopics(pageArgs: PageArgs) {
-      const topics = repo.topics as string[];
+      const topics = Array.isArray(repo.topics) ? repo.topics : [];
 
       return convertRepositoryTopicConnection(
         applyRelayPagination(topics, pageArgs, (topicName) => ({

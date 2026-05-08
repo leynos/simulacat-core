@@ -1,3 +1,10 @@
+/**
+ * @file Local typed shim for `tests/cucumber.js`.
+ *
+ * Supplies `loadFeatures`, `bunTestCucumber`, and `withState` declarations for
+ * local test use while isolating the suite from third-party Bun/Cucumber
+ * package types.
+ */
 type StepDefinition<State> = (state: State, args: string[], data?: unknown) => State | Promise<State>;
 type HookDefinition<State> = (state: State) => State | Promise<State>;
 type StepRegistrar<State> = (pattern: string | RegExp, fn: StepDefinition<State>) => void;

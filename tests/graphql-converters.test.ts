@@ -4,22 +4,28 @@ import {convertRepositoryToGraphql} from '../src/graphql/converters/repository.t
 import type {DataSchemas, ToGraphqlDispatcher} from '../src/graphql/to-graphql-shapes.ts';
 import type {ExtendedSimulationStore} from '../src/store/index.ts';
 
+const makeRepositoryFixture = (): DataSchemas['Repository'] =>
+  ({
+    id: 123,
+    node_id: Buffer.from('Repository:test-org/test-repo').toString('base64'),
+    name: 'test-repo',
+    full_name: 'test-org/test-repo',
+    url: 'https://example.test/repos/test-org/test-repo',
+    created_at: '2024-01-02T03:04:05.000Z',
+    default_branch: 'main',
+    description: 'Fixture repository',
+    topics: [],
+    visibility: 'public',
+    archived: false,
+    fork: false,
+    owner: 'test-org'
+  }) as unknown as DataSchemas['Repository'];
+
 describe('convertRepositoryToGraphql', () => {
   it('uses the repository node_id for the GraphQL id', () => {
     const repository = {
-      id: 123,
-      node_id: Buffer.from('Repository:test-org/test-repo').toString('base64'),
-      name: 'test-repo',
-      full_name: 'test-org/test-repo',
-      url: 'https://example.test/repos/test-org/test-repo',
-      created_at: '2024-01-02T03:04:05.000Z',
-      default_branch: 'main',
-      description: 'Fixture repository',
-      topics: [],
-      visibility: 'public',
-      archived: false,
-      fork: false,
-      owner: 'test-org'
+      ...makeRepositoryFixture(),
+      node_id: Buffer.from('Repository:test-org/test-repo').toString('base64')
     } as unknown as DataSchemas['Repository'];
 
     const graphqlRepository = convertRepositoryToGraphql({} as ExtendedSimulationStore, repository, (() => {
@@ -34,19 +40,8 @@ describe('convertRepositoryToGraphql', () => {
 
   it('derives a canonical owner-qualified GraphQL id when node_id is unavailable', () => {
     const repository = {
-      id: 123,
-      node_id: undefined,
-      name: 'test-repo',
-      full_name: 'test-org/test-repo',
-      url: 'https://example.test/repos/test-org/test-repo',
-      created_at: '2024-01-02T03:04:05.000Z',
-      default_branch: 'main',
-      description: 'Fixture repository',
-      topics: [],
-      visibility: 'public',
-      archived: false,
-      fork: false,
-      owner: 'test-org'
+      ...makeRepositoryFixture(),
+      node_id: undefined
     } as unknown as DataSchemas['Repository'];
 
     const graphqlRepository = convertRepositoryToGraphql({} as ExtendedSimulationStore, repository, (() => {
@@ -54,5 +49,18 @@ describe('convertRepositoryToGraphql', () => {
     }) as ToGraphqlDispatcher);
 
     expect(graphqlRepository.id).toBe(Buffer.from('Repository:test-org/test-repo').toString('base64'));
+  });
+
+  it('ignores malformed non-array repository topics', () => {
+    const repository = {
+      ...makeRepositoryFixture(),
+      topics: 'typescript'
+    } as unknown as DataSchemas['Repository'];
+
+    const graphqlRepository = convertRepositoryToGraphql({} as ExtendedSimulationStore, repository, (() => {
+      throw new Error('owner resolution is not exercised in this test');
+    }) as ToGraphqlDispatcher);
+
+    expect(graphqlRepository.repositoryTopics({}).nodes).toEqual([]);
   });
 });

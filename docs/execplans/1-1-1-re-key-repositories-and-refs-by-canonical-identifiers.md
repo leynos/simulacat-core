@@ -594,12 +594,14 @@ the default Bun test environment.
    short notes referencing the canonical keys, and record this
    substitution in `Decision log` for transparency.
 6. Tick the `1.1.1` checkbox in `docs/roadmap.md` only after `make
-   check-fmt`, `make lint`, and `make test` all pass.
+   check-fmt`, `make lint`, `make typecheck`, and `make test` all
+   pass. `make typecheck` runs the repository's established
+   `bun check:types` alias.
 7. Run `make markdownlint` to confirm the documentation changes pass
    markdown lint, and `bun fmt` to format any updated markdown.
 
 Validation gate for Stage D: full quality gate (`make check-fmt`,
-`make lint`, `make test`) passes; documentation lint passes;
+`make lint`, `make typecheck`, `make test`) passes; documentation lint passes;
 `docs/roadmap.md` shows the task as complete; the existing branch is
 pushed or updated per the user instructions.
 
