@@ -57,9 +57,15 @@ const requireStepArg = (args: string[], index: number): string => {
 };
 
 const parseFullName = (fullName: string): {owner: string; name: string} => {
-  const [owner, name] = fullName.split('/');
+  const parts = fullName.split('/');
 
-  if (!owner || !name || fullName.indexOf('/') !== fullName.lastIndexOf('/')) {
+  if (parts.length !== 2) {
+    throw new Error(`Expected owner/name, got "${fullName}"`);
+  }
+
+  const [owner, name] = parts;
+
+  if (!owner || !name) {
     throw new Error(`Expected owner/name, got "${fullName}"`);
   }
 
