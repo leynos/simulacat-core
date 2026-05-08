@@ -110,6 +110,46 @@ describe('canonical store keys', () => {
     );
   });
 
+  it('throws when blobStoreKey is given neither path nor sha', () => {
+    expect(() => blobStoreKey({owner: 'acme', repo: 'awesome-repo'} as any)).toThrow();
+  });
+
+  it('throws when parseBranchStoreKey receives a key with no colon separator', () => {
+    expect(() => parseBranchStoreKey('acme/awesome-repo')).toThrow(
+      'Malformed branch store key "acme/awesome-repo"; expected "owner/repo:name"'
+    );
+  });
+
+  it('throws when parseBranchStoreKey receives a key with an empty name segment', () => {
+    expect(() => parseBranchStoreKey('acme/awesome-repo:')).toThrow(
+      'Malformed branch store key "acme/awesome-repo:"; expected "owner/repo:name"'
+    );
+  });
+
+  it('throws when parseBranchStoreKey receives a key with a malformed owner/repo prefix', () => {
+    expect(() => parseBranchStoreKey('acme:main')).toThrow(
+      'Malformed branch store key "acme:main"; expected "owner/repo:name"'
+    );
+  });
+
+  it('throws when parseBlobStoreKey receives a key with no colon separator', () => {
+    expect(() => parseBlobStoreKey('acme/awesome-repo')).toThrow(
+      'Malformed blob store key "acme/awesome-repo"; expected "owner/repo:reference"'
+    );
+  });
+
+  it('throws when parseBlobStoreKey receives a key with an empty reference segment', () => {
+    expect(() => parseBlobStoreKey('acme/awesome-repo:')).toThrow(
+      'Malformed blob store key "acme/awesome-repo:"; expected "owner/repo:reference"'
+    );
+  });
+
+  it('throws when parseBlobStoreKey receives a key with a malformed owner/repo prefix', () => {
+    expect(() => parseBlobStoreKey('acme:README.md')).toThrow(
+      'Malformed blob store key "acme:README.md"; expected "owner/repo:reference"'
+    );
+  });
+
   it('parses blob references that contain path separators', () => {
     expect(parseBlobStoreKey('acme/awesome-repo:docs/reference/README.md')).toEqual({
       owner: 'acme',
@@ -146,10 +186,18 @@ describe('canonical store keys', () => {
     expect(Buffer.from(repository.node_id, 'base64').toString('utf8')).toBe('Repository:acme/awesome-repo');
   });
 
+  it('throws when buildRepositoryFixture receives invalid input', () => {
+    expect(() => buildRepositoryFixture({} as any)).toThrow();
+  });
+
   it('builds parsed branch fixtures through the public builder', () => {
     const branch = buildBranchFixture({owner: 'acme', repo: 'awesome-repo', name: 'main'});
 
     expect(branchStoreKey(branch)).toBe('acme/awesome-repo:main');
     expect(branch.commit.sha).toBeString();
+  });
+
+  it('throws when buildBranchFixture receives invalid input', () => {
+    expect(() => buildBranchFixture({} as any)).toThrow();
   });
 });

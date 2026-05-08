@@ -72,3 +72,42 @@ Seeding two repositories with the same `owner/name` canonical key throws at
 parse time. Repositories with the same short `name` remain distinct when their
 `owner` values differ, so `acme/awesome-repo` and `globex/awesome-repo` can
 coexist safely.
+
+## Breaking changes
+
+### 1.1.1 -- Narrowed store key helper input types
+
+`repositoryStoreKey`, `branchStoreKey`, and `blobStoreKey` now accept narrower
+input shapes rather than the full GitHub entity types. Callers passing complete
+entity objects continue to work unchanged, but explicit type annotations
+referencing the old parameter types must be updated.
+
+#### `repositoryStoreKey`
+
+```typescript
+// Before
+repositoryStoreKey(repository: GitHubRepository)
+
+// After
+repositoryStoreKey(repository: { owner: string; name: string })
+```
+
+#### `branchStoreKey`
+
+```typescript
+// Before
+branchStoreKey(branch: GitHubBranch)
+
+// After
+branchStoreKey(branch: Pick<GitHubBranch, 'owner' | 'repo' | 'name'>)
+```
+
+#### `blobStoreKey`
+
+```typescript
+// Before
+blobStoreKey(blob: GitHubBlob)
+
+// After
+blobStoreKey(blob: Pick<GitHubBlob, 'owner' | 'repo' | 'path' | 'sha'>)
+```

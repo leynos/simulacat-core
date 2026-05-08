@@ -57,6 +57,12 @@ type _GitHubSelectors =
  *   }
  * });
  * ```
+ *
+ * @param args Optional simulator configuration including initial store state,
+ * API URL, schema file, and extension hooks.
+ * @returns A running {@link FoundationSimulator} instance.
+ * @throws {ZodError} When `args.initialState` is present but does not satisfy
+ * the initial store schema.
  */
 export const simulation = (args: GitHubSimulatorArgs = {}): FoundationSimulator<ExtendedSimulationStore> => {
   const parsedInitialState = !args?.initialState ? undefined : githubInitialStoreSchema.parse(args?.initialState);

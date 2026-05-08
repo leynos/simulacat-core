@@ -14,6 +14,7 @@ export type BranchFixtureInput = z.input<typeof githubBranchSchema>;
  *
  * @param input Repository fixture input to parse.
  * @returns Parsed GitHub repository fixture.
+ * @throws {ZodError} When `input` does not satisfy the repository schema.
  */
 export const buildRepositoryFixture = (input: RepositoryFixtureInput) => {
   return githubRepositorySchema.parse(input);
@@ -24,6 +25,7 @@ export const buildRepositoryFixture = (input: RepositoryFixtureInput) => {
  *
  * @param input Branch fixture input to parse.
  * @returns Parsed GitHub branch fixture.
+ * @throws {ZodError} When `input` does not satisfy the branch schema.
  */
 export const buildBranchFixture = (input: BranchFixtureInput) => {
   return githubBranchSchema.parse(input);
