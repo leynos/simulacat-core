@@ -81,6 +81,14 @@ describe('canonical store keys', () => {
     );
   });
 
+  it('parses branch names that contain path separators', () => {
+    expect(parseBranchStoreKey('acme/awesome-repo:feature/canonical-ids')).toEqual({
+      owner: 'acme',
+      repo: 'awesome-repo',
+      name: 'feature/canonical-ids'
+    });
+  });
+
   it('keeps distinct branch coordinates distinct', () => {
     fc.assert(
       fc.property(branchParts, branchParts, (first, second) => {
@@ -97,6 +105,14 @@ describe('canonical store keys', () => {
         expect(parseBlobStoreKey(key)).toEqual(parts);
       })
     );
+  });
+
+  it('parses blob references that contain path separators', () => {
+    expect(parseBlobStoreKey('acme/awesome-repo:docs/reference/README.md')).toEqual({
+      owner: 'acme',
+      repo: 'awesome-repo',
+      reference: 'docs/reference/README.md'
+    });
   });
 
   it('keeps distinct blob coordinates distinct', () => {

@@ -48,31 +48,51 @@ export const parseRepositoryStoreKey = (key: string): RepositoryStoreKeyParts =>
 };
 
 export const parseBranchStoreKey = (key: string): BranchStoreKeyParts => {
-  const repository = parseRepositoryStoreKey(key);
-  const separator = repository.name.indexOf(':');
+  const separator = key.indexOf(':');
+  const malformedError = new Error(`Malformed branch store key "${key}"; expected "owner/repo:name"`);
 
-  if (separator <= 0 || separator === repository.name.length - 1) {
-    throw new Error(`Malformed branch store key "${key}"; expected "owner/repo:name"`);
+  if (separator <= 0 || separator === key.length - 1) {
+    throw malformedError;
   }
+
+  let repository: RepositoryStoreKeyParts;
+
+  try {
+    repository = parseRepositoryStoreKey(key.slice(0, separator));
+  } catch {
+    throw malformedError;
+  }
+
+  const name = key.slice(separator + 1);
 
   return {
     owner: repository.owner,
-    repo: repository.name.slice(0, separator),
-    name: repository.name.slice(separator + 1)
+    repo: repository.name,
+    name
   };
 };
 
 export const parseBlobStoreKey = (key: string): BlobStoreKeyParts => {
-  const repository = parseRepositoryStoreKey(key);
-  const separator = repository.name.indexOf(':');
+  const separator = key.indexOf(':');
+  const malformedError = new Error(`Malformed blob store key "${key}"; expected "owner/repo:reference"`);
 
-  if (separator <= 0 || separator === repository.name.length - 1) {
-    throw new Error(`Malformed blob store key "${key}"; expected "owner/repo:reference"`);
+  if (separator <= 0 || separator === key.length - 1) {
+    throw malformedError;
   }
+
+  let repository: RepositoryStoreKeyParts;
+
+  try {
+    repository = parseRepositoryStoreKey(key.slice(0, separator));
+  } catch {
+    throw malformedError;
+  }
+
+  const reference = key.slice(separator + 1);
 
   return {
     owner: repository.owner,
-    repo: repository.name.slice(0, separator),
-    reference: repository.name.slice(separator + 1)
+    repo: repository.name,
+    reference
   };
 };
