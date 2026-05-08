@@ -59,8 +59,8 @@ export const parseBranchStoreKey = (key: string): BranchStoreKeyParts => {
 
   try {
     repository = parseRepositoryStoreKey(key.slice(0, separator));
-  } catch {
-    throw malformedError;
+  } catch (error) {
+    throw new Error(malformedError.message, {cause: error});
   }
 
   const name = key.slice(separator + 1);
@@ -84,8 +84,8 @@ export const parseBlobStoreKey = (key: string): BlobStoreKeyParts => {
 
   try {
     repository = parseRepositoryStoreKey(key.slice(0, separator));
-  } catch {
-    throw malformedError;
+  } catch (error) {
+    throw new Error(malformedError.message, {cause: error});
   }
 
   const reference = key.slice(separator + 1);

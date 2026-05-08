@@ -1,5 +1,6 @@
 /** @file Step definitions for cross-owner repository identity features. */
 import {expect} from 'bun:test';
+import {z} from 'zod';
 import {withState} from './cucumber.js';
 import {simulation} from '../src/index.ts';
 import {githubInitialStoreSchema} from '../src/store/entities.ts';
@@ -11,10 +12,17 @@ type RepositoryResponse = {
   node_id?: string;
 };
 
-type BranchResponse = {
-  owner?: string;
-  repo?: string;
-};
+const repositoryResponseSchema = z.object({
+  full_name: z.string().optional(),
+  node_id: z.string().optional()
+});
+const repositoryResponsesSchema = z.array(repositoryResponseSchema);
+
+const branchResponseSchema = z.object({
+  owner: z.string().optional(),
+  repo: z.string().optional()
+});
+const branchResponsesSchema = z.array(branchResponseSchema);
 
 type GraphqlRepositoryResponse = {
   data?: {
@@ -46,6 +54,14 @@ const gql = String.raw;
 
 const {After, Given, When, Then} = withState<ScenarioState>();
 
+/**
+ * Reads a positional Cucumber step argument.
+ *
+ * @param args Step arguments captured from the feature text.
+ * @param index Zero-based argument index to read.
+ * @returns The argument string at the requested index.
+ * @throws Error when the argument is missing.
+ */
 const requireStepArg = (args: string[], index: number): string => {
   const arg = args[index];
 
@@ -56,6 +72,13 @@ const requireStepArg = (args: string[], index: number): string => {
   return arg;
 };
 
+/**
+ * Parses an owner-qualified repository name.
+ *
+ * @param fullName Repository name in `owner/name` format.
+ * @returns Parsed owner and repository name parts.
+ * @throws Error when the input is not exactly `owner/name`.
+ */
 const parseFullName = (fullName: string): {owner: string; name: string} => {
   const parts = fullName.split('/');
 
@@ -84,19 +107,20 @@ Given('a simulator seeded with organizations {string} and {string}', async (stat
   const repositoryName = state.repositoryName ?? 'awesome-repo';
   const branchName = state.branchName ?? 'main';
   const blobPath = state.blobPath ?? 'README.md';
+  const initialState = githubInitialStoreSchema.parse({
+    users: [],
+    organizations: owners.map((login) => ({login})),
+    repositories: owners.map((owner) => ({owner, name: repositoryName})),
+    branches: owners.map((owner) => ({owner, repo: repositoryName, name: branchName})),
+    blobs: owners.map((owner) => ({
+      owner,
+      repo: repositoryName,
+      path: blobPath,
+      content: `${owner} readme`
+    }))
+  });
   const app = simulation({
-    initialState: {
-      users: [],
-      organizations: owners.map((login) => ({login})),
-      repositories: owners.map((owner) => ({owner, name: repositoryName})),
-      branches: owners.map((owner) => ({owner, repo: repositoryName, name: branchName})),
-      blobs: owners.map((owner) => ({
-        owner,
-        repo: repositoryName,
-        path: blobPath,
-        content: `${owner} readme`
-      }))
-    }
+    initialState
   });
   const server = await app.listen(0);
 
@@ -200,20 +224,20 @@ Then('the response contains exactly one repository', (state) => {
 Then('the repository {string} is {string}', (state, args) => {
   const fieldName = requireStepArg(args, 0);
   const expected = requireStepArg(args, 1);
-  const [repo] = state.json as RepositoryResponse[];
+  const [repo] = repositoryResponsesSchema.parse(state.json);
   expect(repo?.[fieldName as keyof RepositoryResponse]).toBe(expected);
   return state;
 });
 
 Then('the response contains exactly one branch', (state) => {
-  expect(state.json).toBeArrayOfSize(1);
+  expect(branchResponsesSchema.parse(state.json)).toBeArrayOfSize(1);
   return state;
 });
 
 Then('the branch belongs to {string}', (state, args) => {
   const fullName = requireStepArg(args, 0);
   const {owner, name: repo} = parseFullName(fullName);
-  const [branch] = state.json as BranchResponse[];
+  const [branch] = branchResponsesSchema.parse(state.json);
   expect(branch).toEqual(expect.objectContaining({owner, repo}));
   return state;
 });
