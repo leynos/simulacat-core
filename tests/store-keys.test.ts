@@ -17,6 +17,9 @@ import {
 // generate non-empty segments that exclude both delimiters.
 const keySegment = fc.string({minLength: 1}).filter((value) => !value.includes('/') && !value.includes(':'));
 
+// Terminal segments (branch name, blob reference) may contain '/' but not ':'.
+const refSegment = fc.string({minLength: 1}).filter((value) => !value.includes(':'));
+
 const repositoryParts = fc.record({
   owner: keySegment,
   name: keySegment
@@ -25,13 +28,13 @@ const repositoryParts = fc.record({
 const branchParts = fc.record({
   owner: keySegment,
   repo: keySegment,
-  name: keySegment
+  name: refSegment
 });
 
 const blobParts = fc.record({
   owner: keySegment,
   repo: keySegment,
-  reference: keySegment
+  reference: refSegment
 });
 
 describe('canonical store keys', () => {
