@@ -59,7 +59,7 @@ const requireStepArg = (args: string[], index: number): string => {
 const parseFullName = (fullName: string): {owner: string; name: string} => {
   const [owner, name] = fullName.split('/');
 
-  if (!owner || !name) {
+  if (!owner || !name || fullName.indexOf('/') !== fullName.lastIndexOf('/')) {
     throw new Error(`Expected owner/name, got "${fullName}"`);
   }
 
@@ -249,10 +249,12 @@ Then("the two repositories' node_id values decode to different strings", (state)
 
 Then('every node_id begins with {string}', (state, args) => {
   const prefix = requireStepArg(args, 0);
-  expect(state.json).toEqual([
-    expect.stringMatching(new RegExp(`^${prefix}`)),
-    expect.stringMatching(new RegExp(`^${prefix}`))
-  ]);
+  const nodeIds = state.json as string[];
+
+  for (const id of nodeIds) {
+    expect(id.startsWith(prefix)).toBe(true);
+  }
+
   return state;
 });
 

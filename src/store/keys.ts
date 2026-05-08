@@ -29,7 +29,15 @@ export const repositoryNodeId = (owner: string, name: string): string => {
 export const parseRepositoryStoreKey = (key: string): RepositoryStoreKeyParts => {
   const separator = key.indexOf('/');
 
-  if (separator <= 0 || separator === key.length - 1 || separator !== key.lastIndexOf('/')) {
+  if (separator <= 0) {
+    throw new Error(`Malformed repository store key "${key}"; expected "owner/name"`);
+  }
+
+  if (separator === key.length - 1) {
+    throw new Error(`Malformed repository store key "${key}"; expected "owner/name"`);
+  }
+
+  if (separator !== key.lastIndexOf('/')) {
     throw new Error(`Malformed repository store key "${key}"; expected "owner/name"`);
   }
 

@@ -667,6 +667,7 @@ recorded here because it is environment-specific.
    ```bash
    make check-fmt 2>&1 | tee /tmp/check-fmt-simulacat-core-1-1-1-stageD.out
    make lint     2>&1 | tee /tmp/lint-simulacat-core-1-1-1-stageD.out
+   make typecheck 2>&1 | tee /tmp/typecheck-simulacat-core-1-1-1-stageD.out
    make test     2>&1 | tee /tmp/test-simulacat-core-1-1-1-stageD.out
    make markdownlint \
      2>&1 | tee /tmp/markdownlint-simulacat-core-1-1-1-stageD.out
