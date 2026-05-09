@@ -172,6 +172,8 @@ ______________________________________________________________________
 
 - [API reference](docs/api-reference.md) — simulation arguments, exported
   schemas, and supported API operations.
+- [User guide](docs/users-guide.md) — canonical key formats, fixture builders,
+  store key helpers, and breaking changes introduced in 1.1.1.
 - [Architecture guide](docs/architecture.md) — how seeded state flows through
   the store, REST, and GraphQL layers.
 - [Development guide](docs/development.md) — local workflows, quality gates, and
