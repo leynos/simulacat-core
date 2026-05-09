@@ -22,6 +22,13 @@ import {
   type GitHubBranch,
   type GitHubAppInstallation
 } from './entities.ts';
+import {branchStoreKey, repositoryStoreKey} from './keys.ts';
+
+/** Stateless parameter-extractor selectors, hoisted outside inputSelectors
+ * to keep its cyclomatic complexity within acceptable bounds. */
+const selectOwnerParam = (_state: AnyState, owner: string): string => owner;
+const selectRepoParam = (_state: AnyState, _owner: string, repo: string): string => repo;
+const selectShaOrPathParam = (_state: AnyState, _owner: string, _repo: string, shaOrPath: string): string => shaOrPath;
 
 type ExtendedSchema = ReturnType<typeof inputSchema>;
 type ExtendActions = typeof inputActions;
@@ -102,8 +109,8 @@ const extendActions =
     } as GitHubActions;
   };
 
-/** Creates the built-in selector suite used by REST and GraphQL handlers. */
-const inputSelectors = ({createSelector, schema}: ExtendSimulationSelectors<ExtendedSchema>) => {
+/** Builds selectors that join organizations and repositories. */
+const buildOrganisationSelectors = ({createSelector, schema}: ExtendSimulationSelectors<ExtendedSchema>) => {
   const allGithubOrganizations: (state: AnyState) => GitHubOrganizationWithRepositories[] = createSelector(
     schema.organizations.selectTableAsList,
     schema.repositories.selectTableAsList,
@@ -112,36 +119,6 @@ const inputSelectors = ({createSelector, schema}: ExtendSimulationSelectors<Exte
         const repositories = repos.filter((r) => r.owner === ghOrg.login);
         return {...ghOrg, repositories};
       });
-    }
-  );
-
-  const getAppInstallation: (
-    state: AnyState,
-    org: string,
-    repo?: string
-  ) => GitHubAppInstallationWithAccount | undefined = createSelector(
-    schema.installations.selectTableAsList,
-    schema.organizations.selectTableAsList,
-    schema.repositories.selectTableAsList,
-    (_state: AnyState, org: string, _repo?: string) => org,
-    (_state: AnyState, _org: string, repo?: string) => repo,
-    (installations, orgs, repos, org, repo) => {
-      const appInstall = installations.find((install) => install.account === org);
-      if (!appInstall) return undefined;
-      let account;
-      if (repo) {
-        const repoData = repos.find((r) => r.owner === appInstall?.account && r.name === repo);
-        if (repoData) account = orgs.find((o) => o.login === repoData.owner);
-      } else {
-        account = orgs.find((o) => o.login === appInstall?.account);
-      }
-      if (!account) return undefined;
-      return {
-        ...appInstall,
-        account: {...account},
-        target_id: account?.id,
-        target_type: account?.type
-      };
     }
   );
 
@@ -199,12 +176,74 @@ const inputSelectors = ({createSelector, schema}: ExtendSimulationSelectors<Exte
       }
     );
 
+  return {allGithubOrganizations, allReposWithOrgs};
+};
+
+/** Builds selectors that resolve GitHub App installations. */
+const buildInstallationSelectors = ({createSelector, schema}: ExtendSimulationSelectors<ExtendedSchema>) => {
+  const getAppInstallation: (
+    state: AnyState,
+    org: string,
+    repo?: string
+  ) => GitHubAppInstallationWithAccount | undefined = createSelector(
+    schema.installations.selectTableAsList,
+    schema.organizations.selectTableAsList,
+    schema.repositories.selectTableAsList,
+    (_state: AnyState, org: string, _repo?: string) => org,
+    (_state: AnyState, _org: string, repo?: string) => repo,
+    (installations, orgs, repos, org, repo) => {
+      const appInstall = installations.find((install) => install.account === org);
+      if (!appInstall) return undefined;
+      let account;
+      if (repo) {
+        const repoData = repos.find((r) => r.owner === appInstall?.account && r.name === repo);
+        if (repoData) account = orgs.find((o) => o.login === repoData.owner);
+      } else {
+        account = orgs.find((o) => o.login === appInstall?.account);
+      }
+      if (!account) return undefined;
+      return {
+        ...appInstall,
+        account: {...account},
+        target_id: account?.id,
+        target_type: account?.type
+      };
+    }
+  );
+
+  return {getAppInstallation};
+};
+
+/** Builds selectors that resolve repositories and branches. */
+const buildRepositorySelectors = ({createSelector, schema}: ExtendSimulationSelectors<ExtendedSchema>) => {
+  const getRepository = (state: AnyState, owner: string, name: string): GitHubRepository | undefined => {
+    const key = repositoryStoreKey({owner, name});
+    return schema.repositories.selectTable(state)?.[key];
+  };
+
+  const getBranch = (state: AnyState, owner: string, repo: string, name: string): GitHubBranch | undefined => {
+    const key = branchStoreKey({owner, repo, name});
+    return schema.branches.selectTable(state)?.[key];
+  };
+
+  const listBranchesForRepository: (state: AnyState, owner: string, repo: string) => GitHubBranch[] = createSelector(
+    schema.branches.selectTableAsList,
+    selectOwnerParam,
+    selectRepoParam,
+    (branches, owner, repo) => branches.filter((branch) => branchStoreKey(branch).startsWith(`${owner}/${repo}:`))
+  );
+
+  return {getRepository, getBranch, listBranchesForRepository};
+};
+
+/** Builds selectors that resolve repository blobs. */
+const buildBlobSelectors = ({createSelector, schema}: ExtendSimulationSelectors<ExtendedSchema>) => {
   const getBlob: (state: AnyState, owner: string, repo: string, sha_or_path: string) => GitHubBlob | undefined =
     createSelector(
       schema.blobs.selectTableAsList,
-      (_state: AnyState, owner: string) => owner,
-      (_state: AnyState, _owner: string, repo: string) => repo,
-      (_state: AnyState, _owner: string, _repo: string, sha_or_path: string) => sha_or_path,
+      selectOwnerParam,
+      selectRepoParam,
+      selectShaOrPathParam,
       (blobs, owner, repo, sha_or_path) => {
         const blob = blobs.find(
           (blob) =>
@@ -216,20 +255,24 @@ const inputSelectors = ({createSelector, schema}: ExtendSimulationSelectors<Exte
 
   const getBlobAtOwnerRepo: (state: AnyState, owner: string, repo: string) => GitHubBlob[] = createSelector(
     schema.blobs.selectTableAsList,
-    (_state: AnyState, owner: string) => owner,
-    (_state: AnyState, _owner: string, repo: string) => repo,
+    selectOwnerParam,
+    selectRepoParam,
     (blobs, owner, repo) => {
       const blob = blobs.filter((blob) => blob.owner === owner && blob.repo === repo);
       return blob;
     }
   );
 
+  return {getBlob, getBlobAtOwnerRepo};
+};
+
+/** Creates the built-in selector suite used by REST and GraphQL handlers. */
+const inputSelectors = (args: ExtendSimulationSelectors<ExtendedSchema>) => {
   return {
-    allGithubOrganizations,
-    getAppInstallation,
-    allReposWithOrgs,
-    getBlob,
-    getBlobAtOwnerRepo
+    ...buildOrganisationSelectors(args),
+    ...buildInstallationSelectors(args),
+    ...buildRepositorySelectors(args),
+    ...buildBlobSelectors(args)
   };
 };
 

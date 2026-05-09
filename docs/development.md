@@ -17,6 +17,7 @@ Prefer the Makefile targets where available:
 
 - `make check-fmt`
 - `make lint`
+- `make markdownlint`
 - `make test`
 - `make all`
 - `make build`
@@ -64,6 +65,18 @@ Changes to behaviour should come with a targeted regression test.
   tests when possible.
 - Route-level behaviour should be covered by integration tests that assert both
   status codes and response shapes.
+
+### Gherkin feature scenarios
+
+Feature files live under `features/` and are loaded by
+`tests/cross-owner-identity.features.test.ts` through
+`@aboviq/bun-test-cucumber`'s `loadFeatures()` helper. Step definitions live in
+`tests/**/*.steps.ts`; `test-plugins.ts` registers that pattern through Bun's
+test preload configured in `bunfig.toml`.
+
+`bun test` and `make test` run the Gherkin scenarios alongside the normal
+unit and integration tests. Keep feature files focused on user-visible
+behaviour, and keep pure helper invariants in regular Bun tests.
 
 ## Regenerating bundled assets
 

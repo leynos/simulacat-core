@@ -57,6 +57,12 @@ type _GitHubSelectors =
  *   }
  * });
  * ```
+ *
+ * @param args Optional simulator configuration including initial store state,
+ * API URL, schema file, and extension hooks.
+ * @returns A running {@link FoundationSimulator} instance.
+ * @throws {ZodError} When `args.initialState` is present but does not satisfy
+ * the initial store schema.
  */
 export const simulation = (args: GitHubSimulatorArgs = {}): FoundationSimulator<ExtendedSimulationStore> => {
   const parsedInitialState = !args?.initialState ? undefined : githubInitialStoreSchema.parse(args?.initialState);
@@ -77,9 +83,24 @@ export const simulation = (args: GitHubSimulatorArgs = {}): FoundationSimulator<
 };
 
 export {
+  buildBranchFixture,
+  buildRepositoryFixture,
+  type BranchFixtureInput,
+  type RepositoryFixtureInput
+} from './store/builders.ts';
+export {
   githubUserSchema,
   githubOrganizationSchema,
   githubRepositorySchema,
   githubBranchSchema,
   githubBlobSchema
 } from './store/entities.ts';
+export {
+  blobStoreKey,
+  branchStoreKey,
+  parseBranchStoreKey,
+  parseBlobStoreKey,
+  parseRepositoryStoreKey,
+  repositoryNodeId,
+  repositoryStoreKey
+} from './store/keys.ts';

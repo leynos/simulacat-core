@@ -13,6 +13,7 @@ import {
 import {deriveOwner} from '../owners.ts';
 import type {DataSchemas, GraphQLData, ToGraphqlDispatcher} from '../to-graphql-shapes.ts';
 import type {ExtendedSimulationStore} from '../../store/index.ts';
+import {branchStoreKey, repositoryNodeId} from '../../store/keys.ts';
 import {RepositoryVisibility} from '../../__generated__/resolvers-types.ts';
 import type {User} from '../../__generated__/resolvers-types.ts';
 
@@ -32,11 +33,13 @@ export function convertRepositoryToGraphql(
   toGraphql: ToGraphqlDispatcher
 ): GraphQLData['Repository'] {
   const defaultBranchName = repo.default_branch ?? 'main';
-  const defaultBranchId = Buffer.from(`Branch:${repo.id ?? repo.full_name}:${defaultBranchName}`).toString('base64');
+  const defaultBranchId = Buffer.from(
+    `Branch:${branchStoreKey({owner: repo.owner, repo: repo.name, name: defaultBranchName})}`
+  ).toString('base64');
 
   return {
     __typename: 'Repository',
-    id: String(repo.id ?? repo.full_name),
+    id: repo.node_id ?? repositoryNodeId(repo.owner, repo.name),
     name: repo.name,
     nameWithOwner: repo.full_name,
     url: repo.url,
@@ -58,8 +61,10 @@ export function convertRepositoryToGraphql(
       return convertLanguageConnection(applyRelayPagination(languages, pageArgs), totalSize);
     },
     repositoryTopics(pageArgs: PageArgs) {
+      const topics = Array.isArray(repo.topics) ? repo.topics : [];
+
       return convertRepositoryTopicConnection(
-        applyRelayPagination(repo.topics, pageArgs, (topicName) => ({
+        applyRelayPagination(topics, pageArgs, (topicName) => ({
           id: `${repo.full_name}:${topicName}`,
           resourcePath: `/${repo.full_name}/topics/${topicName}`,
           topic: {

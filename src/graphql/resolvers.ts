@@ -46,13 +46,16 @@ export function createResolvers(simulationStore: ExtendedSimulationStore): Resol
         return applyRelayPagination(orgs, pageArgs, (org) => toGraphql(simulationStore, 'Organization', org));
       },
       repository(_root: unknown, {owner, name}: {owner: string; name: string}) {
-        const repo = simulationStore.schema.repositories
-          .selectTableAsList(simulationStore.store.getState())
-          .find(
-            (r) =>
-              r.name.toLowerCase() === name.toLowerCase() &&
-              r.full_name.toLowerCase() === `${owner}/${name}`.toLowerCase()
-          );
+        const state = simulationStore.store.getState();
+        const repo =
+          simulationStore.selectors.getRepository(state, owner, name) ??
+          simulationStore.schema.repositories
+            .selectTableAsList(state)
+            .find(
+              (r) =>
+                r.name.toLowerCase() === name.toLowerCase() &&
+                r.full_name.toLowerCase() === `${owner}/${name}`.toLowerCase()
+            );
         assert(!!repo, `no repository found for ${name}`);
         return toGraphql(simulationStore, 'Repository', repo);
       },

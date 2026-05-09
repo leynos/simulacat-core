@@ -36,6 +36,12 @@ state store, then exposes that state through REST and GraphQL surfaces.
 - `src/store/entities/repository.ts`
   Defines `githubRepositorySchema`, `GitHubRepository`, and
   `repositoryStoreKey`.
+- `src/store/keys.ts`
+  Re-exports canonical key helpers and parsing helpers for repositories,
+  branches, and blobs.
+- `src/store/builders.ts`
+  Provides public fixture builders backed by the same schemas used for seeded
+  state.
 - `src/store/entities/shared.ts`
   Defines `githubEntityPermissionSchema`.
 - `src/store/index.ts`
@@ -66,10 +72,22 @@ The built-in store contains the following slices:
 - `organizations`
 - `blobs`
 
+Tables use canonical owner-qualified keys:
+
+- repositories: `owner/name`
+- branches: `owner/repo:name`
+- blobs: `owner/repo:reference`, where `reference` is the seeded `path` or
+  `sha`
+
+This means `acme/awesome-repo` and `globex/awesome-repo` are distinct
+repositories even though their short names match. Repository `node_id` values
+derive from the same key as base64-encoded `Repository:owner/name` strings.
+
 Selectors provide the higher-level joins the handlers need:
 
 - installations joined to owning organizations and repositories
 - repositories decorated with organization owners
+- keyed repository and branch lookup by owner-qualified coordinates
 - blob lookup by `path` or `sha`
 - repository tree lookup across all blobs in an owner/repository pair
 

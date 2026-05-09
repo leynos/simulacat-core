@@ -147,6 +147,13 @@ seed fixtures.
 - `githubBranchSchema`: Seeds branch data, defaulting to `main`.
 - `githubBlobSchema`: Seeds repository contents. A blob must specify either
   `path` or `sha`; either lookup style is supported.
+- `buildRepositoryFixture` and `buildBranchFixture`: Parse individual fixtures
+  through the public schemas and return the expanded entities.
+
+Repository identity is scoped by owner. Use `owner/name` for repositories and
+`owner/repo:name` for branches; two owners can each seed a repository with the
+same short name without colliding. Derived repository `node_id` values encode
+`Repository:owner/name`.
 
 ______________________________________________________________________
 
@@ -165,6 +172,8 @@ ______________________________________________________________________
 
 - [API reference](docs/api-reference.md) — simulation arguments, exported
   schemas, and supported API operations.
+- [User guide](docs/users-guide.md) — canonical key formats, fixture builders,
+  store key helpers, and breaking changes introduced in 1.1.1.
 - [Architecture guide](docs/architecture.md) — how seeded state flows through
   the store, REST, and GraphQL layers.
 - [Development guide](docs/development.md) — local workflows, quality gates, and

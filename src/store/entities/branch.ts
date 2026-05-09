@@ -39,4 +39,5 @@ export const githubBranchSchema = z
 
 export type GitHubBranch = z.infer<typeof githubBranchSchema>;
 
-export const branchStoreKey = (branch: GitHubBranch) => `${branch.owner}/${branch.repo}:${branch.name}`;
+export const branchStoreKey = (branch: Pick<GitHubBranch, 'owner' | 'repo' | 'name'>) =>
+  `${branch.owner}/${branch.repo}:${branch.name}`;
