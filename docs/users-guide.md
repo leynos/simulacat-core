@@ -75,7 +75,7 @@ coexist safely.
 
 ## Breaking changes
 
-### 1.1.1 -- Narrowed store key helper input types
+### 1.1.1 — Narrowed store key helper input types
 
 `repositoryStoreKey`, `branchStoreKey`, and `blobStoreKey` now accept narrower
 input shapes rather than the full GitHub entity types. Callers passing complete

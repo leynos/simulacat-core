@@ -13,8 +13,9 @@ import {
   repositoryStoreKey
 } from '../src/index.ts';
 
-// The canonical key grammar uses `/` and `:` as separators, so property tests
-// generate non-empty segments that exclude both delimiters.
+// The canonical key grammar uses `/` and `:` as separators. Most
+// property-test segments use keySegment to exclude both delimiters, while
+// terminal segments use refSegment to permit `/` but not `:`.
 const keySegment = fc.string({minLength: 1}).filter((value) => !value.includes('/') && !value.includes(':'));
 
 // Terminal segments (branch name, blob reference) may contain '/' but not ':'.
