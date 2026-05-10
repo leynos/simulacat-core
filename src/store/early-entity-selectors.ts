@@ -1,13 +1,23 @@
 /** @file Selectors for early repository-owned GitHub entities. */
 import type {AnyState} from '@simulacrum/foundation-simulator';
 import type {GitHubCommit, GitHubIssue, GitHubPullRequest, GitHubRef} from './entities.ts';
-import {commitStoreKey, issueStoreKey, pullRequestStoreKey, refStoreKey} from './keys.ts';
+import {
+  commitStoreKey,
+  issueStoreKey,
+  pullRequestStoreKey,
+  refStoreKey,
+  type CommitStoreKeyParts,
+  type IssueStoreKeyParts,
+  type PullRequestStoreKeyParts,
+  type RefStoreKeyParts,
+  type RepositoryCoords
+} from './keys.ts';
 
 /** Extracts the owner parameter from selector arguments. */
-const selectOwnerParam = (_state: AnyState, owner: string): string => owner;
+const selectOwnerParam = (_state: AnyState, coords: RepositoryCoords): string => coords.owner;
 
 /** Extracts the repo parameter from selector arguments. */
-const selectRepoParam = (_state: AnyState, _owner: string, repo: string): string => repo;
+const selectRepoParam = (_state: AnyState, coords: RepositoryCoords): string => coords.repo;
 
 type StoreTable<T> = {
   selectTableAsList: (state: AnyState) => T[];
@@ -44,29 +54,25 @@ export type EarlyEntitySelectorArgs = {
  * requests by owner-scoped repository coordinates.
  */
 export const buildEarlyEntitySelectors = ({createSelector, schema}: EarlyEntitySelectorArgs) => {
-  const listRefsForRepository = createSelector<
-    [owner: string, repo: string],
-    [GitHubRef[], string, string],
-    GitHubRef[]
-  >(
+  const listRefsForRepository = createSelector<[coords: RepositoryCoords], [GitHubRef[], string, string], GitHubRef[]>(
     schema.refs.selectTableAsList,
     selectOwnerParam,
     selectRepoParam,
     (refs: GitHubRef[], owner: string, repo: string) => refs.filter((ref) => ref.owner === owner && ref.repo === repo)
   );
 
-  const getRef = (state: AnyState, owner: string, repo: string, qualifiedName: string): GitHubRef | undefined => {
-    const key = refStoreKey({owner, repo, qualifiedName});
+  const getRef = (state: AnyState, coords: RefStoreKeyParts): GitHubRef | undefined => {
+    const key = refStoreKey(coords);
     return schema.refs.selectTable(state)?.[key];
   };
 
-  const getCommit = (state: AnyState, owner: string, repo: string, sha: string): GitHubCommit | undefined => {
-    const key = commitStoreKey({owner, repo, sha});
+  const getCommit = (state: AnyState, coords: CommitStoreKeyParts): GitHubCommit | undefined => {
+    const key = commitStoreKey(coords);
     return schema.commits.selectTable(state)?.[key];
   };
 
   const listCommitsForRepository = createSelector<
-    [owner: string, repo: string],
+    [coords: RepositoryCoords],
     [GitHubCommit[], string, string],
     GitHubCommit[]
   >(
@@ -78,20 +84,15 @@ export const buildEarlyEntitySelectors = ({createSelector, schema}: EarlyEntityS
   );
 
   /** Returns only the direct commit target of a ref; graph traversal is deferred. */
-  const listCommitsReachableFromRef = (
-    state: AnyState,
-    owner: string,
-    repo: string,
-    qualifiedName: string
-  ): GitHubCommit[] => {
-    const ref = getRef(state, owner, repo, qualifiedName);
+  const listCommitsReachableFromRef = (state: AnyState, coords: RefStoreKeyParts): GitHubCommit[] => {
+    const ref = getRef(state, coords);
     if (!ref) return [];
-    const commit = getCommit(state, owner, repo, ref.object.sha);
+    const commit = getCommit(state, {owner: coords.owner, repo: coords.repo, sha: ref.object.sha});
     return commit ? [commit] : [];
   };
 
   const listIssuesForRepository = createSelector<
-    [owner: string, repo: string],
+    [coords: RepositoryCoords],
     [GitHubIssue[], string, string],
     GitHubIssue[]
   >(
@@ -102,13 +103,13 @@ export const buildEarlyEntitySelectors = ({createSelector, schema}: EarlyEntityS
       issues.filter((issue) => issue.owner === owner && issue.repo === repo)
   );
 
-  const getIssue = (state: AnyState, owner: string, repo: string, number: number): GitHubIssue | undefined => {
-    const key = issueStoreKey({owner, repo, number});
+  const getIssue = (state: AnyState, coords: IssueStoreKeyParts): GitHubIssue | undefined => {
+    const key = issueStoreKey(coords);
     return schema.issues.selectTable(state)?.[key];
   };
 
   const listPullRequestsForRepository = createSelector<
-    [owner: string, repo: string],
+    [coords: RepositoryCoords],
     [GitHubPullRequest[], string, string],
     GitHubPullRequest[]
   >(
@@ -119,20 +120,23 @@ export const buildEarlyEntitySelectors = ({createSelector, schema}: EarlyEntityS
       pullRequests.filter((pullRequest) => pullRequest.owner === owner && pullRequest.repo === repo)
   );
 
-  const getPullRequest = (
-    state: AnyState,
-    owner: string,
-    repo: string,
-    number: number
-  ): GitHubPullRequest | undefined => {
-    const key = pullRequestStoreKey({owner, repo, number});
+  const getPullRequest = (state: AnyState, coords: PullRequestStoreKeyParts): GitHubPullRequest | undefined => {
+    const key = pullRequestStoreKey(coords);
     return schema.pullRequests.selectTable(state)?.[key];
   };
 
   const resolvePullRequestRelations = (state: AnyState, pullRequest: GitHubPullRequest) => ({
-    baseRef: getRef(state, pullRequest.base.owner, pullRequest.base.repo, pullRequest.base.ref),
-    headRef: getRef(state, pullRequest.head.owner, pullRequest.head.repo, pullRequest.head.ref),
-    issue: getIssue(state, pullRequest.owner, pullRequest.repo, pullRequest.issue_number)
+    baseRef: getRef(state, {
+      owner: pullRequest.base.owner,
+      repo: pullRequest.base.repo,
+      qualifiedName: pullRequest.base.ref
+    }),
+    headRef: getRef(state, {
+      owner: pullRequest.head.owner,
+      repo: pullRequest.head.repo,
+      qualifiedName: pullRequest.head.ref
+    }),
+    issue: getIssue(state, {owner: pullRequest.owner, repo: pullRequest.repo, number: pullRequest.issue_number})
   });
 
   return {

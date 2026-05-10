@@ -241,7 +241,9 @@ const handlers =
           ) => {
             const {owner, repo, ref} = context.request.params;
             const repository = simulationStore.selectors.getRepository(getState(), owner, repo);
-            const gitRef = repository ? simulationStore.selectors.getRef(getState(), owner, repo, ref) : undefined;
+            const gitRef = repository
+              ? simulationStore.selectors.getRef(getState(), {owner, repo, qualifiedName: ref})
+              : undefined;
             if (!gitRef) return response.status(404).json(notFound);
             return response.status(200).json(gitRef);
           },
@@ -254,7 +256,7 @@ const handlers =
             const {owner, repo, commit_sha} = context.request.params;
             const repository = simulationStore.selectors.getRepository(getState(), owner, repo);
             const commit = repository
-              ? simulationStore.selectors.getCommit(getState(), owner, repo, commit_sha)
+              ? simulationStore.selectors.getCommit(getState(), {owner, repo, sha: commit_sha})
               : undefined;
             if (!commit) return response.status(404).json(notFound);
             return response.status(200).json(commit);
@@ -270,7 +272,7 @@ const handlers =
             if (!repository) return response.status(404).json(notFound);
             return response
               .status(200)
-              .json(simulationStore.selectors.listIssuesForRepository(getState(), owner, repo));
+              .json(simulationStore.selectors.listIssuesForRepository(getState(), {owner, repo}));
           },
           // GET /repos/{owner}/{repo}/issues/{issue_number}
           'issues/get': async (
@@ -281,7 +283,7 @@ const handlers =
             const {owner, repo, issue_number} = context.request.params;
             const repository = simulationStore.selectors.getRepository(getState(), owner, repo);
             const issue = repository
-              ? simulationStore.selectors.getIssue(getState(), owner, repo, Number(issue_number))
+              ? simulationStore.selectors.getIssue(getState(), {owner, repo, number: Number(issue_number)})
               : undefined;
             if (!issue) return response.status(404).json(notFound);
             return response.status(200).json(issue);
@@ -297,7 +299,7 @@ const handlers =
             if (!repository) return response.status(404).json(notFound);
             return response
               .status(200)
-              .json(simulationStore.selectors.listPullRequestsForRepository(getState(), owner, repo));
+              .json(simulationStore.selectors.listPullRequestsForRepository(getState(), {owner, repo}));
           },
           // GET /repos/{owner}/{repo}/pulls/{pull_number}
           'pulls/get': async (
@@ -308,7 +310,7 @@ const handlers =
             const {owner, repo, pull_number} = context.request.params;
             const repository = simulationStore.selectors.getRepository(getState(), owner, repo);
             const pullRequest = repository
-              ? simulationStore.selectors.getPullRequest(getState(), owner, repo, Number(pull_number))
+              ? simulationStore.selectors.getPullRequest(getState(), {owner, repo, number: Number(pull_number)})
               : undefined;
             if (!pullRequest) return response.status(404).json(notFound);
             return response.status(200).json(pullRequest);

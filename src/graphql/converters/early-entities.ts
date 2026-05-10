@@ -105,12 +105,11 @@ export function convertRefToGraphql(
   toGraphql: ToGraphqlDispatcher
 ): GraphQLData['Ref'] {
   const {name, prefix} = splitRefName(ref.qualifiedName);
-  const commit = simulationStore.selectors.getCommit(
-    simulationStore.store.getState(),
-    ref.owner,
-    ref.repo,
-    ref.object.sha
-  );
+  const commit = simulationStore.selectors.getCommit(simulationStore.store.getState(), {
+    owner: ref.owner,
+    repo: ref.repo,
+    sha: ref.object.sha
+  });
 
   return {
     __typename: 'Ref',

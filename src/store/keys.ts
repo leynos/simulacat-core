@@ -54,6 +54,12 @@ export type IssueStoreKeyParts = {
 
 export type PullRequestStoreKeyParts = IssueStoreKeyParts;
 
+/** Shared coordinates for any repository-scoped entity. */
+export type RepositoryCoords = {
+  owner: string;
+  repo: string;
+};
+
 export const repositoryNodeId = (owner: string, name: string): string => {
   return Buffer.from(`Repository:${repositoryStoreKey({owner, name})}`).toString('base64');
 };
