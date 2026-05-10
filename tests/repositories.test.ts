@@ -8,6 +8,25 @@ const basePort = 3320;
 const host = 'http://localhost';
 const url = `${host}:${basePort}`;
 
+interface ListAndGetConfig {
+  listPath: string;
+  getPath: string;
+  listMatcher: ReturnType<typeof expect.objectContaining>;
+  assertGetResponse: (response: Record<string, unknown>) => void;
+}
+
+async function assertListAndGet(baseUrl: string, config: ListAndGetConfig): Promise<void> {
+  const listRequest = await fetch(`${baseUrl}${config.listPath}`);
+  const listResponse = (await listRequest.json()) as unknown[];
+  const getRequest = await fetch(`${baseUrl}${config.getPath}`);
+  const getResponse = (await getRequest.json()) as Record<string, unknown>;
+
+  expect(listRequest.status).toEqual(200);
+  expect(listResponse).toEqual([config.listMatcher]);
+  expect(getRequest.status).toEqual(200);
+  config.assertGetResponse(getResponse);
+}
+
 describe('GET repo endpoints', () => {
   let server: SimulationServer;
   beforeAll(async () => {
@@ -171,27 +190,21 @@ describe('GET repo endpoints', () => {
     });
 
     it('lists and gets issues within the requested repository', async () => {
-      const listRequest = await fetch(`${url}/repos/lovely-org/awesome-repo/issues`);
-      const listResponse = await listRequest.json();
-      const getRequest = await fetch(`${url}/repos/lovely-org/awesome-repo/issues/1`);
-      const getResponse = await getRequest.json();
-
-      expect(listRequest.status).toEqual(200);
-      expect(listResponse).toEqual([expect.objectContaining({title: 'Lovely issue'})]);
-      expect(getRequest.status).toEqual(200);
-      expect(getResponse.title).toBe('Lovely issue');
+      await assertListAndGet(url, {
+        listPath: '/repos/lovely-org/awesome-repo/issues',
+        getPath: '/repos/lovely-org/awesome-repo/issues/1',
+        listMatcher: expect.objectContaining({title: 'Lovely issue'}),
+        assertGetResponse: (r) => expect((r as {title: unknown}).title).toBe('Lovely issue')
+      });
     });
 
     it('lists and gets pull requests within the requested repository', async () => {
-      const listRequest = await fetch(`${url}/repos/lovely-org/awesome-repo/pulls`);
-      const listResponse = await listRequest.json();
-      const getRequest = await fetch(`${url}/repos/lovely-org/awesome-repo/pulls/2`);
-      const getResponse = await getRequest.json();
-
-      expect(listRequest.status).toEqual(200);
-      expect(listResponse).toEqual([expect.objectContaining({title: 'Lovely pull request'})]);
-      expect(getRequest.status).toEqual(200);
-      expect(getResponse.head.ref).toBe('feature/entity-spine');
+      await assertListAndGet(url, {
+        listPath: '/repos/lovely-org/awesome-repo/pulls',
+        getPath: '/repos/lovely-org/awesome-repo/pulls/2',
+        listMatcher: expect.objectContaining({title: 'Lovely pull request'}),
+        assertGetResponse: (r) => expect((r as {head: {ref: unknown}}).head.ref).toBe('feature/entity-spine')
+      });
     });
 
     it('does not fall through to same-name entities under another owner', async () => {
