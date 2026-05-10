@@ -60,23 +60,23 @@ export type RepositoryCoords = {
   repo: string;
 };
 
-export const repositoryNodeId = (owner: string, name: string): string => {
+export const repositoryNodeId = ({owner, name}: RepositoryStoreKeyParts): string => {
   return Buffer.from(`Repository:${repositoryStoreKey({owner, name})}`).toString('base64');
 };
 
-export const refNodeId = (owner: string, repo: string, qualifiedName: string): string => {
+export const refNodeId = ({owner, repo, qualifiedName}: RefStoreKeyParts): string => {
   return Buffer.from(`Ref:${refStoreKey({owner, repo, qualifiedName})}`).toString('base64');
 };
 
-export const commitNodeId = (owner: string, repo: string, sha: string): string => {
+export const commitNodeId = ({owner, repo, sha}: CommitStoreKeyParts): string => {
   return Buffer.from(`Commit:${commitStoreKey({owner, repo, sha})}`).toString('base64');
 };
 
-export const issueNodeId = (owner: string, repo: string, number: number): string => {
+export const issueNodeId = ({owner, repo, number}: IssueStoreKeyParts): string => {
   return Buffer.from(`Issue:${issueStoreKey({owner, repo, number})}`).toString('base64');
 };
 
-export const pullRequestNodeId = (owner: string, repo: string, number: number): string => {
+export const pullRequestNodeId = ({owner, repo, number}: PullRequestStoreKeyParts): string => {
   return Buffer.from(`PullRequest:${pullRequestStoreKey({owner, repo, number})}`).toString('base64');
 };
 
@@ -102,53 +102,13 @@ export const parseRepositoryStoreKey = (key: string): RepositoryStoreKeyParts =>
 };
 
 export const parseBranchStoreKey = (key: string): BranchStoreKeyParts => {
-  const separator = key.indexOf(':');
-  const malformedError = new Error(`Malformed branch store key "${key}"; expected "owner/repo:name"`);
-
-  if (separator <= 0 || separator === key.length - 1) {
-    throw malformedError;
-  }
-
-  let repository: RepositoryStoreKeyParts;
-
-  try {
-    repository = parseRepositoryStoreKey(key.slice(0, separator));
-  } catch (error) {
-    throw new Error(malformedError.message, {cause: error});
-  }
-
-  const name = key.slice(separator + 1);
-
-  return {
-    owner: repository.owner,
-    repo: repository.name,
-    name
-  };
+  const parsed = parseRepositoryScopedReferenceKey(key, 'branch', 'name');
+  return {owner: parsed.owner, repo: parsed.name, name: parsed.reference};
 };
 
 export const parseBlobStoreKey = (key: string): BlobStoreKeyParts => {
-  const separator = key.indexOf(':');
-  const malformedError = new Error(`Malformed blob store key "${key}"; expected "owner/repo:reference"`);
-
-  if (separator <= 0 || separator === key.length - 1) {
-    throw malformedError;
-  }
-
-  let repository: RepositoryStoreKeyParts;
-
-  try {
-    repository = parseRepositoryStoreKey(key.slice(0, separator));
-  } catch (error) {
-    throw new Error(malformedError.message, {cause: error});
-  }
-
-  const reference = key.slice(separator + 1);
-
-  return {
-    owner: repository.owner,
-    repo: repository.name,
-    reference
-  };
+  const parsed = parseRepositoryScopedReferenceKey(key, 'blob', 'reference');
+  return {owner: parsed.owner, repo: parsed.name, reference: parsed.reference};
 };
 
 const parseRepositoryScopedReferenceKey = (

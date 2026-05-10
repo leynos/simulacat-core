@@ -71,7 +71,7 @@ export function convertRepositoryToGraphql(
 
   return {
     __typename: 'Repository',
-    id: repo.node_id ?? repositoryNodeId(repo.owner, repo.name),
+    id: repo.node_id ?? repositoryNodeId({owner: repo.owner, name: repo.name}),
     name: repo.name,
     nameWithOwner: repo.full_name,
     url: repo.url,

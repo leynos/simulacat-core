@@ -230,7 +230,7 @@ describe('canonical store keys', () => {
   it('derives decodable repository node ids with the Repository prefix', () => {
     fc.assert(
       fc.property(repositoryParts, (parts) => {
-        const nodeId = repositoryNodeId(parts.owner, parts.name);
+        const nodeId = repositoryNodeId(parts);
         expect(nodeId.length).toBeGreaterThan(0);
         expect(Buffer.from(nodeId, 'base64').toString('utf8')).toBe(`Repository:${repositoryStoreKey(parts)}`);
       })
