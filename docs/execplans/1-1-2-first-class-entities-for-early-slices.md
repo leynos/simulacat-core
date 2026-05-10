@@ -5,13 +5,14 @@ This ExecPlan (execution plan) is a living document. The sections
 `Decision Log`, and `Outcomes & Retrospective` must be kept up to date as work
 proceeds.
 
-Status: DRAFT
+Status: COMPLETE
 
 Roadmap reference: `docs/roadmap.md` task `1.1.2` under section 1.1
 "Prove repository identity is owner-scoped and ref-safe".
 
-Approval gate: this plan must be explicitly approved before implementation
-starts. Drafting this file is the only work authorised in the current turn.
+Approval gate: approved for implementation on 2026-05-10 after the draft PR
+was created. Implementation is proceeding milestone by milestone under the
+tolerances below.
 
 ## Purpose / big picture
 
@@ -43,7 +44,8 @@ repository and can be read through the minimum public surfaces needed by phases
 Hard invariants that must hold throughout implementation. Violation requires
 escalation, not workarounds.
 
-- Do not implement this plan until the user explicitly approves it.
+- Do not implement this plan until the user explicitly approves it. This was
+  satisfied on 2026-05-10 when the user asked to proceed with implementation.
 - The branch must not be `main`, `master`, or another default branch. Before
   implementation, run `git branch --show-current`; if it is a default branch,
   stop and ask for direction.
@@ -198,13 +200,39 @@ escalation, not workarounds.
 - [x] (2026-05-10T12:25:00Z) Attempted `coderabbit review --agent` for the
   planning milestone; it could not run because the account has no remaining
   usage credits.
-- [ ] Await explicit user approval of this ExecPlan before implementation.
-- [ ] Rename the branch and set upstream tracking.
-- [ ] Implement milestone A: define the minimal entity contract and red tests.
-- [ ] Implement milestone B: store schemas, keys, builders, and selectors.
-- [ ] Implement milestone C: early REST and GraphQL reads backed by the new
-  entities.
-- [ ] Implement milestone D: documentation, roadmap completion, review, and PR.
+- [x] (2026-05-10T12:50:30Z) Received explicit user approval to implement the
+  planned functionality.
+- [x] (2026-05-10T12:50:30Z) Confirmed the branch is
+  `1-1-2-first-class-entities-for-early-slices`; the branch rename and upstream
+  tracking were completed before implementation resumed.
+- [x] (2026-05-10T13:02:44Z) Implemented milestone A test coverage for key
+  round trips, defaulted initial-state collections, duplicate detection,
+  owner-scoped REST reads, and GraphQL repository reads. The first focused
+  test run exposed a numbered-key generator gap for `#` and `!` separators.
+- [x] (2026-05-10T13:02:44Z) Implemented milestone B store schemas, key
+  helpers, parsers, public builders, store slices, and selectors for refs,
+  commits, issues, and pull requests.
+- [x] (2026-05-10T13:02:44Z) Implemented milestone C's narrow state-backed
+  REST and GraphQL reads for git refs, git commits, issue list/detail, pull
+  request list/detail, `Repository.ref`, `Repository.issues`,
+  `Repository.pullRequests`, and seeded `defaultBranchRef`.
+- [x] (2026-05-10T13:11:58Z) Ran `coderabbit review --agent` after the
+  store/API milestone. CodeRabbit completed successfully and reported 15
+  findings; all were addressed with type-aware ref object URLs, message-body
+  parsing, timestamp/default factories, and JSDoc additions.
+- [x] (2026-05-10T14:01:03Z) Implemented milestone D documentation and
+  roadmap completion. Updated API, architecture, user, development, roadmap,
+  and ExecPlan documents in the implementation branch.
+- [x] (2026-05-10T14:01:03Z) Cleared successive CodeRabbit review findings
+  covering ref validation, ref object URL construction, generated ID offsets,
+  shared fixture defaults, PR state conversion, repository wrapping,
+  selector-builder typing, and schema JSDoc.
+- [x] (2026-05-10T14:01:03Z) Final verification passed:
+  `make check-fmt`, `make lint`, `make typecheck`, `make test`, and
+  `make markdownlint`. The final `make test` run reported 167 passing tests,
+  0 failures, and 2079 assertions across 12 files.
+- [x] (2026-05-10T14:01:03Z) Final `coderabbit review --agent` completed with
+  `findings: 0`.
 
 ## Surprises & discoveries
 
@@ -233,6 +261,50 @@ escalation, not workarounds.
   Impact: implementation must either wait for CodeRabbit credits to be restored
   before each milestone review or receive explicit approval to use an alternate
   review path.
+
+- Observation: `leta files` failed to start its daemon inside the read-only
+  sandbox, but the already-added workspace could be queried after elevated
+  execution.
+  Evidence: the first `leta files src` and `leta files tests` attempts returned
+  "Error: Failed to start daemon"; `leta workspace add` reported the workspace
+  already existed, and an elevated `leta files src` listed the source tree.
+  Impact: continue to use `leta` for code navigation where it starts cleanly,
+  and use direct file reads for Markdown and focused implementation context.
+
+- Observation: this repository is currently on Zod 3.25.76, not Zod 4.
+  Evidence: `bun install` reported `zod@3.25.76`, and `package.json` pins
+  `^3.24.1`.
+  Impact: new schemas use the repository's existing Zod 3 idioms, including
+  `z.string().email()`, instead of introducing Zod 4-only constructors.
+
+- Observation: local server tests cannot bind ports inside the read-only,
+  network-restricted sandbox even when no process owns the port.
+  Evidence: `bun test --max-concurrency=1 tests/repositories.test.ts` failed
+  with "Failed to start server. Is port 3320 in use?", while elevated
+  `ss -ltnp 'sport = :3320 or sport = :3400'` showed no listener. The same
+  tests passed when run with elevated permissions.
+  Impact: REST, GraphQL, and full `make test` gates must run outside the
+  network-restricted sandbox so the simulator can bind local test ports.
+
+- Observation: CodeRabbit review completed for the implementation milestone.
+  Evidence: `coderabbit review --agent` returned 15 findings, including one
+  major finding that `githubRefSchema` treated every ref object URL as a
+  commit URL.
+  Impact: the implementation now maps supported ref object URL fallbacks by
+  object type and deliberately restricts early refs to commit and tag targets.
+  It also includes the requested documentation comments, shared defaults, and
+  stricter validation.
+
+- Observation: CodeRabbit review converged after several small follow-up
+  passes.
+  Evidence: later `coderabbit review --agent` runs reported findings around
+  generated ID offsets, deterministic/default timestamp centralisation,
+  PR-state mapping, GraphQL repository wrapping, empty `ref` strings, and
+  schema JSDoc before the final pass returned `findings: 0`.
+  Impact: the final implementation has a shared early-entity defaults module,
+  explicit generated-ID band documentation, an exhaustive PR-state converter,
+  consistent minimal repository GraphQL references, and stricter ref input
+  validation.
 
 ## Decision log
 
@@ -263,11 +335,54 @@ escalation, not workarounds.
   escalation path for a substantive axiom introduced during implementation.
   Date/Author: 2026-05-10T12:11:35Z / Codex.
 
+- Decision: proceed with implementation despite the previously observed
+  CodeRabbit usage-credit blockage, but re-run `coderabbit review --agent`
+  after each milestone and record the exact outcome.
+  Rationale: the user explicitly asked to proceed with implementation and to
+  use CodeRabbit after each major milestone. The plan will continue to surface
+  the review blockage rather than silently skipping it.
+  Date/Author: 2026-05-10T12:50:30Z / Codex.
+
+- Decision: split early entity selectors out of `src/store/index.ts` into
+  `src/store/early-entity-selectors.ts`.
+  Rationale: adding the new selector family pushed `src/store/index.ts` over
+  the project 400-line file-size constraint. The split keeps store wiring in
+  `src/store/index.ts` and keeps repository-owned entity lookup policy in a
+  focused feature file.
+  Date/Author: 2026-05-10T13:02:44Z / Codex.
+
+- Decision: expose only narrow state-backed GraphQL fields in this slice.
+  Rationale: the generated schema contains far richer `Commit`, `Issue`,
+  `PullRequest`, and `Ref` contracts than 1.1.2 requires. The implementation
+  backs the fields proven by behavioural tests and leaves wider collaboration
+  and mergeability surfaces to later roadmap slices.
+  Date/Author: 2026-05-10T13:02:44Z / Codex.
+
+- Decision: mark roadmap item 1.1.2 done only after the code and documentation
+  were both updated in this branch.
+  Rationale: the roadmap entry's success condition is no route-local state for
+  phase 2 and phase 3 fixtures. The store schemas, selectors, public builders,
+  REST reads, GraphQL reads, and documentation updates now describe and test
+  that contract.
+  Date/Author: 2026-05-10T13:11:58Z / Codex.
+
 ## Outcomes & retrospective
 
-This section is intentionally empty while the plan is in DRAFT. During
-implementation, update it after each major milestone with what was achieved,
-what changed from the plan, and what remains.
+The implementation is complete and ready for review. Simulacat Core now has
+first-class fixture schemas, keyed store tables, selectors, public builders,
+REST reads, and narrow GraphQL repository reads for refs, commits, issues, and
+pull requests. The model remains intentionally narrow: reviews, labels,
+timelines, statuses, checks, broad mergeability behaviour, and mutation
+workflows remain deferred to later roadmap slices.
+
+Final verification passed on 2026-05-10:
+
+- `make check-fmt`
+- `make lint`
+- `make typecheck`
+- `make test` (`167 pass`, `0 fail`, `2079 expect() calls`, 12 files)
+- `make markdownlint`
+- `coderabbit review --agent` (`findings: 0`)
 
 ## Context and orientation
 

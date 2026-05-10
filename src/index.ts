@@ -84,23 +84,51 @@ export const simulation = (args: GitHubSimulatorArgs = {}): FoundationSimulator<
 
 export {
   buildBranchFixture,
+  buildCommitFixture,
+  buildIssueFixture,
+  buildPullRequestFixture,
+  buildRefFixture,
   buildRepositoryFixture,
   type BranchFixtureInput,
+  type CommitFixtureInput,
+  type IssueFixtureInput,
+  type PullRequestFixtureInput,
+  type RefFixtureInput,
   type RepositoryFixtureInput
 } from './store/builders.ts';
 export {
-  githubUserSchema,
-  githubOrganizationSchema,
-  githubRepositorySchema,
+  githubBlobSchema,
   githubBranchSchema,
-  githubBlobSchema
+  githubCommitSchema,
+  githubIssueSchema,
+  githubOrganizationSchema,
+  githubPullRequestSchema,
+  githubRefSchema,
+  githubRepositorySchema,
+  githubUserSchema,
+  type GitHubCommit,
+  type GitHubIssue,
+  type GitHubPullRequest,
+  type GitHubRef
 } from './store/entities.ts';
 export {
   blobStoreKey,
   branchStoreKey,
+  commitNodeId,
+  commitStoreKey,
+  issueNodeId,
+  issueStoreKey,
   parseBranchStoreKey,
   parseBlobStoreKey,
+  parseCommitStoreKey,
+  parseIssueStoreKey,
+  parsePullRequestStoreKey,
+  parseRefStoreKey,
   parseRepositoryStoreKey,
+  pullRequestNodeId,
+  pullRequestStoreKey,
+  refNodeId,
+  refStoreKey,
   repositoryNodeId,
   repositoryStoreKey
 } from './store/keys.ts';

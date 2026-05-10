@@ -29,19 +29,32 @@ state store, then exposes that state through REST and GraphQL surfaces.
   Defines `githubBlobSchema`, `GitHubBlob`, and `blobStoreKey`.
 - `src/store/entities/branch.ts`
   Defines `githubBranchSchema`, `GitHubBranch`, and `branchStoreKey`.
+- `src/store/entities/commit.ts`
+  Defines `githubCommitSchema`, `GitHubCommit`, and `commitStoreKey`.
+- `src/store/entities/issue.ts`
+  Defines `githubIssueSchema`, `GitHubIssue`, and `issueStoreKey`.
 - `src/store/entities/installation.ts`
   Defines `githubAppInstallationSchema` and `GitHubAppInstallation`.
 - `src/store/entities/organization.ts`
   Defines `githubOrganizationSchema` and `GitHubOrganization`.
+- `src/store/entities/pull-request.ts`
+  Defines `githubPullRequestSchema`, `GitHubPullRequest`, and
+  `pullRequestStoreKey`.
+- `src/store/entities/ref.ts`
+  Defines `githubRefSchema`, `GitHubRef`, and `refStoreKey`.
 - `src/store/entities/repository.ts`
   Defines `githubRepositorySchema`, `GitHubRepository`, and
   `repositoryStoreKey`.
 - `src/store/keys.ts`
   Re-exports canonical key helpers and parsing helpers for repositories,
-  branches, and blobs.
+  branches, blobs, refs, commits, issues, and pull requests.
 - `src/store/builders.ts`
   Provides public fixture builders backed by the same schemas used for seeded
   state.
+- `src/store/early-entity-selectors.ts`
+  Provides selectors for repository-scoped refs, commits, issues, and pull
+  requests. REST and GraphQL adapters consume these selectors instead of
+  deriving keys locally.
 - `src/store/entities/shared.ts`
   Defines `githubEntityPermissionSchema`.
 - `src/store/index.ts`
@@ -71,6 +84,10 @@ The built-in store contains the following slices:
 - `branches`
 - `organizations`
 - `blobs`
+- `refs`
+- `commits`
+- `issues`
+- `pullRequests`
 
 Tables use canonical owner-qualified keys:
 
@@ -78,6 +95,10 @@ Tables use canonical owner-qualified keys:
 - branches: `owner/repo:name`
 - blobs: `owner/repo:reference`, where `reference` is the seeded `path` or
   `sha`
+- refs: `owner/repo:qualifiedName`
+- commits: `owner/repo:sha`
+- issues: `owner/repo#number`
+- pull requests: `owner/repo!number`
 
 This means `acme/awesome-repo` and `globex/awesome-repo` are distinct
 repositories even though their short names match. Repository `node_id` values
@@ -90,6 +111,15 @@ Selectors provide the higher-level joins the handlers need:
 - keyed repository and branch lookup by owner-qualified coordinates
 - blob lookup by `path` or `sha`
 - repository tree lookup across all blobs in an owner/repository pair
+- ref, commit, issue, and pull request lookup scoped by owner and repository
+- shallow commit reachability from a seeded ref
+- pull request relation lookup for base refs, head refs, and linked issues
+
+The early collaboration slices are deliberately narrow. They model enough
+state for REST and GraphQL reads to agree on refs, commits, issues, and pull
+requests, but they do not yet own collaboration policy. Mutations,
+mergeability, labels, reviews, timelines, checks, and actor-aware permissions
+belong to later roadmap slices.
 
 ## Extension seams
 

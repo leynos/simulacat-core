@@ -3,11 +3,23 @@ import {describe, expect, it} from 'bun:test';
 import fc from 'fast-check';
 import {
   buildBranchFixture,
+  buildCommitFixture,
+  buildIssueFixture,
+  buildPullRequestFixture,
+  buildRefFixture,
   buildRepositoryFixture,
   blobStoreKey,
   branchStoreKey,
+  commitStoreKey,
+  issueStoreKey,
   parseBlobStoreKey,
   parseBranchStoreKey,
+  parseCommitStoreKey,
+  parseIssueStoreKey,
+  parsePullRequestStoreKey,
+  parseRefStoreKey,
+  pullRequestStoreKey,
+  refStoreKey,
   parseRepositoryStoreKey,
   repositoryNodeId,
   repositoryStoreKey
@@ -17,6 +29,7 @@ import {
 // Owner and repository segments must exclude both; terminal segments (branch
 // name, blob reference) exclude only `:` and may contain `/`.
 const keySegment = fc.string({minLength: 1}).filter((value) => !value.includes('/') && !value.includes(':'));
+const numberedKeySegment = keySegment.filter((value) => !value.includes('#') && !value.includes('!'));
 
 // Terminal segments (branch name, blob reference) may contain '/' but not ':'.
 const refSegment = fc.string({minLength: 1}).filter((value) => !value.includes(':'));
@@ -36,6 +49,12 @@ const blobParts = fc.record({
   owner: keySegment,
   repo: keySegment,
   reference: refSegment
+});
+
+const numberedParts = fc.record({
+  owner: numberedKeySegment,
+  repo: numberedKeySegment,
+  number: fc.integer({min: 1, max: 10_000})
 });
 
 describe('canonical store keys', () => {
@@ -170,6 +189,44 @@ describe('canonical store keys', () => {
     );
   });
 
+  it('round-trips ref and commit keys through their parsers', () => {
+    fc.assert(
+      fc.property(blobParts, (parts) => {
+        expect(parseRefStoreKey(refStoreKey({...parts, qualifiedName: parts.reference}))).toEqual({
+          owner: parts.owner,
+          repo: parts.repo,
+          qualifiedName: parts.reference
+        });
+        expect(parseCommitStoreKey(commitStoreKey({...parts, sha: parts.reference}))).toEqual({
+          owner: parts.owner,
+          repo: parts.repo,
+          sha: parts.reference
+        });
+      })
+    );
+  });
+
+  it('round-trips issue and pull request keys through their parsers', () => {
+    fc.assert(
+      fc.property(numberedParts, (parts) => {
+        expect(parseIssueStoreKey(issueStoreKey(parts))).toEqual(parts);
+        expect(parsePullRequestStoreKey(pullRequestStoreKey(parts))).toEqual(parts);
+      })
+    );
+  });
+
+  it('keeps new entity keys scoped to the owner and repository', () => {
+    expect(refStoreKey({owner: 'acme', repo: 'same', qualifiedName: 'main'})).not.toBe(
+      refStoreKey({owner: 'globex', repo: 'same', qualifiedName: 'main'})
+    );
+    expect(issueStoreKey({owner: 'acme', repo: 'same', number: 1})).not.toBe(
+      issueStoreKey({owner: 'globex', repo: 'same', number: 1})
+    );
+    expect(pullRequestStoreKey({owner: 'acme', repo: 'same', number: 1})).not.toBe(
+      pullRequestStoreKey({owner: 'globex', repo: 'same', number: 1})
+    );
+  });
+
   it('derives decodable repository node ids with the Repository prefix', () => {
     fc.assert(
       fc.property(repositoryParts, (parts) => {
@@ -200,5 +257,30 @@ describe('canonical store keys', () => {
 
   it('throws when buildBranchFixture receives invalid input', () => {
     expect(() => buildBranchFixture({} as any)).toThrow();
+  });
+
+  it('builds parsed early entity fixtures through public builders', () => {
+    const commit = buildCommitFixture({owner: 'acme', repo: 'awesome-repo', sha: 'abc123'});
+    const ref = buildRefFixture({
+      owner: 'acme',
+      repo: 'awesome-repo',
+      qualifiedName: 'main',
+      object: {sha: 'abc123'}
+    });
+    const issue = buildIssueFixture({owner: 'acme', repo: 'awesome-repo', number: 7, title: 'Fix identity'});
+    const pullRequest = buildPullRequestFixture({
+      owner: 'acme',
+      repo: 'awesome-repo',
+      number: 8,
+      title: 'Wire identities',
+      base: {ref: 'main', sha: 'abc123'},
+      head: {ref: 'feature', sha: 'def456'}
+    });
+
+    expect(commitStoreKey(commit)).toBe('acme/awesome-repo:abc123');
+    expect(refStoreKey(ref)).toBe('acme/awesome-repo:main');
+    expect(issueStoreKey(issue)).toBe('acme/awesome-repo#7');
+    expect(pullRequestStoreKey(pullRequest)).toBe('acme/awesome-repo!8');
+    expect(pullRequest.issue_number).toBe(8);
   });
 });

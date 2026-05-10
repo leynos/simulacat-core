@@ -66,7 +66,30 @@ describe('graphql queries', () => {
           {owner: 'lovely-org', repo: 'awesome-repo', name: 'main'},
           {owner: 'Acme', repo: 'Awesome-Repo', name: 'main'}
         ],
-        blobs: []
+        blobs: [],
+        commits: [
+          {owner: 'lovely-org', repo: 'awesome-repo', sha: 'commit-a', commit: {message: 'Initial commit'}},
+          {owner: 'Acme', repo: 'Awesome-Repo', sha: 'commit-b', commit: {message: 'Acme commit'}}
+        ],
+        refs: [
+          {owner: 'lovely-org', repo: 'awesome-repo', qualifiedName: 'main', object: {sha: 'commit-a'}},
+          {owner: 'Acme', repo: 'Awesome-Repo', qualifiedName: 'main', object: {sha: 'commit-b'}}
+        ],
+        issues: [
+          {owner: 'lovely-org', repo: 'awesome-repo', number: 1, title: 'Lovely issue'},
+          {owner: 'Acme', repo: 'Awesome-Repo', number: 1, title: 'Acme issue'}
+        ],
+        pullRequests: [
+          {
+            owner: 'lovely-org',
+            repo: 'awesome-repo',
+            number: 2,
+            title: 'Lovely pull request',
+            draft: true,
+            base: {ref: 'main', sha: 'commit-a'},
+            head: {ref: 'feature/entity-spine', sha: 'commit-c'}
+          }
+        ]
       }
     });
     server = await app.listen(basePort);
@@ -132,6 +155,78 @@ describe('graphql queries', () => {
       name: 'Awesome-Repo',
       nameWithOwner: 'Acme/Awesome-Repo'
     });
+  });
+
+  it('reads first-class refs, issues, and pull requests from repository state', async () => {
+    const request = await fetch(`${url}/graphql`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        query: gql`
+          query repositoryEntities($owner: String!, $name: String!) {
+            repository(owner: $owner, name: $name) {
+              defaultBranchRef {
+                name
+                target {
+                  ... on Commit {
+                    oid
+                    messageHeadline
+                  }
+                }
+              }
+              ref(qualifiedName: "main") {
+                name
+                target {
+                  ... on Commit {
+                    oid
+                  }
+                }
+              }
+              issues(first: 10) {
+                nodes {
+                  number
+                  title
+                  state
+                }
+              }
+              pullRequests(first: 10) {
+                nodes {
+                  number
+                  title
+                  isDraft
+                  baseRefName
+                  headRefName
+                }
+              }
+            }
+          }
+        `,
+        variables: {owner: 'lovely-org', name: 'awesome-repo'}
+      })
+    });
+    const response = await request.json();
+
+    expect(request.status).toEqual(200);
+    expect(response.errors).toBe(undefined);
+    expect(response.data.repository.defaultBranchRef).toEqual(
+      expect.objectContaining({
+        name: 'main',
+        target: expect.objectContaining({oid: 'commit-a', messageHeadline: 'Initial commit'})
+      })
+    );
+    expect(response.data.repository.ref.target.oid).toBe('commit-a');
+    expect(response.data.repository.issues.nodes).toEqual([
+      expect.objectContaining({number: 1, title: 'Lovely issue', state: 'OPEN'})
+    ]);
+    expect(response.data.repository.pullRequests.nodes).toEqual([
+      expect.objectContaining({
+        number: 2,
+        title: 'Lovely pull request',
+        isDraft: true,
+        baseRefName: 'main',
+        headRefName: 'feature/entity-spine'
+      })
+    ]);
   });
 
   describe('getOrganizationUsers', () => {

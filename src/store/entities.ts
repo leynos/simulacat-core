@@ -9,8 +9,12 @@ import {faker} from '@faker-js/faker';
 import {z} from 'zod';
 import {blobStoreKey, githubBlobSchema, type GitHubBlob} from './entities/blob.ts';
 import {branchStoreKey, githubBranchSchema, type GitHubBranch} from './entities/branch.ts';
+import {commitStoreKey, githubCommitSchema, type GitHubCommit} from './entities/commit.ts';
 import {githubAppInstallationSchema, type GitHubAppInstallation} from './entities/installation.ts';
+import {githubIssueSchema, issueStoreKey, type GitHubIssue} from './entities/issue.ts';
 import {githubOrganizationSchema, type GitHubOrganization} from './entities/organization.ts';
+import {githubPullRequestSchema, pullRequestStoreKey, type GitHubPullRequest} from './entities/pull-request.ts';
+import {githubRefSchema, refStoreKey, type GitHubRef} from './entities/ref.ts';
 import {githubRepositorySchema, repositoryStoreKey, type GitHubRepository} from './entities/repository.ts';
 
 export interface GitHubUser {
@@ -77,7 +81,11 @@ export const githubInitialStoreSchema = z
     organizations: z.array(githubOrganizationSchema),
     repositories: z.array(githubRepositorySchema),
     branches: z.array(githubBranchSchema),
-    blobs: z.array(githubBlobSchema)
+    blobs: z.array(githubBlobSchema),
+    refs: z.array(githubRefSchema).optional().default([]),
+    commits: z.array(githubCommitSchema).optional().default([]),
+    issues: z.array(githubIssueSchema).optional().default([]),
+    pullRequests: z.array(githubPullRequestSchema).optional().default([])
   })
   .transform((initialStore) => {
     const usedInstallationIds = new Set(
@@ -163,18 +171,40 @@ export const convertInitialStateToStoreState = (initialState: GitHubStore | unde
     repositories: convertObjByKey(initialState.repositories, repositoryStoreKey),
     branches: convertObjByKey(initialState.branches, branchStoreKey),
     organizations: convertObjToProp(initialState.organizations, 'login'),
-    blobs: convertObjByKey(initialState.blobs, (blob) => blobStoreKey(blob))
+    blobs: convertObjByKey(initialState.blobs, (blob) => blobStoreKey(blob)),
+    refs: convertObjByKey(initialState.refs, refStoreKey),
+    commits: convertObjByKey(initialState.commits, commitStoreKey),
+    issues: convertObjByKey(initialState.issues, issueStoreKey),
+    pullRequests: convertObjByKey(initialState.pullRequests, pullRequestStoreKey)
   };
 };
 
 export {
   blobStoreKey,
   branchStoreKey,
+  commitStoreKey,
   githubAppInstallationSchema,
   githubBlobSchema,
   githubBranchSchema,
+  githubCommitSchema,
+  githubIssueSchema,
   githubOrganizationSchema,
+  githubPullRequestSchema,
+  githubRefSchema,
+  issueStoreKey,
+  pullRequestStoreKey,
+  refStoreKey,
   githubRepositorySchema,
   repositoryStoreKey
 };
-export type {GitHubAppInstallation, GitHubBlob, GitHubBranch, GitHubOrganization, GitHubRepository};
+export type {
+  GitHubAppInstallation,
+  GitHubBlob,
+  GitHubBranch,
+  GitHubCommit,
+  GitHubIssue,
+  GitHubOrganization,
+  GitHubPullRequest,
+  GitHubRef,
+  GitHubRepository
+};

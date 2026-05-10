@@ -20,8 +20,13 @@ import {
   type GitHubRepository,
   type GitHubUser,
   type GitHubBranch,
-  type GitHubAppInstallation
+  type GitHubAppInstallation,
+  type GitHubRef,
+  type GitHubCommit,
+  type GitHubIssue,
+  type GitHubPullRequest
 } from './entities.ts';
+import {buildEarlyEntitySelectors, type EarlyEntitySelectorArgs} from './early-entity-selectors.ts';
 import {branchStoreKey, repositoryStoreKey} from './keys.ts';
 
 /** Stateless parameter-extractor selectors, hoisted outside inputSelectors
@@ -86,6 +91,12 @@ const inputSchema =
         !storeInitialState ? {} : {initialState: storeInitialState.organizations}
       ),
       blobs: slice.table<GitHubBlob>(!storeInitialState ? {} : {initialState: storeInitialState.blobs}),
+      refs: slice.table<GitHubRef>(!storeInitialState ? {} : {initialState: storeInitialState.refs}),
+      commits: slice.table<GitHubCommit>(!storeInitialState ? {} : {initialState: storeInitialState.commits}),
+      issues: slice.table<GitHubIssue>(!storeInitialState ? {} : {initialState: storeInitialState.issues}),
+      pullRequests: slice.table<GitHubPullRequest>(
+        !storeInitialState ? {} : {initialState: storeInitialState.pullRequests}
+      ),
       ...extended
     };
     return slices;
@@ -272,7 +283,8 @@ const inputSelectors = (args: ExtendSimulationSelectors<ExtendedSchema>) => {
     ...buildOrganisationSelectors(args),
     ...buildInstallationSelectors(args),
     ...buildRepositorySelectors(args),
-    ...buildBlobSelectors(args)
+    ...buildBlobSelectors(args),
+    ...buildEarlyEntitySelectors(args as unknown as EarlyEntitySelectorArgs)
   };
 };
 

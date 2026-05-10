@@ -59,7 +59,7 @@ docs/github-rest-api-audit.md §Store and Modeling Constraints.
   - Remove assumptions that repository and branch names are globally unique.
   - Success: two repositories with the same name under different owners can
     coexist and remain addressable through REST, GraphQL, and store selectors.
-- [ ] 1.1.2. Add the first-class entities needed for the early slices.
+- [x] 1.1.2. Add the first-class entities needed for the early slices.
   - Carries the minimal early subset of legacy task label `1.1.2`.
   - Requires 1.1.1.
   - Cover refs, commits, issues, and pull requests only to the depth needed by

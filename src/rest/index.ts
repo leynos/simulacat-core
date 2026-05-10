@@ -10,6 +10,8 @@ import {blobAsBase64, commitStatusResponse, gitTrees} from './utils.ts';
  */
 type SimulationHandler = SimulationHandlers[string];
 
+const notFound = {message: 'Not Found'};
+
 const handlers =
   (
     initialState: Record<string, any> | undefined,
@@ -230,6 +232,86 @@ const handlers =
               });
               response.status(200).json(tree);
             }
+          },
+          // GET /repos/{owner}/{repo}/git/ref/{ref}
+          'git/get-ref': async (
+            context: Parameters<SimulationHandler>[0],
+            _request: Parameters<SimulationHandler>[1],
+            response: Parameters<SimulationHandler>[2]
+          ) => {
+            const {owner, repo, ref} = context.request.params;
+            const repository = simulationStore.selectors.getRepository(getState(), owner, repo);
+            const gitRef = repository ? simulationStore.selectors.getRef(getState(), owner, repo, ref) : undefined;
+            if (!gitRef) return response.status(404).json(notFound);
+            return response.status(200).json(gitRef);
+          },
+          // GET /repos/{owner}/{repo}/git/commits/{commit_sha}
+          'git/get-commit': async (
+            context: Parameters<SimulationHandler>[0],
+            _request: Parameters<SimulationHandler>[1],
+            response: Parameters<SimulationHandler>[2]
+          ) => {
+            const {owner, repo, commit_sha} = context.request.params;
+            const repository = simulationStore.selectors.getRepository(getState(), owner, repo);
+            const commit = repository
+              ? simulationStore.selectors.getCommit(getState(), owner, repo, commit_sha)
+              : undefined;
+            if (!commit) return response.status(404).json(notFound);
+            return response.status(200).json(commit);
+          },
+          // GET /repos/{owner}/{repo}/issues
+          'issues/list-for-repo': async (
+            context: Parameters<SimulationHandler>[0],
+            _request: Parameters<SimulationHandler>[1],
+            response: Parameters<SimulationHandler>[2]
+          ) => {
+            const {owner, repo} = context.request.params;
+            const repository = simulationStore.selectors.getRepository(getState(), owner, repo);
+            if (!repository) return response.status(404).json(notFound);
+            return response
+              .status(200)
+              .json(simulationStore.selectors.listIssuesForRepository(getState(), owner, repo));
+          },
+          // GET /repos/{owner}/{repo}/issues/{issue_number}
+          'issues/get': async (
+            context: Parameters<SimulationHandler>[0],
+            _request: Parameters<SimulationHandler>[1],
+            response: Parameters<SimulationHandler>[2]
+          ) => {
+            const {owner, repo, issue_number} = context.request.params;
+            const repository = simulationStore.selectors.getRepository(getState(), owner, repo);
+            const issue = repository
+              ? simulationStore.selectors.getIssue(getState(), owner, repo, Number(issue_number))
+              : undefined;
+            if (!issue) return response.status(404).json(notFound);
+            return response.status(200).json(issue);
+          },
+          // GET /repos/{owner}/{repo}/pulls
+          'pulls/list': async (
+            context: Parameters<SimulationHandler>[0],
+            _request: Parameters<SimulationHandler>[1],
+            response: Parameters<SimulationHandler>[2]
+          ) => {
+            const {owner, repo} = context.request.params;
+            const repository = simulationStore.selectors.getRepository(getState(), owner, repo);
+            if (!repository) return response.status(404).json(notFound);
+            return response
+              .status(200)
+              .json(simulationStore.selectors.listPullRequestsForRepository(getState(), owner, repo));
+          },
+          // GET /repos/{owner}/{repo}/pulls/{pull_number}
+          'pulls/get': async (
+            context: Parameters<SimulationHandler>[0],
+            _request: Parameters<SimulationHandler>[1],
+            response: Parameters<SimulationHandler>[2]
+          ) => {
+            const {owner, repo, pull_number} = context.request.params;
+            const repository = simulationStore.selectors.getRepository(getState(), owner, repo);
+            const pullRequest = repository
+              ? simulationStore.selectors.getPullRequest(getState(), owner, repo, Number(pull_number))
+              : undefined;
+            if (!pullRequest) return response.status(404).json(notFound);
+            return response.status(200).json(pullRequest);
           },
 
           // GET /user

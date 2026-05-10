@@ -17,6 +17,8 @@ import {branchStoreKey, repositoryNodeId} from '../../store/keys.ts';
 import {RepositoryVisibility} from '../../__generated__/resolvers-types.ts';
 import type {User} from '../../__generated__/resolvers-types.ts';
 
+const normalizeRefLookup = (qualifiedName: string) => qualifiedName.replace(/^refs\/heads\//, '');
+
 /**
  * Converts a seeded repository fixture into a `GraphQLData['Repository']`.
  *
@@ -33,9 +35,16 @@ export function convertRepositoryToGraphql(
   toGraphql: ToGraphqlDispatcher
 ): GraphQLData['Repository'] {
   const defaultBranchName = repo.default_branch ?? 'main';
-  const defaultBranchId = Buffer.from(
-    `Branch:${branchStoreKey({owner: repo.owner, repo: repo.name, name: defaultBranchName})}`
-  ).toString('base64');
+  const state = simulationStore.store?.getState();
+  const seededDefaultRef =
+    state && simulationStore.selectors?.getRef
+      ? simulationStore.selectors.getRef(state, repo.owner, repo.name, defaultBranchName)
+      : undefined;
+  const defaultBranchId =
+    seededDefaultRef?.node_id ??
+    Buffer.from(`Branch:${branchStoreKey({owner: repo.owner, repo: repo.name, name: defaultBranchName})}`).toString(
+      'base64'
+    );
 
   return {
     __typename: 'Repository',
@@ -51,9 +60,57 @@ export function convertRepositoryToGraphql(
     get owner() {
       return deriveOwner(simulationStore, repo.owner, toGraphql);
     },
-    defaultBranchRef: {
-      id: defaultBranchId,
-      name: defaultBranchName
+    defaultBranchRef: seededDefaultRef
+      ? toGraphql(simulationStore, 'Ref', seededDefaultRef)
+      : {
+          id: defaultBranchId,
+          name: defaultBranchName
+        },
+    ref({qualifiedName}: {qualifiedName: string}) {
+      if (!state || !simulationStore.selectors?.getRef) return undefined;
+      const ref = simulationStore.selectors.getRef(state, repo.owner, repo.name, normalizeRefLookup(qualifiedName));
+      return ref ? toGraphql(simulationStore, 'Ref', ref) : undefined;
+    },
+    refs(pageArgs: PageArgs & {refPrefix: string}) {
+      if (!state || !simulationStore.selectors?.listRefsForRepository) {
+        return applyRelayPagination([], pageArgs, (ref) => toGraphql(simulationStore, 'Ref', ref));
+      }
+      const refs = simulationStore.selectors
+        .listRefsForRepository(state, repo.owner, repo.name)
+        .filter((ref) => ref.ref.startsWith(pageArgs.refPrefix));
+      return applyRelayPagination(refs, pageArgs, (ref) => toGraphql(simulationStore, 'Ref', ref));
+    },
+    issue({number}: {number: number}) {
+      if (!state || !simulationStore.selectors?.getIssue) return undefined;
+      const issue = simulationStore.selectors.getIssue(state, repo.owner, repo.name, number);
+      return issue ? toGraphql(simulationStore, 'Issue', issue) : undefined;
+    },
+    issues(pageArgs: PageArgs) {
+      if (!state || !simulationStore.selectors?.listIssuesForRepository) {
+        return applyRelayPagination([], pageArgs, (issue) => toGraphql(simulationStore, 'Issue', issue));
+      }
+      return applyRelayPagination(
+        simulationStore.selectors.listIssuesForRepository(state, repo.owner, repo.name),
+        pageArgs,
+        (issue) => toGraphql(simulationStore, 'Issue', issue)
+      );
+    },
+    pullRequest({number}: {number: number}) {
+      if (!state || !simulationStore.selectors?.getPullRequest) return undefined;
+      const pullRequest = simulationStore.selectors.getPullRequest(state, repo.owner, repo.name, number);
+      return pullRequest ? toGraphql(simulationStore, 'PullRequest', pullRequest) : undefined;
+    },
+    pullRequests(pageArgs: PageArgs) {
+      if (!state || !simulationStore.selectors?.listPullRequestsForRepository) {
+        return applyRelayPagination([], pageArgs, (pullRequest) =>
+          toGraphql(simulationStore, 'PullRequest', pullRequest)
+        );
+      }
+      return applyRelayPagination(
+        simulationStore.selectors.listPullRequestsForRepository(state, repo.owner, repo.name),
+        pageArgs,
+        (pullRequest) => toGraphql(simulationStore, 'PullRequest', pullRequest)
+      );
     },
     languages(pageArgs: PageArgs) {
       const languages = repo.language ? [{id: repo.language, name: repo.language, size: 0}] : [];

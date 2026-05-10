@@ -7,7 +7,15 @@
  */
 import type {PageArgs} from './relay.ts';
 import type {ExtendedSimulationStore} from '../store/index.ts';
-import type {GitHubOrganization, GitHubRepository, GitHubUser} from '../store/entities.ts';
+import type {
+  GitHubCommit,
+  GitHubIssue,
+  GitHubOrganization,
+  GitHubPullRequest,
+  GitHubRef,
+  GitHubRepository,
+  GitHubUser
+} from '../store/entities.ts';
 import type {
   OrganizationMemberRole,
   PageInfo as GraphqlPageInfo,
@@ -70,10 +78,13 @@ export interface GraphQLData {
     createdAt: string;
     collaborators: (pageArgs: PageArgs) => RepositoryCollaboratorConnectionShape;
     owner: GraphQLData['User'] | GraphQLData['Organization'];
-    defaultBranchRef: {
-      id: string;
-      name: string;
-    };
+    defaultBranchRef: GraphQLData['Ref'] | {id: string; name: string};
+    ref: (args: {qualifiedName: string}) => GraphQLData['Ref'] | undefined;
+    refs: (pageArgs: PageArgs & {refPrefix: string}) => RefConnectionShape;
+    issue: (args: {number: number}) => GraphQLData['Issue'] | undefined;
+    issues: (pageArgs: PageArgs) => IssueConnectionShape;
+    pullRequest: (args: {number: number}) => GraphQLData['PullRequest'] | undefined;
+    pullRequests: (pageArgs: PageArgs) => PullRequestConnectionShape;
     languages: (pageArgs: PageArgs) => LanguageConnectionShape;
     repositoryTopics: (pageArgs: PageArgs) => RepositoryTopicConnectionShape;
     visibility: RepositoryVisibility;
@@ -95,12 +106,43 @@ export interface GraphQLData {
     teams: (pageArgs: PageArgs) => TeamConnectionShape;
     membersWithRole: (pageArgs: PageArgs) => OrganizationMemberConnectionShape;
   };
+  Ref: Record<string, unknown> & {
+    __typename: 'Ref';
+    id: string;
+    name: string;
+    prefix: string;
+    target?: GraphQLData['Commit'];
+  };
+  Commit: Record<string, unknown> & {
+    __typename: 'Commit';
+    id: string;
+    oid: string;
+    message: string;
+  };
+  Issue: Record<string, unknown> & {
+    __typename: 'Issue';
+    id: string;
+    number: number;
+    title: string;
+    body: string;
+  };
+  PullRequest: Record<string, unknown> & {
+    __typename: 'PullRequest';
+    id: string;
+    number: number;
+    title: string;
+    body: string;
+  };
 }
 
 export interface DataSchemas {
   User: GitHubUser;
   Repository: GitHubRepository;
   Organization: GitHubOrganization;
+  Ref: GitHubRef;
+  Commit: GitHubCommit;
+  Issue: GitHubIssue;
+  PullRequest: GitHubPullRequest;
 }
 
 export type OrganizationConnectionShape = Connection<
@@ -139,6 +181,15 @@ export type RepositoryConnectionShape = Connection<
   GraphQLData['Repository'],
   {cursor: string; node: GraphQLData['Repository']}
 > & {totalDiskUsage: number};
+
+export type RefConnectionShape = Connection<GraphQLData['Ref'], {cursor: string; node: GraphQLData['Ref']}>;
+
+export type IssueConnectionShape = Connection<GraphQLData['Issue'], {cursor: string; node: GraphQLData['Issue']}>;
+
+export type PullRequestConnectionShape = Connection<
+  GraphQLData['PullRequest'],
+  {cursor: string; node: GraphQLData['PullRequest']}
+>;
 
 export type ToGraphqlDispatcher = <T extends keyof DataSchemas>(
   simulationStore: ExtendedSimulationStore,
