@@ -19,23 +19,26 @@ import type {User} from '../../__generated__/resolvers-types.ts';
 
 const normalizeRefLookup = (qualifiedName: string) => qualifiedName.replace(/^refs\/heads\//, '');
 
+interface ConversionContext {
+  simulationStore: ExtendedSimulationStore;
+  toGraphql: ToGraphqlDispatcher;
+}
+
 function paginateRepoItems<K extends 'Issue' | 'PullRequest'>(
   items: DataSchemas[K][],
   pageArgs: PageArgs,
   typeName: K,
-  simulationStore: ExtendedSimulationStore,
-  toGraphql: ToGraphqlDispatcher
+  context: ConversionContext
 ) {
-  return applyRelayPagination(items, pageArgs, (item) => toGraphql(simulationStore, typeName, item));
+  return applyRelayPagination(items, pageArgs, (item) => context.toGraphql(context.simulationStore, typeName, item));
 }
 
 function resolveRepoItem<K extends 'Issue' | 'PullRequest'>(
   item: DataSchemas[K] | undefined,
   typeName: K,
-  simulationStore: ExtendedSimulationStore,
-  toGraphql: ToGraphqlDispatcher
+  context: ConversionContext
 ) {
-  return item ? toGraphql(simulationStore, typeName, item) : undefined;
+  return item ? context.toGraphql(context.simulationStore, typeName, item) : undefined;
 }
 
 /**
@@ -112,28 +115,28 @@ export function convertRepositoryToGraphql(
         state && simulationStore.selectors?.getIssue
           ? simulationStore.selectors.getIssue(state, {owner: repo.owner, repo: repo.name, number})
           : undefined;
-      return resolveRepoItem(item, 'Issue', simulationStore, toGraphql);
+      return resolveRepoItem(item, 'Issue', {simulationStore, toGraphql});
     },
     issues(pageArgs: PageArgs) {
       const items =
         state && simulationStore.selectors?.listIssuesForRepository
           ? simulationStore.selectors.listIssuesForRepository(state, {owner: repo.owner, repo: repo.name})
           : [];
-      return paginateRepoItems(items, pageArgs, 'Issue', simulationStore, toGraphql);
+      return paginateRepoItems(items, pageArgs, 'Issue', {simulationStore, toGraphql});
     },
     pullRequest({number}: {number: number}) {
       const item =
         state && simulationStore.selectors?.getPullRequest
           ? simulationStore.selectors.getPullRequest(state, {owner: repo.owner, repo: repo.name, number})
           : undefined;
-      return resolveRepoItem(item, 'PullRequest', simulationStore, toGraphql);
+      return resolveRepoItem(item, 'PullRequest', {simulationStore, toGraphql});
     },
     pullRequests(pageArgs: PageArgs) {
       const items =
         state && simulationStore.selectors?.listPullRequestsForRepository
           ? simulationStore.selectors.listPullRequestsForRepository(state, {owner: repo.owner, repo: repo.name})
           : [];
-      return paginateRepoItems(items, pageArgs, 'PullRequest', simulationStore, toGraphql);
+      return paginateRepoItems(items, pageArgs, 'PullRequest', {simulationStore, toGraphql});
     },
     languages(pageArgs: PageArgs) {
       const languages = repo.language ? [{id: repo.language, name: repo.language, size: 0}] : [];
