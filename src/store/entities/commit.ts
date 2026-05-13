@@ -1,6 +1,5 @@
 /** @file Git commit fixture schema and canonical commit keys. */
 import {z} from 'zod';
-import {defaultCommitSha, defaultTimestamp} from './defaults.ts';
 
 type CommitStoreKeyInput = {
   owner: string;
@@ -16,11 +15,14 @@ type CommitStoreKeyInput = {
  */
 export const commitStoreKey = (commit: CommitStoreKeyInput): string => `${commit.owner}/${commit.repo}:${commit.sha}`;
 
+const STATIC_DEFAULT_COMMIT_SHA = '0000000000000000000000000000000000000000';
+const STATIC_DEFAULT_COMMIT_TIMESTAMP = '1970-01-01T00:00:00.000Z';
+
 const actorSchema = z
   .object({
     name: z.string().optional().default('Simulacat Author'),
     email: z.string().email().optional().default('simulacat@example.test'),
-    date: z.string().optional().default(defaultTimestamp)
+    date: z.string().optional().default(STATIC_DEFAULT_COMMIT_TIMESTAMP)
   })
   .optional()
   .default({});
@@ -43,7 +45,7 @@ export const githubCommitSchema = z
   .object({
     owner: z.string().trim().min(1),
     repo: z.string().trim().min(1),
-    sha: z.string().trim().min(1).optional().default(defaultCommitSha),
+    sha: z.string().trim().min(1).optional().default(STATIC_DEFAULT_COMMIT_SHA),
     node_id: z.string().optional(),
     url: z.string().optional(),
     html_url: z.string().optional(),

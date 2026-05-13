@@ -2,6 +2,7 @@
 import {IssueState, PullRequestState} from '../../__generated__/resolvers-types.ts';
 import type {GitHubRepository} from '../../store/entities.ts';
 import type {ExtendedSimulationStore} from '../../store/index.ts';
+import {repositoryNodeId} from '../../store/keys.ts';
 import type {DataSchemas, GraphQLData, ToGraphqlDispatcher} from '../to-graphql-shapes.ts';
 
 type MinimalRepositoryRef = {
@@ -21,7 +22,13 @@ type MinimalRepositoryRef = {
  * `__typename` to `Repository`.
  */
 const wrapRepository = (repository: GitHubRepository | undefined): MinimalRepositoryRef | undefined => {
-  return repository ? {__typename: 'Repository', id: repository.node_id, name: repository.name} : undefined;
+  return repository
+    ? {
+        __typename: 'Repository',
+        id: repository.node_id ?? repositoryNodeId({owner: repository.owner, name: repository.name}),
+        name: repository.name
+      }
+    : undefined;
 };
 
 /**
@@ -84,7 +91,7 @@ export function convertCommitToGraphql(
     commit.owner,
     commit.repo
   );
-  const messageParts = commit.commit.message.split('\n');
+  const messageParts = commit.commit.message.split(/\r?\n/);
   const messageHeadline = messageParts[0] ?? commit.commit.message;
   const messageBody = messageParts.slice(1).join('\n');
   const repositoryRef = wrapRepository(repository);

@@ -133,7 +133,7 @@ remain later work.
 
 | Schema | Required identity fields | Key format | Notes |
 | --- | --- | --- | --- |
-| `githubRefSchema` | `owner`, `repo`, `qualifiedName`, `object.sha` | `owner/repo:qualifiedName` | Defaults unqualified names to branch refs for commits and tag refs for tags. |
+| `githubRefSchema` | `owner`, `repo`, `qualifiedName`, `object.sha` | `owner/repo:qualifiedName` | Defaults unqualified names to branch refs for branches and tag refs for tags. |
 | `githubCommitSchema` | `owner`, `repo` | `owner/repo:sha` | Generates `sha` when omitted and normalizes commit author, committer, tree, parent, and URL fields. |
 | `githubIssueSchema` | `owner`, `repo`, `number`, `title` | `owner/repo#number` | Supports minimal open/closed issue reads with generated ids, URLs, user, and timestamps. |
 | `githubPullRequestSchema` | `owner`, `repo`, `number`, `title`, `base`, `head` | `owner/repo!number` | Supports minimal open/closed/merged pull request reads with base/head refs and linked issue number. |

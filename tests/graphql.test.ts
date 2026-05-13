@@ -158,6 +158,27 @@ describe('graphql queries', () => {
   });
 
   describe('reads first-class refs, issues, and pull requests from repository state', () => {
+    const repositoryEntitiesSingularQuery = gql`
+      query repositoryEntitiesSingular($owner: String!, $name: String!) {
+        repository(owner: $owner, name: $name) {
+          issue(number: 1) {
+            id
+            number
+          }
+          pullRequest(number: 2) {
+            id
+            number
+          }
+          refs(first: 10, refPrefix: "refs/heads/") {
+            nodes {
+              name
+              prefix
+            }
+          }
+        }
+      }
+    `;
+
     const repositoryEntitiesQuery = gql`
       query repositoryEntities($owner: String!, $name: String!) {
         repository(owner: $owner, name: $name) {
@@ -182,6 +203,7 @@ describe('graphql queries', () => {
           }
           issues(first: 10) {
             nodes {
+              id
               number
               title
               state
@@ -189,6 +211,7 @@ describe('graphql queries', () => {
           }
           pullRequests(first: 10) {
             nodes {
+              id
               number
               title
               isDraft
@@ -200,6 +223,7 @@ describe('graphql queries', () => {
       }
     `;
     let response: any;
+    let singularResponse: any;
 
     beforeAll(async () => {
       const request = await fetch(`${url}/graphql`, {
@@ -214,6 +238,19 @@ describe('graphql queries', () => {
 
       expect(request.status).toEqual(200);
       expect(response.errors).toBe(undefined);
+
+      const singularRequest = await fetch(`${url}/graphql`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          query: repositoryEntitiesSingularQuery,
+          variables: {owner: 'lovely-org', name: 'awesome-repo'}
+        })
+      });
+      singularResponse = await singularRequest.json();
+
+      expect(singularRequest.status).toEqual(200);
+      expect(singularResponse.errors).toBe(undefined);
     });
 
     it('returns the defaultBranchRef with its commit target', () => {
@@ -247,6 +284,28 @@ describe('graphql queries', () => {
           headRefName: 'feature/entity-spine'
         })
       ]);
+    });
+
+    it('resolves singular issue, pull request, and refs with refPrefix consistently', () => {
+      const issueFromConnection = response.data.repository.issues.nodes.find(
+        (node: {number: number}) => node.number === 1
+      );
+      const pullRequestFromConnection = response.data.repository.pullRequests.nodes.find(
+        (node: {number: number}) => node.number === 2
+      );
+      const refs = singularResponse.data.repository.refs.nodes as Array<{name: string; prefix: string}>;
+
+      expect(singularResponse.data.repository.issue).toEqual(
+        expect.objectContaining({id: issueFromConnection.id, number: issueFromConnection.number})
+      );
+      expect(singularResponse.data.repository.pullRequest).toEqual(
+        expect.objectContaining({
+          id: pullRequestFromConnection.id,
+          number: pullRequestFromConnection.number
+        })
+      );
+      expect(refs.every((ref) => ref.prefix === 'refs/heads/')).toBe(true);
+      expect(refs.some((ref) => ref.name === 'main')).toBe(true);
     });
   });
 

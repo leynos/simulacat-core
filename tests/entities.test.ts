@@ -128,6 +128,56 @@ describe('githubBlobSchema', () => {
 });
 
 describe('early entity schemas', () => {
+  it('normalizes commit parents precedence and synthesizes parent URLs', () => {
+    const commit = githubCommitSchema.parse({
+      owner: 'test-org',
+      repo: 'test-repo',
+      sha: 'abcdef',
+      parents: [{sha: 'parent-top-1'}, {sha: 'parent-top-2', url: 'https://example.test/parent-top-2'}],
+      commit: {
+        parents: [{sha: 'parent-nested-1'}]
+      }
+    });
+
+    expect(commit.parents.map((parent) => parent.sha)).toEqual(['parent-top-1', 'parent-top-2']);
+    expect(commit.parents[0]?.url).toBe('https://api.github.com/repos/test-org/test-repo/git/commits/parent-top-1');
+    expect(commit.parents[1]?.url).toBe('https://example.test/parent-top-2');
+    expect(commit.commit.parents).toEqual(commit.parents);
+  });
+
+  it('normalizes ref prefixes, precedence, and object URLs', () => {
+    const branchRef = githubRefSchema.parse({
+      owner: 'test-org',
+      repo: 'test-repo',
+      qualifiedName: 'main',
+      object: {type: 'commit', sha: 'commit-sha'}
+    });
+    const tagRef = githubRefSchema.parse({
+      owner: 'test-org',
+      repo: 'test-repo',
+      qualifiedName: 'ignored',
+      ref: 'v1.0.0',
+      object: {type: 'tag', sha: 'tag-sha'}
+    });
+
+    expect(branchRef.qualifiedName).toBe('main');
+    expect(branchRef.ref).toBe('refs/heads/main');
+    expect(branchRef.object.url).toBe('https://api.github.com/repos/test-org/test-repo/git/commits/commit-sha');
+    expect(tagRef.qualifiedName).toBe('v1.0.0');
+    expect(tagRef.ref).toBe('refs/tags/v1.0.0');
+    expect(tagRef.object.url).toBe('https://api.github.com/repos/test-org/test-repo/git/tags/tag-sha');
+  });
+
+  it('uses deterministic commit defaults', () => {
+    const first = githubCommitSchema.parse({owner: 'test-org', repo: 'test-repo'});
+    const second = githubCommitSchema.parse({owner: 'test-org', repo: 'test-repo'});
+
+    expect(first.sha).toBe('0000000000000000000000000000000000000000');
+    expect(second.sha).toBe(first.sha);
+    expect(second.commit.author.date).toBe(first.commit.author.date);
+    expect(second.commit.committer.date).toBe(first.commit.committer.date);
+  });
+
   it('defaults initialState early entity collections to empty arrays', () => {
     const parsed = parseGithubInitialStore();
 

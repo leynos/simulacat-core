@@ -19,6 +19,9 @@ const selectOwnerParam = (_state: AnyState, coords: RepositoryCoords): string =>
 /** Extracts the repo parameter from selector arguments. */
 const selectRepoParam = (_state: AnyState, coords: RepositoryCoords): string => coords.repo;
 
+const isInRepository = <T extends RepositoryCoords>(item: T, owner: string, repo: string) =>
+  item.owner === owner && item.repo === repo;
+
 type StoreTable<T> = {
   selectTableAsList: (state: AnyState) => T[];
   selectTable: (state: AnyState) => Record<string, T> | undefined;
@@ -58,7 +61,7 @@ export const buildEarlyEntitySelectors = ({createSelector, schema}: EarlyEntityS
     schema.refs.selectTableAsList,
     selectOwnerParam,
     selectRepoParam,
-    (refs: GitHubRef[], owner: string, repo: string) => refs.filter((ref) => ref.owner === owner && ref.repo === repo)
+    (refs: GitHubRef[], owner: string, repo: string) => refs.filter((ref) => isInRepository(ref, owner, repo))
   );
 
   const getRef = (state: AnyState, coords: RefStoreKeyParts): GitHubRef | undefined => {
@@ -80,14 +83,14 @@ export const buildEarlyEntitySelectors = ({createSelector, schema}: EarlyEntityS
     selectOwnerParam,
     selectRepoParam,
     (commits: GitHubCommit[], owner: string, repo: string) =>
-      commits.filter((commit) => commit.owner === owner && commit.repo === repo)
+      commits.filter((commit) => isInRepository(commit, owner, repo))
   );
 
   /** Returns only the direct commit target of a ref; graph traversal is deferred. */
   const listCommitsReachableFromRef = (state: AnyState, coords: RefStoreKeyParts): GitHubCommit[] => {
     const ref = getRef(state, coords);
     if (!ref) return [];
-    const commit = getCommit(state, {owner: coords.owner, repo: coords.repo, sha: ref.object.sha});
+    const commit = getCommit(state, {owner: ref.owner, repo: ref.repo, sha: ref.object.sha});
     return commit ? [commit] : [];
   };
 
@@ -99,8 +102,7 @@ export const buildEarlyEntitySelectors = ({createSelector, schema}: EarlyEntityS
     schema.issues.selectTableAsList,
     selectOwnerParam,
     selectRepoParam,
-    (issues: GitHubIssue[], owner: string, repo: string) =>
-      issues.filter((issue) => issue.owner === owner && issue.repo === repo)
+    (issues: GitHubIssue[], owner: string, repo: string) => issues.filter((issue) => isInRepository(issue, owner, repo))
   );
 
   const getIssue = (state: AnyState, coords: IssueStoreKeyParts): GitHubIssue | undefined => {
@@ -117,7 +119,7 @@ export const buildEarlyEntitySelectors = ({createSelector, schema}: EarlyEntityS
     selectOwnerParam,
     selectRepoParam,
     (pullRequests: GitHubPullRequest[], owner: string, repo: string) =>
-      pullRequests.filter((pullRequest) => pullRequest.owner === owner && pullRequest.repo === repo)
+      pullRequests.filter((pullRequest) => isInRepository(pullRequest, owner, repo))
   );
 
   const getPullRequest = (state: AnyState, coords: PullRequestStoreKeyParts): GitHubPullRequest | undefined => {

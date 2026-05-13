@@ -241,8 +241,8 @@ escalation, not workarounds.
   Impact: implementation must update `docs/development.md` for developer
   practice and architecture notes.
 
-- Observation: the context-pack MCP server has no existing context pack for
-  this task.
+- Observation: the context-pack Model Context Protocol (MCP) server has no
+  existing context pack for this task.
   Evidence: `context_pack.output` returned no packs for the first-class entity
   query.
   Impact: the plan relies on direct repository inspection and Wyvern reports.

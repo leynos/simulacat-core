@@ -215,6 +215,36 @@ describe('canonical store keys', () => {
     );
   });
 
+  it('rejects numbered keys missing the number separator', () => {
+    fc.assert(
+      fc.property(numberedParts, ({owner, repo, number}) => {
+        const missingSeparator = `${owner}/${repo}${number}`;
+
+        expect(() => parseIssueStoreKey(missingSeparator)).toThrow();
+        expect(() => parsePullRequestStoreKey(missingSeparator)).toThrow();
+      })
+    );
+  });
+
+  it('rejects numbered keys missing the number', () => {
+    fc.assert(
+      fc.property(numberedParts, ({owner, repo}) => {
+        expect(() => parseIssueStoreKey(`${owner}/${repo}#`)).toThrow();
+        expect(() => parsePullRequestStoreKey(`${owner}/${repo}!`)).toThrow();
+      })
+    );
+  });
+
+  it('rejects numbered keys with non-integer or non-positive numbers', () => {
+    for (const key of ['owner/repo#abc', 'owner/repo#1.5', 'owner/repo#0', 'owner/repo#-3']) {
+      expect(() => parseIssueStoreKey(key)).toThrow();
+    }
+
+    for (const key of ['owner/repo!abc', 'owner/repo!1.5', 'owner/repo!0', 'owner/repo!-3']) {
+      expect(() => parsePullRequestStoreKey(key)).toThrow();
+    }
+  });
+
   it('keeps new entity keys scoped to the owner and repository', () => {
     expect(refStoreKey({owner: 'acme', repo: 'same', qualifiedName: 'main'})).not.toBe(
       refStoreKey({owner: 'globex', repo: 'same', qualifiedName: 'main'})
