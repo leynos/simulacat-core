@@ -161,6 +161,44 @@ describe('early entity schemas', () => {
     expect(pullRequest.base.owner).toBe('test-org');
     expect(pullRequest.issue_number).toBe(3);
   });
+
+  it('clears stale closure timestamps for open issues and pull requests', () => {
+    const issue = githubIssueSchema.parse({
+      owner: 'test-org',
+      repo: 'test-repo',
+      number: 4,
+      title: 'Open issue',
+      closed_at: '2024-01-01T00:00:00Z'
+    });
+    const pullRequest = githubPullRequestSchema.parse({
+      owner: 'test-org',
+      repo: 'test-repo',
+      number: 5,
+      title: 'Open pull request',
+      closed_at: '2024-01-01T00:00:00Z',
+      merged_at: '2024-01-02T00:00:00Z',
+      base: {ref: 'main', sha: 'abc123'},
+      head: {ref: 'feature/open', sha: 'def456'}
+    });
+
+    expect(issue.closed_at).toBeNull();
+    expect(pullRequest.closed_at).toBeNull();
+    expect(pullRequest.merged_at).toBeNull();
+  });
+
+  it('rejects pull requests with divergent issue numbers', () => {
+    expect(() =>
+      githubPullRequestSchema.parse({
+        owner: 'test-org',
+        repo: 'test-repo',
+        number: 6,
+        issue_number: 7,
+        title: 'Mismatched pull request',
+        base: {ref: 'main', sha: 'abc123'},
+        head: {ref: 'feature/mismatch', sha: 'def456'}
+      })
+    ).toThrow('Pull request issue_number 7 must match pull request number 6');
+  });
 });
 
 describe('initialState blob fields', () => {

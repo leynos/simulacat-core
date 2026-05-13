@@ -1,4 +1,10 @@
-/** @file OpenAPI-backed REST handlers for the simulated GitHub API. */
+/**
+ * @file OpenAPI-backed REST handlers for the simulated GitHub API.
+ *
+ * This module builds the default handler table used by the foundation
+ * simulator's OpenAPI adapter, wires seeded store selectors into GitHub REST
+ * routes, and merges caller-provided handler extensions.
+ */
 import type {Document, SimulationHandlers} from '@simulacrum/foundation-simulator';
 import type {ExtendedSimulationStore} from '../store/index.ts';
 import {getSchema, type SchemaFile} from '../utils.ts';
@@ -22,12 +28,36 @@ const handlers =
   ) =>
   (simulationStore: ExtendedSimulationStore): SimulationHandlers => {
     const getState = () => simulationStore.store.getState();
+    /**
+     * Ensures a repository exists before a repository-scoped handler proceeds.
+     *
+     * @param owner Repository owner login.
+     * @param repo Repository name.
+     * @param response Response adapter used to emit a missing-repository 404.
+     * @returns The repository fixture, or `null` after sending `notFound`.
+     *
+     * Uses `simulationStore.selectors.getRepository` with `getState()`. When
+     * the repository is missing, this function has the side effect of sending
+     * the shared `notFound` JSON response.
+     */
     const requireRepository = (owner: string, repo: string, response: Res) => {
       const repository = simulationStore.selectors.getRepository(getState(), owner, repo);
       if (!repository) response.status(404).json(notFound);
       return repository ?? null;
     };
 
+    /**
+     * Creates a repository-specific list `SimulationHandler`.
+     *
+     * @param selector Function that receives the current `getState()` result,
+     * owner, and repo, and returns the selected list data.
+     * @returns A `SimulationHandler` that sends JSON `200` with the selected
+     * data, or exits early when `requireRepository` sends a 404.
+     *
+     * `makeListHandler` expects request params shaped as
+     * `{owner: string; repo: string}`. It calls `requireRepository` before
+     * invoking `selector`, and calls `getState` for the selector input.
+     */
     const makeListHandler =
       (selector: (state: ReturnType<typeof getState>, owner: string, repo: string) => unknown): SimulationHandler =>
       async (context: Ctx, _request: Req, response: Res) => {
@@ -36,6 +66,23 @@ const handlers =
         return response.status(200).json(selector(getState(), owner, repo));
       };
 
+    /**
+     * Creates a repository-specific item `SimulationHandler`.
+     *
+     * @typeParam TParam Route parameter name used to identify the item.
+     * @param paramName Name of the item parameter in `context.request.params`.
+     * @param selector Function that accepts state, owner, repo, and the
+     * coerced item parameter, returning the selected item or a falsy value.
+     * @param coerce Optional conversion applied to `params[paramName]` before
+     * selector dispatch. The default is string passthrough; callers may pass
+     * numeric coercion such as `Number`.
+     * @returns A `SimulationHandler` that sends 404 when the repository or item
+     * is not found, and JSON `200` with the item when present.
+     *
+     * The generated handler expects request params containing `owner`, `repo`,
+     * and `paramName`. It calls `requireRepository`, applies `coerce`, and then
+     * delegates to `selector`.
+     */
     const makeItemHandler =
       <TParam extends string>(
         paramName: TParam,

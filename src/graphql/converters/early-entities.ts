@@ -10,10 +10,31 @@ type MinimalRepositoryRef = {
   name: string;
 };
 
+/**
+ * Converts a GitHub repository fixture into a minimal GraphQL repository ref.
+ *
+ * @param repository GitHub repository fixture to wrap, or `undefined`.
+ * @returns A minimal repository reference, or `undefined` when `repository` is
+ * undefined.
+ *
+ * The conversion maps `node_id` to GraphQL `id`, preserves `name`, and sets
+ * `__typename` to `Repository`.
+ */
 const wrapRepository = (repository: GitHubRepository | undefined): MinimalRepositoryRef | undefined => {
   return repository ? {__typename: 'Repository', id: repository.node_id, name: repository.name} : undefined;
 };
 
+/**
+ * Converts fixture pull request state values to GraphQL enum values.
+ *
+ * @param state Pull request fixture state: `open`, `closed`, or `merged`.
+ * @returns The matching GraphQL `PullRequestState` value: `Open`, `Closed`, or
+ * `Merged`.
+ *
+ * The default branch assigns `state` to `never` so TypeScript validates the
+ * mapping exhaustively. It throws an `Error` if an unhandled state reaches
+ * runtime.
+ */
 const convertPullRequestStateToGraphQL = (state: 'open' | 'closed' | 'merged'): PullRequestState => {
   switch (state) {
     case 'open':

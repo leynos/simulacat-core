@@ -76,15 +76,17 @@ export const githubPullRequestSchema = z
   })
   .transform((pullRequest) => {
     const key = pullRequestStoreKey(pullRequest);
-    const issueNumber = pullRequest.issue_number ?? pullRequest.number;
+    if (pullRequest.issue_number !== undefined && pullRequest.issue_number !== pullRequest.number) {
+      throw new Error(
+        `Pull request issue_number ${pullRequest.issue_number} must match pull request number ${pullRequest.number}`
+      );
+    }
+    const issueNumber = pullRequest.number;
     const closedAt =
       pullRequest.state === 'closed' || pullRequest.state === 'merged'
         ? (pullRequest.closed_at ?? pullRequest.updated_at)
-        : (pullRequest.closed_at ?? null);
-    const mergedAt =
-      pullRequest.state === 'merged'
-        ? (pullRequest.merged_at ?? pullRequest.updated_at)
-        : (pullRequest.merged_at ?? null);
+        : null;
+    const mergedAt = pullRequest.state === 'merged' ? (pullRequest.merged_at ?? pullRequest.updated_at) : null;
 
     return {
       ...pullRequest,

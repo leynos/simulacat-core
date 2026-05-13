@@ -17,7 +17,7 @@ tolerances below.
 ## Purpose / big picture
 
 Simulacat Core currently has first-class store entities for users,
-organisations, repositories, branches, installations, and blobs. It does not
+organizations, repositories, branches, installations, and blobs. It does not
 yet have first-class store entities for the early collaboration objects that
 later roadmap phases need: refs, commits, issues, and pull requests. Without
 those entities, phase 2 GraphQL reads and phase 3 pull request mutations would
@@ -68,7 +68,7 @@ escalation, not workarounds.
   helpers instead of re-deriving identity locally. This applies the
   `hexagonal-architecture` skill as a boundary check, not as a directory
   transplant.
-- Authentication and authorisation remain out of scope for this task. `/user`,
+- Authentication and authorization remain out of scope for this task. `/user`,
   GraphQL `viewer`, request actors, and actor-aware permissions belong to
   roadmap section 1.2.
 - Do not claim broad REST or GraphQL support merely because the OpenAPI or
@@ -298,7 +298,7 @@ escalation, not workarounds.
 - Observation: CodeRabbit review converged after several small follow-up
   passes.
   Evidence: later `coderabbit review --agent` runs reported findings around
-  generated ID offsets, deterministic/default timestamp centralisation,
+  generated ID offsets, deterministic/default timestamp centralization,
   PR-state mapping, GraphQL repository wrapping, empty `ref` strings, and
   schema JSDoc before the final pass returned `findings: 0`.
   Impact: the final implementation has a shared early-entity defaults module,

@@ -182,10 +182,26 @@ export type RepositoryConnectionShape = Connection<
   {cursor: string; node: GraphQLData['Repository']}
 > & {totalDiskUsage: number};
 
+/**
+ * `Connection` shape for `GraphQLData['Ref']` nodes.
+ *
+ * Edges carry `cursor: string` and `node: GraphQLData['Ref']` payloads.
+ */
 export type RefConnectionShape = Connection<GraphQLData['Ref'], {cursor: string; node: GraphQLData['Ref']}>;
 
+/**
+ * `Connection` shape for `GraphQLData['Issue']` nodes.
+ *
+ * Edges carry `cursor: string` and `node: GraphQLData['Issue']` payloads.
+ */
 export type IssueConnectionShape = Connection<GraphQLData['Issue'], {cursor: string; node: GraphQLData['Issue']}>;
 
+/**
+ * `Connection` shape for `GraphQLData['PullRequest']` nodes.
+ *
+ * Edges carry `cursor: string` and `node: GraphQLData['PullRequest']`
+ * payloads.
+ */
 export type PullRequestConnectionShape = Connection<
   GraphQLData['PullRequest'],
   {cursor: string; node: GraphQLData['PullRequest']}

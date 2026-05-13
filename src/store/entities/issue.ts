@@ -73,7 +73,7 @@ export const githubIssueSchema = z
       id: issue.id ?? ENTITY_ID_OFFSETS.ISSUE + issue.number,
       node_id: issue.node_id ?? Buffer.from(`Issue:${key}`).toString('base64'),
       user: issue.user ?? {login: 'octocat'},
-      closed_at: issue.state === 'closed' ? (issue.closed_at ?? issue.updated_at) : (issue.closed_at ?? null),
+      closed_at: issue.state === 'closed' ? (issue.closed_at ?? issue.updated_at) : null,
       url: issue.url ?? `https://api.github.com/repos/${issue.owner}/${issue.repo}/issues/${issue.number}`,
       html_url: issue.html_url ?? `https://github.com/${issue.owner}/${issue.repo}/issues/${issue.number}`,
       repository_url: issue.repository_url ?? `https://api.github.com/repos/${issue.owner}/${issue.repo}`

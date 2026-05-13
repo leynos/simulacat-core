@@ -17,6 +17,18 @@ import {branchStoreKey, repositoryNodeId} from '../../store/keys.ts';
 import {RepositoryVisibility} from '../../__generated__/resolvers-types.ts';
 import type {User} from '../../__generated__/resolvers-types.ts';
 
+/**
+ * Normalizes a Git ref name for repository ref lookup.
+ *
+ * @param qualifiedName Ref name supplied by GraphQL, such as
+ * `refs/heads/main`.
+ * @returns The lookup ref name with a leading `refs/heads/` prefix removed.
+ *
+ * @example
+ * ```ts
+ * normalizeRefLookup('refs/heads/main') // 'main'
+ * ```
+ */
 const normalizeRefLookup = (qualifiedName: string) => qualifiedName.replace(/^refs\/heads\//, '');
 
 interface ConversionContext {
@@ -24,6 +36,22 @@ interface ConversionContext {
   toGraphql: ToGraphqlDispatcher;
 }
 
+/**
+ * Paginates repository issue or pull request fixtures and converts each node.
+ *
+ * @typeParam K Repository item type, constrained to `Issue` or `PullRequest`.
+ * @param items Repository-scoped fixture items to paginate.
+ * @param pageArgs Relay pagination arguments.
+ * @param typeName GraphQL fixture discriminator for each item.
+ * @param context Conversion context containing the simulation store and
+ * dispatcher.
+ * @returns A Relay connection whose nodes are GraphQL representations of the
+ * input items.
+ *
+ * Items are paginated with `applyRelayPagination`; each item is converted via
+ * `context.toGraphql(context.simulationStore, typeName, item)`. Empty item
+ * arrays return an empty connection according to the relay helper.
+ */
 function paginateRepoItems<K extends 'Issue' | 'PullRequest'>(
   items: DataSchemas[K][],
   pageArgs: PageArgs,
@@ -33,6 +61,19 @@ function paginateRepoItems<K extends 'Issue' | 'PullRequest'>(
   return applyRelayPagination(items, pageArgs, (item) => context.toGraphql(context.simulationStore, typeName, item));
 }
 
+/**
+ * Converts an optional repository issue or pull request fixture to GraphQL.
+ *
+ * @param item Repository item fixture to convert, or `undefined`.
+ * @param typeName GraphQL fixture discriminator for the item.
+ * @param context Conversion context containing `simulationStore` and
+ * `toGraphql`.
+ * @returns The GraphQL representation, or `undefined` when `item` is
+ * undefined.
+ *
+ * Conversion is delegated to `context.toGraphql` using
+ * `context.simulationStore`.
+ */
 function resolveRepoItem<K extends 'Issue' | 'PullRequest'>(
   item: DataSchemas[K] | undefined,
   typeName: K,
