@@ -73,6 +73,13 @@ describe('graphql queries', () => {
         ],
         refs: [
           {owner: 'lovely-org', repo: 'awesome-repo', qualifiedName: 'main', object: {sha: 'commit-a'}},
+          {owner: 'lovely-org', repo: 'awesome-repo', qualifiedName: 'feature/x', object: {sha: 'commit-a'}},
+          {
+            owner: 'lovely-org',
+            repo: 'awesome-repo',
+            qualifiedName: 'v1.0.0',
+            object: {type: 'tag', sha: 'commit-a'}
+          },
           {owner: 'Acme', repo: 'Awesome-Repo', qualifiedName: 'main', object: {sha: 'commit-b'}}
         ],
         issues: [
@@ -201,6 +208,15 @@ describe('graphql queries', () => {
               }
             }
           }
+          tagRef: ref(qualifiedName: "refs/tags/v1.0.0") {
+            name
+            prefix
+            target {
+              ... on Commit {
+                oid
+              }
+            }
+          }
           issues(first: 10) {
             nodes {
               id
@@ -268,6 +284,11 @@ describe('graphql queries', () => {
       expect(response.data.repository.ref.target.oid).toBe('commit-a');
     });
 
+    it('returns the named tag ref with its commit target', () => {
+      expect(response.data.repository.tagRef).toEqual(expect.objectContaining({name: 'v1.0.0', prefix: 'refs/tags/'}));
+      expect(response.data.repository.tagRef.target.oid).toBe('commit-a');
+    });
+
     it('returns issues with number, title, and state', () => {
       expect(response.data.repository.issues.nodes).toEqual([
         expect.objectContaining({number: 1, title: 'Lovely issue', state: 'OPEN'})
@@ -306,6 +327,7 @@ describe('graphql queries', () => {
       );
       expect(refs.every((ref) => ref.prefix === 'refs/heads/')).toBe(true);
       expect(refs.some((ref) => ref.name === 'main')).toBe(true);
+      expect(refs.some((ref) => ref.name === 'feature/x')).toBe(true);
     });
   });
 

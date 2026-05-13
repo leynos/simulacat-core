@@ -22,14 +22,15 @@ import type {User} from '../../__generated__/resolvers-types.ts';
  *
  * @param qualifiedName Ref name supplied by GraphQL, such as
  * `refs/heads/main`.
- * @returns The lookup ref name with a leading `refs/heads/` prefix removed.
+ * @returns The lookup ref name with a leading `refs/heads/` or `refs/tags/`
+ * prefix removed.
  *
  * @example
  * ```ts
  * normalizeRefLookup('refs/heads/main') // 'main'
  * ```
  */
-const normalizeRefLookup = (qualifiedName: string) => qualifiedName.replace(/^refs\/heads\//, '');
+const normalizeRefLookup = (qualifiedName: string) => qualifiedName.replace(/^refs\/(heads|tags)\//, '');
 
 interface ConversionContext {
   simulationStore: ExtendedSimulationStore;

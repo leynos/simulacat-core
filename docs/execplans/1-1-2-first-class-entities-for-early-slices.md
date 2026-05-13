@@ -418,7 +418,7 @@ dispatches only `User`, `Organization`, and `Repository`. Repository GraphQL
 conversion in `src/graphql/converters/repository.ts` currently creates a
 placeholder `defaultBranchRef` with an id and name, not a first-class ref with
 a target commit. The resolver map in `src/graphql/resolvers.ts` implements only
-top-level user, organisation, and repository reads.
+top-level user, organization, and repository reads.
 
 The relevant documentation says:
 

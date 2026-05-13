@@ -64,6 +64,16 @@ const convertPullRequestStateToGraphQL = (state: 'open' | 'closed' | 'merged'): 
  * @returns A prefix/name pair for the GraphQL `Ref` shape.
  */
 const splitRefName = (qualifiedName: string) => {
+  if (qualifiedName.startsWith('refs/')) {
+    const namespaceEnd = qualifiedName.indexOf('/', 'refs/'.length);
+    if (namespaceEnd >= 0) {
+      return {
+        prefix: qualifiedName.slice(0, namespaceEnd + 1),
+        name: qualifiedName.slice(namespaceEnd + 1)
+      };
+    }
+  }
+
   const lastSlash = qualifiedName.lastIndexOf('/');
   if (lastSlash < 0) {
     return {prefix: '', name: qualifiedName};
