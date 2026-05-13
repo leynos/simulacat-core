@@ -163,6 +163,7 @@ describe('graphql queries', () => {
         repository(owner: $owner, name: $name) {
           defaultBranchRef {
             name
+            prefix
             target {
               ... on Commit {
                 oid
@@ -172,6 +173,7 @@ describe('graphql queries', () => {
           }
           ref(qualifiedName: "main") {
             name
+            prefix
             target {
               ... on Commit {
                 oid
@@ -218,12 +220,14 @@ describe('graphql queries', () => {
       expect(response.data.repository.defaultBranchRef).toEqual(
         expect.objectContaining({
           name: 'main',
+          prefix: 'refs/heads/',
           target: expect.objectContaining({oid: 'commit-a', messageHeadline: 'Initial commit'})
         })
       );
     });
 
     it('returns the named ref with its commit target', () => {
+      expect(response.data.repository.ref).toEqual(expect.objectContaining({name: 'main', prefix: 'refs/heads/'}));
       expect(response.data.repository.ref.target.oid).toBe('commit-a');
     });
 
