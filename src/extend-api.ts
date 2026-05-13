@@ -8,9 +8,12 @@
 import type {createFoundationSimulationServer} from '@simulacrum/foundation-simulator';
 import {stringify} from 'querystring';
 import {createHandler} from './graphql/handler.ts';
+import {normalizeGitRefPath} from './rest/utils.ts';
 import type {ExtendedSimulationStore} from './store/index.ts';
 
 type FoundationExtendRouter = NonNullable<Parameters<typeof createFoundationSimulationServer>[0]['extendRouter']>;
+
+const notFound = {message: 'Not Found'};
 
 /**
  * Wraps a caller-provided router extension with Simulacat Core's built-in
@@ -39,6 +42,17 @@ export const extendRouter =
     });
 
     router.use('/graphql', createHandler(simulationStore));
+
+    router.get('/repos/:owner/:repo/git/ref/*ref', (request, response) => {
+      const {owner, repo, ref} = request.params as {owner: string; repo: string; ref: string[]};
+      const qualifiedName = normalizeGitRefPath(ref.join('/'));
+      const state = simulationStore.store.getState();
+      const repository = simulationStore.selectors.getRepository(state, owner, repo);
+      const item = repository ? simulationStore.selectors.getRef(state, {owner, repo, qualifiedName}) : undefined;
+
+      if (!item) return response.status(404).json(notFound);
+      return response.status(200).json(item);
+    });
 
     router.get(['/login/oauth/authorize'], (request, response) => {
       const {redirect_uri, state, env} = request.query as {

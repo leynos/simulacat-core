@@ -8,7 +8,7 @@
 import type {Document, SimulationHandlers} from '@simulacrum/foundation-simulator';
 import type {ExtendedSimulationStore} from '../store/index.ts';
 import {getSchema, type SchemaFile} from '../utils.ts';
-import {blobAsBase64, commitStatusResponse, gitTrees} from './utils.ts';
+import {blobAsBase64, commitStatusResponse, gitTrees, normalizeGitRefPath} from './utils.ts';
 
 /**
  * Creates the REST handler table consumed by the foundation simulator's
@@ -267,7 +267,7 @@ const handlers =
           },
           // GET /repos/{owner}/{repo}/git/ref/{ref}
           'git/get-ref': makeItemHandler('ref', (state, owner, repo, ref) =>
-            simulationStore.selectors.getRef(state, {owner, repo, qualifiedName: String(ref)})
+            simulationStore.selectors.getRef(state, {owner, repo, qualifiedName: normalizeGitRefPath(String(ref))})
           ),
           // GET /repos/{owner}/{repo}/git/commits/{commit_sha}
           'git/get-commit': makeItemHandler('commit_sha', (state, owner, repo, sha) =>

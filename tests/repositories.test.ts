@@ -180,11 +180,15 @@ describe('GET repo endpoints', () => {
     it('returns repository-scoped refs and commits', async () => {
       const refRequest = await fetch(`${url}/repos/lovely-org/awesome-repo/git/ref/main`);
       const refResponse = await refRequest.json();
+      const qualifiedRefRequest = await fetch(`${url}/repos/lovely-org/awesome-repo/git/ref/heads/main`);
+      const qualifiedRefResponse = await qualifiedRefRequest.json();
       const commitRequest = await fetch(`${url}/repos/lovely-org/awesome-repo/git/commits/commit-a`);
       const commitResponse = await commitRequest.json();
 
       expect(refRequest.status).toEqual(200);
       expect(refResponse.object.sha).toBe('commit-a');
+      expect(qualifiedRefRequest.status).toEqual(200);
+      expect(qualifiedRefResponse.object.sha).toBe('commit-a');
       expect(commitRequest.status).toEqual(200);
       expect(commitResponse.commit.message).toBe('Initial commit');
     });
