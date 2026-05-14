@@ -439,7 +439,7 @@ anchors:
 
 - Git refs are repository-scoped references whose response shape includes
   `ref`, `node_id`, `url`, and `object`.
-- Git commit objects need a SHA, message, tree reference, parent commits, and
+- Git commit objects need an SHA, message, tree reference, parent commits, and
   author/committer metadata.
 - Issues need at least id, node id, number, state, title, body, user, URLs, and
   timestamps; the issue API treats pull requests as issues.
@@ -685,7 +685,7 @@ Wyvern team findings used in this draft:
 - Store reconnaissance found `githubInitialStoreSchema`,
   `convertInitialStateToStoreState`, `src/store/keys.ts`,
   `src/store/builders.ts`, and `src/index.ts` as the core store and public API
-  touch points.
+  touchpoints.
 - API reconnaissance found REST and GraphQL are intentionally narrow today and
   warned against upgrading schema-present fields to "supported" without
   state-backed handlers and semantic tests.
@@ -694,16 +694,17 @@ Wyvern team findings used in this draft:
 
 External documentation checked with Firecrawl:
 
-- GitHub REST refs documentation:
-  `https://docs.github.com/rest/git/refs`
-- GitHub REST git commits documentation:
-  `https://docs.github.com/en/rest/git/commits`
-- GitHub REST issues documentation:
-  `https://docs.github.com/rest/issues/issues`
-- GitHub REST pull requests documentation:
-  `https://docs.github.com/en/rest/pulls/pulls`
-- LemmaScript README:
-  `https://github.com/midspiral/LemmaScript/blob/main/README.md`
+- GitHub REST refs documentation[^1]
+- GitHub REST git commits documentation[^2]
+- GitHub REST issues documentation[^3]
+- GitHub REST pull requests documentation[^4]
+- LemmaScript README[^5]
+
+[^1]: <https://docs.github.com/rest/git/refs>
+[^2]: <https://docs.github.com/en/rest/git/commits>
+[^3]: <https://docs.github.com/rest/issues/issues>
+[^4]: <https://docs.github.com/en/rest/pulls/pulls>
+[^5]: <https://github.com/midspiral/LemmaScript/blob/main/README.md>
 
 ## Interfaces and dependencies
 
