@@ -13,15 +13,6 @@ import {
   type RepositoryCoords
 } from './keys.ts';
 
-/** Extracts the owner parameter from selector arguments. */
-const selectOwnerParam = (_state: AnyState, coords: RepositoryCoords): string => coords.owner;
-
-/** Extracts the repo parameter from selector arguments. */
-const selectRepoParam = (_state: AnyState, coords: RepositoryCoords): string => coords.repo;
-
-const isInRepository = <T extends RepositoryCoords>(item: T, owner: string, repo: string) =>
-  item.owner === owner && item.repo === repo;
-
 type StoreTable<T> = {
   selectTableAsList: (state: AnyState) => T[];
   selectTable: (state: AnyState) => Record<string, T> | undefined;
@@ -49,6 +40,29 @@ export type EarlyEntitySelectorArgs = {
 };
 
 /**
+ * Builds a memoised owner/repo -> entity index from a flat list selector.
+ * The index is rebuilt only when the underlying table slice changes;
+ * subsequent lookups for any repository within that slice are O(1).
+ */
+const buildRepoIndex = <T extends RepositoryCoords>(
+  selectAll: (state: AnyState) => T[],
+  createSel: CreateSelector
+): ((state: AnyState) => Map<string, T[]>) =>
+  createSel(selectAll, (items: T[]): Map<string, T[]> => {
+    const index = new Map<string, T[]>();
+    for (const item of items) {
+      const repoKey = `${item.owner}/${item.repo}`;
+      const bucket = index.get(repoKey);
+      if (bucket) {
+        bucket.push(item);
+      } else {
+        index.set(repoKey, [item]);
+      }
+    }
+    return index;
+  });
+
+/**
  * Builds repository-scoped selectors for early collaboration entities.
  *
  * @param args Selector construction dependencies, including `createSelector`
@@ -57,12 +71,13 @@ export type EarlyEntitySelectorArgs = {
  * requests by owner-scoped repository coordinates.
  */
 export const buildEarlyEntitySelectors = ({createSelector, schema}: EarlyEntitySelectorArgs) => {
-  const listRefsForRepository = createSelector<[coords: RepositoryCoords], [GitHubRef[], string, string], GitHubRef[]>(
-    schema.refs.selectTableAsList,
-    selectOwnerParam,
-    selectRepoParam,
-    (refs: GitHubRef[], owner: string, repo: string) => refs.filter((ref) => isInRepository(ref, owner, repo))
-  );
+  const refsIndex = buildRepoIndex(schema.refs.selectTableAsList, createSelector);
+  const commitsIndex = buildRepoIndex(schema.commits.selectTableAsList, createSelector);
+  const issuesIndex = buildRepoIndex(schema.issues.selectTableAsList, createSelector);
+  const pullRequestsIndex = buildRepoIndex(schema.pullRequests.selectTableAsList, createSelector);
+
+  const listRefsForRepository = (state: AnyState, coords: RepositoryCoords): GitHubRef[] =>
+    refsIndex(state).get(`${coords.owner}/${coords.repo}`) ?? [];
 
   const getRef = (state: AnyState, coords: RefStoreKeyParts): GitHubRef | undefined => {
     const key = refStoreKey(coords);
@@ -74,17 +89,8 @@ export const buildEarlyEntitySelectors = ({createSelector, schema}: EarlyEntityS
     return schema.commits.selectTable(state)?.[key];
   };
 
-  const listCommitsForRepository = createSelector<
-    [coords: RepositoryCoords],
-    [GitHubCommit[], string, string],
-    GitHubCommit[]
-  >(
-    schema.commits.selectTableAsList,
-    selectOwnerParam,
-    selectRepoParam,
-    (commits: GitHubCommit[], owner: string, repo: string) =>
-      commits.filter((commit) => isInRepository(commit, owner, repo))
-  );
+  const listCommitsForRepository = (state: AnyState, coords: RepositoryCoords): GitHubCommit[] =>
+    commitsIndex(state).get(`${coords.owner}/${coords.repo}`) ?? [];
 
   /** Returns only the direct commit target of a ref; graph traversal is deferred. */
   const listCommitsReachableFromRef = (state: AnyState, coords: RefStoreKeyParts): GitHubCommit[] => {
@@ -94,33 +100,16 @@ export const buildEarlyEntitySelectors = ({createSelector, schema}: EarlyEntityS
     return commit ? [commit] : [];
   };
 
-  const listIssuesForRepository = createSelector<
-    [coords: RepositoryCoords],
-    [GitHubIssue[], string, string],
-    GitHubIssue[]
-  >(
-    schema.issues.selectTableAsList,
-    selectOwnerParam,
-    selectRepoParam,
-    (issues: GitHubIssue[], owner: string, repo: string) => issues.filter((issue) => isInRepository(issue, owner, repo))
-  );
+  const listIssuesForRepository = (state: AnyState, coords: RepositoryCoords): GitHubIssue[] =>
+    issuesIndex(state).get(`${coords.owner}/${coords.repo}`) ?? [];
 
   const getIssue = (state: AnyState, coords: IssueStoreKeyParts): GitHubIssue | undefined => {
     const key = issueStoreKey(coords);
     return schema.issues.selectTable(state)?.[key];
   };
 
-  const listPullRequestsForRepository = createSelector<
-    [coords: RepositoryCoords],
-    [GitHubPullRequest[], string, string],
-    GitHubPullRequest[]
-  >(
-    schema.pullRequests.selectTableAsList,
-    selectOwnerParam,
-    selectRepoParam,
-    (pullRequests: GitHubPullRequest[], owner: string, repo: string) =>
-      pullRequests.filter((pullRequest) => isInRepository(pullRequest, owner, repo))
-  );
+  const listPullRequestsForRepository = (state: AnyState, coords: RepositoryCoords): GitHubPullRequest[] =>
+    pullRequestsIndex(state).get(`${coords.owner}/${coords.repo}`) ?? [];
 
   const getPullRequest = (state: AnyState, coords: PullRequestStoreKeyParts): GitHubPullRequest | undefined => {
     const key = pullRequestStoreKey(coords);
