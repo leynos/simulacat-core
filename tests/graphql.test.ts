@@ -66,7 +66,37 @@ describe('graphql queries', () => {
           {owner: 'lovely-org', repo: 'awesome-repo', name: 'main'},
           {owner: 'Acme', repo: 'Awesome-Repo', name: 'main'}
         ],
-        blobs: []
+        blobs: [],
+        commits: [
+          {owner: 'lovely-org', repo: 'awesome-repo', sha: 'commit-a', commit: {message: 'Initial commit'}},
+          {owner: 'Acme', repo: 'Awesome-Repo', sha: 'commit-b', commit: {message: 'Acme commit'}}
+        ],
+        refs: [
+          {owner: 'lovely-org', repo: 'awesome-repo', qualifiedName: 'main', object: {sha: 'commit-a'}},
+          {owner: 'lovely-org', repo: 'awesome-repo', qualifiedName: 'feature/x', object: {sha: 'commit-a'}},
+          {
+            owner: 'lovely-org',
+            repo: 'awesome-repo',
+            qualifiedName: 'v1.0.0',
+            object: {type: 'tag', sha: 'commit-a'}
+          },
+          {owner: 'Acme', repo: 'Awesome-Repo', qualifiedName: 'main', object: {sha: 'commit-b'}}
+        ],
+        issues: [
+          {owner: 'lovely-org', repo: 'awesome-repo', number: 1, title: 'Lovely issue'},
+          {owner: 'Acme', repo: 'Awesome-Repo', number: 1, title: 'Acme issue'}
+        ],
+        pullRequests: [
+          {
+            owner: 'lovely-org',
+            repo: 'awesome-repo',
+            number: 2,
+            title: 'Lovely pull request',
+            draft: true,
+            base: {ref: 'main', sha: 'commit-a'},
+            head: {ref: 'feature/entity-spine', sha: 'commit-c'}
+          }
+        ]
       }
     });
     server = await app.listen(basePort);
@@ -131,6 +161,173 @@ describe('graphql queries', () => {
     expect(response.data.repository).toEqual({
       name: 'Awesome-Repo',
       nameWithOwner: 'Acme/Awesome-Repo'
+    });
+  });
+
+  describe('reads first-class refs, issues, and pull requests from repository state', () => {
+    const repositoryEntitiesSingularQuery = gql`
+      query repositoryEntitiesSingular($owner: String!, $name: String!) {
+        repository(owner: $owner, name: $name) {
+          issue(number: 1) {
+            id
+            number
+          }
+          pullRequest(number: 2) {
+            id
+            number
+          }
+          refs(first: 10, refPrefix: "refs/heads/") {
+            nodes {
+              name
+              prefix
+            }
+          }
+        }
+      }
+    `;
+
+    const repositoryEntitiesQuery = gql`
+      query repositoryEntities($owner: String!, $name: String!) {
+        repository(owner: $owner, name: $name) {
+          defaultBranchRef {
+            name
+            prefix
+            target {
+              ... on Commit {
+                oid
+                messageHeadline
+              }
+            }
+          }
+          ref(qualifiedName: "main") {
+            name
+            prefix
+            target {
+              ... on Commit {
+                oid
+              }
+            }
+          }
+          tagRef: ref(qualifiedName: "refs/tags/v1.0.0") {
+            name
+            prefix
+            target {
+              ... on Commit {
+                oid
+              }
+            }
+          }
+          issues(first: 10) {
+            nodes {
+              id
+              number
+              title
+              state
+            }
+          }
+          pullRequests(first: 10) {
+            nodes {
+              id
+              number
+              title
+              isDraft
+              baseRefName
+              headRefName
+            }
+          }
+        }
+      }
+    `;
+    let response: any;
+    let singularResponse: any;
+
+    beforeAll(async () => {
+      const request = await fetch(`${url}/graphql`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          query: repositoryEntitiesQuery,
+          variables: {owner: 'lovely-org', name: 'awesome-repo'}
+        })
+      });
+      response = await request.json();
+
+      expect(request.status).toEqual(200);
+      expect(response.errors).toBe(undefined);
+
+      const singularRequest = await fetch(`${url}/graphql`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          query: repositoryEntitiesSingularQuery,
+          variables: {owner: 'lovely-org', name: 'awesome-repo'}
+        })
+      });
+      singularResponse = await singularRequest.json();
+
+      expect(singularRequest.status).toEqual(200);
+      expect(singularResponse.errors).toBe(undefined);
+    });
+
+    it('returns the defaultBranchRef with its commit target', () => {
+      expect(response.data.repository.defaultBranchRef).toEqual(
+        expect.objectContaining({
+          name: 'main',
+          prefix: 'refs/heads/',
+          target: expect.objectContaining({oid: 'commit-a', messageHeadline: 'Initial commit'})
+        })
+      );
+    });
+
+    it('returns the named ref with its commit target', () => {
+      expect(response.data.repository.ref).toEqual(expect.objectContaining({name: 'main', prefix: 'refs/heads/'}));
+      expect(response.data.repository.ref.target.oid).toBe('commit-a');
+    });
+
+    it('returns the named tag ref with its commit target', () => {
+      expect(response.data.repository.tagRef).toEqual(expect.objectContaining({name: 'v1.0.0', prefix: 'refs/tags/'}));
+      expect(response.data.repository.tagRef.target.oid).toBe('commit-a');
+    });
+
+    it('returns issues with number, title, and state', () => {
+      expect(response.data.repository.issues.nodes).toEqual([
+        expect.objectContaining({number: 1, title: 'Lovely issue', state: 'OPEN'})
+      ]);
+    });
+
+    it('returns pull requests with draft flag and ref names', () => {
+      expect(response.data.repository.pullRequests.nodes).toEqual([
+        expect.objectContaining({
+          number: 2,
+          title: 'Lovely pull request',
+          isDraft: true,
+          baseRefName: 'main',
+          headRefName: 'feature/entity-spine'
+        })
+      ]);
+    });
+
+    it('resolves singular issue, pull request, and refs with refPrefix consistently', () => {
+      const issueFromConnection = response.data.repository.issues.nodes.find(
+        (node: {number: number}) => node.number === 1
+      );
+      const pullRequestFromConnection = response.data.repository.pullRequests.nodes.find(
+        (node: {number: number}) => node.number === 2
+      );
+      const refs = singularResponse.data.repository.refs.nodes as Array<{name: string; prefix: string}>;
+
+      expect(singularResponse.data.repository.issue).toEqual(
+        expect.objectContaining({id: issueFromConnection.id, number: issueFromConnection.number})
+      );
+      expect(singularResponse.data.repository.pullRequest).toEqual(
+        expect.objectContaining({
+          id: pullRequestFromConnection.id,
+          number: pullRequestFromConnection.number
+        })
+      );
+      expect(refs.every((ref) => ref.prefix === 'refs/heads/')).toBe(true);
+      expect(refs.some((ref) => ref.name === 'main')).toBe(true);
+      expect(refs.some((ref) => ref.name === 'feature/x')).toBe(true);
     });
   });
 

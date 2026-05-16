@@ -1,5 +1,6 @@
 /** @file Unit tests for GraphQL repository conversion helpers. */
 import {describe, expect, it} from 'bun:test';
+import {convertCommitToGraphql} from '../src/graphql/converters/early-entities.ts';
 import {convertRepositoryToGraphql} from '../src/graphql/converters/repository.ts';
 import type {DataSchemas, ToGraphqlDispatcher} from '../src/graphql/to-graphql-shapes.ts';
 import type {ExtendedSimulationStore} from '../src/store/index.ts';
@@ -62,5 +63,42 @@ describe('convertRepositoryToGraphql', () => {
     }) as ToGraphqlDispatcher);
 
     expect(graphqlRepository.repositoryTopics({}).nodes).toEqual([]);
+  });
+});
+
+describe('convertCommitToGraphql', () => {
+  it('derives nested repository ids and normalizes CRLF message parts', () => {
+    const commit = {
+      owner: 'test-org',
+      repo: 'test-repo',
+      sha: 'abcdef1234567',
+      node_id: 'commit-node',
+      html_url: 'https://github.com/test-org/test-repo/commit/abcdef1234567',
+      commit: {
+        message: 'Headline\r\n\r\nBody',
+        author: {name: 'Author', email: 'author@example.test', date: '2024-01-01T00:00:00.000Z'},
+        committer: {name: 'Committer', email: 'committer@example.test', date: '2024-01-01T00:00:00.000Z'}
+      }
+    } as unknown as DataSchemas['Commit'];
+    const store = {
+      store: {getState: () => ({})},
+      selectors: {
+        getRepository: () => ({
+          owner: 'test-org',
+          name: 'test-repo'
+        })
+      }
+    } as unknown as ExtendedSimulationStore;
+
+    const graphqlCommit = convertCommitToGraphql(store, commit);
+    const commitShape = graphqlCommit as unknown as {
+      messageHeadline: string;
+      messageBody: string;
+      repository: {id: string};
+    };
+
+    expect(commitShape.messageHeadline).toBe('Headline');
+    expect(commitShape.messageBody).toBe('\nBody');
+    expect(commitShape.repository.id).toBe(Buffer.from('Repository:test-org/test-repo').toString('base64'));
   });
 });

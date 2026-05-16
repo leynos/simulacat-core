@@ -44,8 +44,16 @@ The package exports the schemas needed to validate and build seeded state:
 - `githubRepositorySchema`
 - `githubBranchSchema`
 - `githubBlobSchema`
+- `githubRefSchema`
+- `githubCommitSchema`
+- `githubIssueSchema`
+- `githubPullRequestSchema`
 - `buildRepositoryFixture`
 - `buildBranchFixture`
+- `buildRefFixture`
+- `buildCommitFixture`
+- `buildIssueFixture`
+- `buildPullRequestFixture`
 
 Repository identity is owner-scoped. Repositories are keyed as `owner/name`,
 branches are keyed as `owner/repo:name`, and blobs are keyed as
@@ -53,6 +61,18 @@ branches are keyed as `owner/repo:name`, and blobs are keyed as
 repositories with the same `name` can coexist when their `owner` values differ.
 Repository `node_id` values are base64-encoded strings prefixed with
 `Repository:` and followed by the canonical `owner/name` key.
+
+Early collaboration entities use the same owner-qualified repository prefix:
+
+- refs: `owner/repo:qualifiedName`
+- commits: `owner/repo:sha`
+- issues: `owner/repo#number`
+- pull requests: `owner/repo!number`
+
+These entities are intentionally minimal. They cover identity, refs, commits,
+issue read data, and pull request read data needed by the early GraphQL and
+pull-request slices. Reviews, labels, timelines, mergeability, and mutations
+remain later work.
 
 ### `githubUserSchema`
 
@@ -109,12 +129,22 @@ Repository `node_id` values are base64-encoded strings prefixed with
 | `content` | `string` | No | Faker-generated paragraphs | Returned through contents and git-blob payload builders. |
 | `encoding` | `'string' \| 'base64'` | No | `'string'` | Determines whether `content` is re-encoded before REST responses. |
 
+### Early repository-owned schemas
+
+| Schema | Required identity fields | Key format | Notes |
+| --- | --- | --- | --- |
+| `githubRefSchema` | `owner`, `repo`, `qualifiedName`, `object.sha` | `owner/repo:qualifiedName` | Defaults unqualified names to branch refs for branches and tag refs for tags. |
+| `githubCommitSchema` | `owner`, `repo` | `owner/repo:sha` | Generates `sha` when omitted and normalizes commit author, committer, tree, parent, and URL fields. |
+| `githubIssueSchema` | `owner`, `repo`, `number`, `title` | `owner/repo#number` | Supports minimal open/closed issue reads with generated ids, URLs, user, and timestamps. |
+| `githubPullRequestSchema` | `owner`, `repo`, `number`, `title`, `base`, `head` | `owner/repo!number` | Supports minimal open/closed/merged pull request reads with base/head refs and linked issue number. |
+
 ### Fixture builders
 
-`buildRepositoryFixture(input)` and `buildBranchFixture(input)` parse their
-inputs through `githubRepositorySchema` and `githubBranchSchema` respectively.
-Use them when tests need a fully expanded repository or branch fixture without
-constructing a full `InitialState` object.
+`buildRepositoryFixture(input)`, `buildBranchFixture(input)`,
+`buildRefFixture(input)`, `buildCommitFixture(input)`,
+`buildIssueFixture(input)`, and `buildPullRequestFixture(input)` parse their
+inputs through the matching schemas. Use them when tests need fully expanded
+fixtures without constructing a full `InitialState` object.
 
 ### `InitialState`
 
@@ -129,12 +159,21 @@ Required top-level collections:
 - `branches`
 - `blobs`
 
+Optional top-level collections default to empty arrays:
+
+- `refs`
+- `commits`
+- `issues`
+- `pullRequests`
+
 Derived behaviour worth knowing:
 
 - Each organization creates a matching app installation during schema parsing.
 - Repositories gain GitHub-like URLs and default metadata.
 - Blobs may be addressed by `path`, `sha`, or both, but at least one must be
   present.
+- Refs, commits, issues, and pull requests are converted into owner-scoped keyed
+  tables and reject duplicate canonical keys.
 
 ## Capability matrix
 
@@ -160,6 +199,12 @@ flat route list.
 | `GET /repos/{owner}/{repo}/contents/{path}`        | Fully scriptable | Returns store-backed blob content looked up by owner/repo/path.                          |
 | `GET /repos/{owner}/{repo}/git/blobs/{file_sha}`   | Fully scriptable | Returns store-backed blob content looked up by owner/repo/sha.                           |
 | `GET /repos/{owner}/{repo}/git/trees/{tree_sha}`   | Placeholder-only | Reads `tree_sha`, but still flattens all repo blobs rather than modelling tree objects.  |
+| `GET /repos/{owner}/{repo}/git/ref/{ref}`          | Fully scriptable | Returns the seeded repository-scoped ref or 404s for unknown owner/repo/ref combinations.|
+| `GET /repos/{owner}/{repo}/git/commits/{sha}`      | Fully scriptable | Returns the seeded repository-scoped git commit or 404s for unknown owner/repo/SHA data. |
+| `GET /repos/{owner}/{repo}/issues`                 | Fully scriptable | Lists seeded issues scoped to the requested owner and repository.                        |
+| `GET /repos/{owner}/{repo}/issues/{number}`        | Fully scriptable | Returns a seeded issue by owner, repository, and number.                                 |
+| `GET /repos/{owner}/{repo}/pulls`                  | Fully scriptable | Lists seeded pull requests scoped to the requested owner and repository.                 |
+| `GET /repos/{owner}/{repo}/pulls/{number}`         | Fully scriptable | Returns a seeded pull request by owner, repository, and number.                          |
 | `GET /user`                                        | Placeholder-only | Returns the first seeded user and 401s when no authenticated user fixture exists.        |
 | `GET /user/memberships/orgs`                       | Placeholder-only | Returns all organizations as active admin memberships for the first seeded user.         |
 
@@ -174,6 +219,13 @@ flat route list.
 | `repositoryOwner(login: String!)`       | Fully scriptable | Resolves to either a user or organization from the store.                                |
 | `Repository.id`                         | Fully scriptable | Exposes the repository `node_id`, derived as base64 `Repository:owner/name` by default.  |
 | `Repository.owner`                      | Fully scriptable | Derived from seeded owner data and mapped into the GraphQL owner shape.                  |
+| `Repository.defaultBranchRef`           | Fully scriptable | Returns a seeded default-branch ref when present, otherwise the legacy placeholder.      |
+| `Repository.ref(qualifiedName:)`        | Fully scriptable | Returns a seeded ref, including a commit target when that commit is seeded.              |
+| `Repository.refs(refPrefix:)`           | Fully scriptable | Returns seeded refs matching the supplied prefix.                                        |
+| `Repository.issue(number:)`             | Fully scriptable | Returns a seeded issue by repository and number.                                         |
+| `Repository.issues`                     | Fully scriptable | Returns seeded repository issues through a Relay connection.                             |
+| `Repository.pullRequest(number:)`       | Fully scriptable | Returns a seeded pull request by repository and number.                                  |
+| `Repository.pullRequests`               | Fully scriptable | Returns seeded repository pull requests through a Relay connection.                      |
 | `Repository.languages`                  | Schema-stubbed   | Exposed through the schema, but still derived from lightweight placeholder data.         |
 | `Repository.repositoryTopics`           | Schema-stubbed   | Returns topic names from repository fixture metadata rather than a richer topic model.   |
 | `User.organizations`                    | Fully scriptable | Relay connection backed by the user's seeded organization logins.                        |

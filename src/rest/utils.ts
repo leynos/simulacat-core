@@ -1,6 +1,9 @@
 /** @file Small REST payload builders shared by the OpenAPI handlers. */
 import {blobStoreKey, type GitHubBlob} from '../store/entities.ts';
 
+/** Removes GitHub's REST ref namespace prefix before store lookup. */
+export const normalizeGitRefPath = (ref: string) => ref.replace(/^(heads|tags)\//, '');
+
 /**
  * Converts a stored blob into GitHub's base64 content response shape.
  *

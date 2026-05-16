@@ -8,6 +8,12 @@
 import {convertOrganizationToGraphql} from './converters/organization.ts';
 import {convertRepositoryToGraphql} from './converters/repository.ts';
 import {convertUserToGraphql} from './converters/user.ts';
+import {
+  convertCommitToGraphql,
+  convertIssueToGraphql,
+  convertPullRequestToGraphql,
+  convertRefToGraphql
+} from './converters/early-entities.ts';
 import {deriveOwner as deriveOwnerFromStore} from './owners.ts';
 import type {DataSchemas, GraphQLData} from './to-graphql-shapes.ts';
 import type {ExtendedSimulationStore} from '../store/index.ts';
@@ -37,6 +43,14 @@ export function toGraphql(
       return convertOrganizationToGraphql(simulationStore, entity as DataSchemas['Organization'], toGraphql);
     case 'Repository':
       return convertRepositoryToGraphql(simulationStore, entity as DataSchemas['Repository'], toGraphql);
+    case 'Ref':
+      return convertRefToGraphql(simulationStore, entity as DataSchemas['Ref'], toGraphql);
+    case 'Commit':
+      return convertCommitToGraphql(simulationStore, entity as DataSchemas['Commit']);
+    case 'Issue':
+      return convertIssueToGraphql(simulationStore, entity as DataSchemas['Issue']);
+    case 'PullRequest':
+      return convertPullRequestToGraphql(simulationStore, entity as DataSchemas['PullRequest'], toGraphql);
     default:
       console.error(`toGraphql: unhandled __typename ${__typename}`, {
         entity

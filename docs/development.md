@@ -65,6 +65,24 @@ Changes to behaviour should come with a targeted regression test.
   tests when possible.
 - Route-level behaviour should be covered by integration tests that assert both
   status codes and response shapes.
+- Repository-owned entity invariants should use property tests with
+  `fast-check` when the behaviour covers a range of owners, repositories, refs,
+  SHAs, numbers, or ordering combinations.
+- REST and GraphQL integration tests start local simulator servers. In
+  restricted sandboxes these tests may need elevated local port-binding
+  permission; do not run them in parallel with other gates.
+
+### Early repository-owned entities
+
+Refs, commits, issues, and pull requests are first-class store slices. Keep new
+logic for their identity, lookup, and relation policy in schemas, key helpers,
+selectors, and shared actions. REST and GraphQL adapters should call those
+helpers rather than re-deriving owner/repo keys locally.
+
+The current entity model is intentionally narrow. It supports early read
+surfaces for refs, commits, issues, and pull requests. Do not expand it into
+reviews, labels, timelines, mergeability, checks, or actor-aware permissions
+without updating the relevant roadmap item and design documentation.
 
 ### Gherkin feature scenarios
 

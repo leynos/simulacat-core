@@ -5,8 +5,12 @@ import {
   convertObjByKey,
   convertInitialStateToStoreState,
   githubBlobSchema,
+  githubCommitSchema,
   githubInitialStoreSchema,
+  githubIssueSchema,
   githubOrganizationSchema,
+  githubPullRequestSchema,
+  githubRefSchema,
   githubUserSchema
 } from '../src/store/entities.ts';
 import {resetNextRepositoryId} from '../src/store/entities/repository.ts';
@@ -18,6 +22,10 @@ type GitHubInitialStoreFixture = {
   repositories: Array<Record<string, unknown>>;
   branches: Array<Record<string, unknown>>;
   blobs: Array<Record<string, unknown>>;
+  refs?: Array<Record<string, unknown>>;
+  commits?: Array<Record<string, unknown>>;
+  issues?: Array<Record<string, unknown>>;
+  pullRequests?: Array<Record<string, unknown>>;
 };
 
 type BuildGithubInitialStoreOptions = {
@@ -116,6 +124,130 @@ describe('githubBlobSchema', () => {
         repo: 'test-repo'
       })
     ).toThrow('Specify the path or sha of the blob');
+  });
+});
+
+describe('early entity schemas', () => {
+  it('normalizes commit parents precedence and synthesizes parent URLs', () => {
+    const commit = githubCommitSchema.parse({
+      owner: 'test-org',
+      repo: 'test-repo',
+      sha: 'abcdef',
+      parents: [{sha: 'parent-top-1'}, {sha: 'parent-top-2', url: 'https://example.test/parent-top-2'}],
+      commit: {
+        parents: [{sha: 'parent-nested-1'}]
+      }
+    });
+
+    expect(commit.parents.map((parent) => parent.sha)).toEqual(['parent-top-1', 'parent-top-2']);
+    expect(commit.parents[0]?.url).toBe('https://api.github.com/repos/test-org/test-repo/git/commits/parent-top-1');
+    expect(commit.parents[1]?.url).toBe('https://example.test/parent-top-2');
+    expect(commit.commit.parents).toEqual(commit.parents);
+  });
+
+  it('normalizes ref prefixes, precedence, and object URLs', () => {
+    const branchRef = githubRefSchema.parse({
+      owner: 'test-org',
+      repo: 'test-repo',
+      qualifiedName: 'main',
+      object: {type: 'commit', sha: 'commit-sha'}
+    });
+    const tagRef = githubRefSchema.parse({
+      owner: 'test-org',
+      repo: 'test-repo',
+      qualifiedName: 'ignored',
+      ref: 'v1.0.0',
+      object: {type: 'tag', sha: 'tag-sha'}
+    });
+
+    expect(branchRef.qualifiedName).toBe('main');
+    expect(branchRef.ref).toBe('refs/heads/main');
+    expect(branchRef.object.url).toBe('https://api.github.com/repos/test-org/test-repo/git/commits/commit-sha');
+    expect(tagRef.qualifiedName).toBe('v1.0.0');
+    expect(tagRef.ref).toBe('refs/tags/v1.0.0');
+    expect(tagRef.object.url).toBe('https://api.github.com/repos/test-org/test-repo/git/tags/tag-sha');
+  });
+
+  it('uses deterministic commit defaults', () => {
+    const first = githubCommitSchema.parse({owner: 'test-org', repo: 'test-repo'});
+    const second = githubCommitSchema.parse({owner: 'test-org', repo: 'test-repo'});
+
+    expect(first.sha).toBe('0000000000000000000000000000000000000000');
+    expect(second.sha).toBe(first.sha);
+    expect(second.commit.author.date).toBe(first.commit.author.date);
+    expect(second.commit.committer.date).toBe(first.commit.committer.date);
+  });
+
+  it('defaults initialState early entity collections to empty arrays', () => {
+    const parsed = parseGithubInitialStore();
+
+    expect(parsed.refs).toEqual([]);
+    expect(parsed.commits).toEqual([]);
+    expect(parsed.issues).toEqual([]);
+    expect(parsed.pullRequests).toEqual([]);
+  });
+
+  it('normalizes refs, commits, issues, and pull requests', () => {
+    const commit = githubCommitSchema.parse({owner: 'test-org', repo: 'test-repo', sha: 'abc123'});
+    const ref = githubRefSchema.parse({
+      owner: 'test-org',
+      repo: 'test-repo',
+      qualifiedName: 'main',
+      object: {sha: 'abc123'}
+    });
+    const issue = githubIssueSchema.parse({owner: 'test-org', repo: 'test-repo', number: 2, title: 'Bug'});
+    const pullRequest = githubPullRequestSchema.parse({
+      owner: 'test-org',
+      repo: 'test-repo',
+      number: 3,
+      title: 'Patch',
+      base: {ref: 'main', sha: 'abc123'},
+      head: {ref: 'feature/ref-safe', sha: 'def456'}
+    });
+
+    expect(commit.commit.tree.sha).toBe('abc123');
+    expect(ref.ref).toBe('refs/heads/main');
+    expect(issue.html_url).toBe('https://github.com/test-org/test-repo/issues/2');
+    expect(pullRequest.base.owner).toBe('test-org');
+    expect(pullRequest.issue_number).toBe(3);
+  });
+
+  it('clears stale closure timestamps for open issues and pull requests', () => {
+    const issue = githubIssueSchema.parse({
+      owner: 'test-org',
+      repo: 'test-repo',
+      number: 4,
+      title: 'Open issue',
+      closed_at: '2024-01-01T00:00:00Z'
+    });
+    const pullRequest = githubPullRequestSchema.parse({
+      owner: 'test-org',
+      repo: 'test-repo',
+      number: 5,
+      title: 'Open pull request',
+      closed_at: '2024-01-01T00:00:00Z',
+      merged_at: '2024-01-02T00:00:00Z',
+      base: {ref: 'main', sha: 'abc123'},
+      head: {ref: 'feature/open', sha: 'def456'}
+    });
+
+    expect(issue.closed_at).toBeNull();
+    expect(pullRequest.closed_at).toBeNull();
+    expect(pullRequest.merged_at).toBeNull();
+  });
+
+  it('rejects pull requests with divergent issue numbers', () => {
+    expect(() =>
+      githubPullRequestSchema.parse({
+        owner: 'test-org',
+        repo: 'test-repo',
+        number: 6,
+        issue_number: 7,
+        title: 'Mismatched pull request',
+        base: {ref: 'main', sha: 'abc123'},
+        head: {ref: 'feature/mismatch', sha: 'def456'}
+      })
+    ).toThrow('Pull request issue_number 7 must match pull request number 6');
   });
 });
 
@@ -415,6 +547,72 @@ describe('initialState schema transforms', () => {
     });
 
     expect(() => convertInitialStateToStoreState(parsed)).toThrow('Duplicate key "test-org/test-repo"');
+  });
+
+  it('converts early entity arrays into owner-scoped keyed tables', () => {
+    const parsed = parseGithubInitialStore({
+      storeOverrides: {
+        organizations: [{login: 'test-org'}, {login: 'other-org'}],
+        repositories: [
+          {owner: 'test-org', name: 'same-repo'},
+          {owner: 'other-org', name: 'same-repo'}
+        ],
+        branches: [
+          {owner: 'test-org', repo: 'same-repo', name: 'main'},
+          {owner: 'other-org', repo: 'same-repo', name: 'main'}
+        ],
+        commits: [
+          {owner: 'test-org', repo: 'same-repo', sha: 'abc123'},
+          {owner: 'other-org', repo: 'same-repo', sha: 'abc123'}
+        ],
+        refs: [
+          {owner: 'test-org', repo: 'same-repo', qualifiedName: 'main', object: {sha: 'abc123'}},
+          {owner: 'other-org', repo: 'same-repo', qualifiedName: 'main', object: {sha: 'abc123'}}
+        ],
+        issues: [
+          {owner: 'test-org', repo: 'same-repo', number: 1, title: 'Test issue'},
+          {owner: 'other-org', repo: 'same-repo', number: 1, title: 'Other issue'}
+        ],
+        pullRequests: [
+          {
+            owner: 'test-org',
+            repo: 'same-repo',
+            number: 2,
+            title: 'Test pull request',
+            base: {ref: 'main', sha: 'abc123'},
+            head: {ref: 'feature', sha: 'def456'}
+          },
+          {
+            owner: 'other-org',
+            repo: 'same-repo',
+            number: 2,
+            title: 'Other pull request',
+            base: {ref: 'main', sha: 'abc123'},
+            head: {ref: 'feature', sha: 'def456'}
+          }
+        ]
+      }
+    });
+    const store = requireStoreState(convertInitialStateToStoreState(parsed));
+
+    expect(store.refs['test-org/same-repo:main']?.owner).toBe('test-org');
+    expect(store.refs['other-org/same-repo:main']?.owner).toBe('other-org');
+    expect(store.commits['test-org/same-repo:abc123']?.owner).toBe('test-org');
+    expect(store.issues['test-org/same-repo#1']?.title).toBe('Test issue');
+    expect(store.pullRequests['other-org/same-repo!2']?.title).toBe('Other pull request');
+  });
+
+  it('rejects duplicate early entity keys', () => {
+    const parsed = parseGithubInitialStore({
+      storeOverrides: {
+        refs: [
+          {owner: 'test-org', repo: 'test-repo', qualifiedName: 'main', object: {sha: 'abc123'}},
+          {owner: 'test-org', repo: 'test-repo', qualifiedName: 'main', object: {sha: 'def456'}}
+        ]
+      }
+    });
+
+    expect(() => convertInitialStateToStoreState(parsed)).toThrow('Duplicate key "test-org/test-repo:main"');
   });
 });
 

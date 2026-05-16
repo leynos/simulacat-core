@@ -1,14 +1,25 @@
-/** @file OpenAPI-backed REST handlers for the simulated GitHub API. */
+/**
+ * @file OpenAPI-backed REST handlers for the simulated GitHub API.
+ *
+ * This module builds the default handler table used by the foundation
+ * simulator's OpenAPI adapter, wires seeded store selectors into GitHub REST
+ * routes, and merges caller-provided handler extensions.
+ */
 import type {Document, SimulationHandlers} from '@simulacrum/foundation-simulator';
 import type {ExtendedSimulationStore} from '../store/index.ts';
 import {getSchema, type SchemaFile} from '../utils.ts';
-import {blobAsBase64, commitStatusResponse, gitTrees} from './utils.ts';
+import {blobAsBase64, commitStatusResponse, gitTrees, normalizeGitRefPath} from './utils.ts';
 
 /**
  * Creates the REST handler table consumed by the foundation simulator's
  * OpenAPI adapter.
  */
 type SimulationHandler = SimulationHandlers[string];
+type Ctx = Parameters<SimulationHandler>[0];
+type Req = Parameters<SimulationHandler>[1];
+type Res = Parameters<SimulationHandler>[2];
+
+const notFound = {message: 'Not Found'};
 
 const handlers =
   (
@@ -17,15 +28,81 @@ const handlers =
   ) =>
   (simulationStore: ExtendedSimulationStore): SimulationHandlers => {
     const getState = () => simulationStore.store.getState();
+    /**
+     * Ensures a repository exists before a repository-scoped handler proceeds.
+     *
+     * @param owner Repository owner login.
+     * @param repo Repository name.
+     * @param response Response adapter used to emit a missing-repository 404.
+     * @returns The repository fixture, or `null` after sending `notFound`.
+     *
+     * Uses `simulationStore.selectors.getRepository` with `getState()`. When
+     * the repository is missing, this function has the side effect of sending
+     * the shared `notFound` JSON response.
+     */
+    const requireRepository = (owner: string, repo: string, response: Res) => {
+      const repository = simulationStore.selectors.getRepository(getState(), owner, repo);
+      if (!repository) response.status(404).json(notFound);
+      return repository ?? null;
+    };
+
+    /**
+     * Creates a repository-specific list `SimulationHandler`.
+     *
+     * @param selector Function that receives the current `getState()` result,
+     * owner, and repo, and returns the selected list data.
+     * @returns A `SimulationHandler` that sends JSON `200` with the selected
+     * data, or exits early when `requireRepository` sends a 404.
+     *
+     * `makeListHandler` expects request params shaped as
+     * `{owner: string; repo: string}`. It calls `requireRepository` before
+     * invoking `selector`, and calls `getState` for the selector input.
+     */
+    const makeListHandler =
+      (selector: (state: ReturnType<typeof getState>, owner: string, repo: string) => unknown): SimulationHandler =>
+      async (context: Ctx, _request: Req, response: Res) => {
+        const {owner, repo} = context.request.params as {owner: string; repo: string};
+        if (!requireRepository(owner, repo, response)) return;
+        return response.status(200).json(selector(getState(), owner, repo));
+      };
+
+    /**
+     * Creates a repository-specific item `SimulationHandler`.
+     *
+     * @typeParam TParam Route parameter name used to identify the item.
+     * @param paramName Name of the item parameter in `context.request.params`.
+     * @param selector Function that accepts state, owner, repo, and the
+     * coerced item parameter, returning the selected item or a falsy value.
+     * @param coerce Optional conversion applied to `params[paramName]` before
+     * selector dispatch. The default is string passthrough; callers may pass
+     * numeric coercion such as `Number`.
+     * @returns A `SimulationHandler` that sends 404 when the repository or item
+     * is not found, and JSON `200` with the item when present.
+     *
+     * The generated handler expects request params containing `owner`, `repo`,
+     * and `paramName`. It calls `requireRepository`, applies `coerce`, and then
+     * delegates to `selector`.
+     */
+    const makeItemHandler =
+      <TParam extends string>(
+        paramName: TParam,
+        selector: (state: ReturnType<typeof getState>, owner: string, repo: string, param: string | number) => unknown,
+        coerce: (value: string) => string | number = (value) => value
+      ): SimulationHandler =>
+      async (context: Ctx, _request: Req, response: Res) => {
+        const params = context.request.params as {owner: string; repo: string} & Record<string, string>;
+        const {owner, repo} = params;
+        if (!requireRepository(owner, repo, response)) return;
+        const item = selector(getState(), owner, repo, coerce(params[paramName] ?? ''));
+        if (!item) return response.status(404).json(notFound);
+        return response.status(200).json(item);
+      };
+
     const baseHandlers = !initialState
       ? {}
       : {
           // GET /user/installations
-          'apps/list-installations': async (
-            _context: Parameters<SimulationHandler>[0],
-            _request: Parameters<SimulationHandler>[1],
-            response: Parameters<SimulationHandler>[2]
-          ) => {
+          'apps/list-installations': async (_context: Ctx, _request: Req, response: Res) => {
             const installations = simulationStore.schema.installations
               .selectTableAsList(getState())
               .map(
@@ -35,11 +112,7 @@ const handlers =
             response.status(200).json(installations);
           },
           // POST /app/installations/{installation_id}/access_tokens
-          'apps/create-installation-access-token': async (
-            context: Parameters<SimulationHandler>[0],
-            request: Parameters<SimulationHandler>[1],
-            _response: Parameters<SimulationHandler>[2]
-          ) => {
+          'apps/create-installation-access-token': async (context: Ctx, request: Req, _response: Res) => {
             const contextParams = context.request.params as {installation_id?: string | string[]};
             const requestParams = request.params as {installation_id?: string | string[]} | undefined;
             const installationIdParam =
@@ -73,11 +146,7 @@ const handlers =
             };
           },
           // L#4134 /installation/repositories
-          'apps/list-repos-accessible-to-installation': async (
-            _context: Parameters<SimulationHandler>[0],
-            _request: Parameters<SimulationHandler>[1],
-            _response: Parameters<SimulationHandler>[2]
-          ) => {
+          'apps/list-repos-accessible-to-installation': async (_context: Ctx, _request: Req, _response: Res) => {
             const repos = simulationStore.selectors.allReposWithOrgs(getState()) ?? [];
             return {
               status: 200,
@@ -88,11 +157,7 @@ const handlers =
             };
           },
           // GET /orgs/{org}/installation - Get an organization installation for the authenticated app
-          'apps/get-org-installation': async (
-            context: Parameters<SimulationHandler>[0],
-            _request: Parameters<SimulationHandler>[1],
-            response: Parameters<SimulationHandler>[2]
-          ) => {
+          'apps/get-org-installation': async (context: Ctx, _request: Req, response: Res) => {
             const {org} = context.request.params;
             const install = simulationStore.selectors.getAppInstallation(simulationStore.store.getState(), org);
             if (!install) return response.status(404).send('Not Found');
@@ -103,11 +168,7 @@ const handlers =
             // return { status: 200, json: install };
           },
           // GET /repos/{owner}/{repo}/installation - Get a repository installation for the authenticated app
-          'apps/get-repo-installation': async (
-            context: Parameters<SimulationHandler>[0],
-            _request: Parameters<SimulationHandler>[1],
-            response: Parameters<SimulationHandler>[2]
-          ) => {
+          'apps/get-repo-installation': async (context: Ctx, _request: Req, response: Res) => {
             const {owner, repo} = context.request.params;
             const install = simulationStore.selectors.getAppInstallation(simulationStore.store.getState(), owner, repo);
             if (!install) return response.status(404).send('Not Found');
@@ -119,36 +180,21 @@ const handlers =
           },
 
           // GET /orgs/{org}/repos
-          'repos/list-for-org': async (
-            context: Parameters<SimulationHandler>[0],
-            _request: Parameters<SimulationHandler>[1],
-            response: Parameters<SimulationHandler>[2]
-          ) => {
+          'repos/list-for-org': async (context: Ctx, _request: Req, response: Res) => {
             const {org} = context.request.params;
             const repos = simulationStore.selectors.allReposWithOrgs(getState(), org);
             if (!repos) return response.status(404).send('Not Found');
             return {status: 200, json: repos};
           },
           // L#29067 /repos/{owner}/{repo}/branches
-          'repos/list-branches': async (
-            context: Parameters<SimulationHandler>[0],
-            _request: Parameters<SimulationHandler>[1],
-            response: Parameters<SimulationHandler>[2]
-          ) => {
+          'repos/list-branches': async (context: Ctx, _request: Req, response: Res) => {
             const {owner, repo} = context.request.params;
-            const repository = simulationStore.selectors.getRepository(getState(), owner, repo);
-            if (!repository) {
-              return response.status(404).send('Not Found');
-            }
+            if (!requireRepository(owner, repo, response)) return;
             const branches = simulationStore.selectors.listBranchesForRepository(getState(), owner, repo);
             return {status: 200, json: branches};
           },
           // GET /repos/{owner}/{repo}/commits/{ref}/status
-          'repos/get-combined-status-for-ref': async (
-            context: Parameters<SimulationHandler>[0],
-            request: Parameters<SimulationHandler>[1],
-            response: Parameters<SimulationHandler>[2]
-          ) => {
+          'repos/get-combined-status-for-ref': async (context: Ctx, request: Req, response: Res) => {
             const {owner, repo, ref} = context.request.params;
             const commitStatus = commitStatusResponse({
               host: `${request.protocol}://${request.headers.host}`,
@@ -159,11 +205,7 @@ const handlers =
             response.status(200).json(commitStatus);
           },
           // GET /repos/{owner}/{repo}/contents/{path}
-          'repos/get-content': async (
-            context: Parameters<SimulationHandler>[0],
-            request: Parameters<SimulationHandler>[1],
-            response: Parameters<SimulationHandler>[2]
-          ) => {
+          'repos/get-content': async (context: Ctx, request: Req, response: Res) => {
             const {owner, repo, path} = context.request.params;
             const blob = simulationStore.selectors.getBlob(simulationStore.store.getState(), owner, repo, path);
             if (!blob) {
@@ -180,11 +222,7 @@ const handlers =
             }
           },
           // GET /repos/{owner}/{repo}/git/blobs/{file_sha}
-          'git/get-blob': async (
-            context: Parameters<SimulationHandler>[0],
-            request: Parameters<SimulationHandler>[1],
-            response: Parameters<SimulationHandler>[2]
-          ) => {
+          'git/get-blob': async (context: Ctx, request: Req, response: Res) => {
             const {owner, repo, file_sha} = context.request.params;
             const blob = simulationStore.selectors.getBlob(simulationStore.store.getState(), owner, repo, file_sha);
             if (!blob) {
@@ -202,11 +240,7 @@ const handlers =
             }
           },
           // GET /repos/{owner}/{repo}/git/trees/{tree_sha}
-          'git/get-tree': async (
-            context: Parameters<SimulationHandler>[0],
-            request: Parameters<SimulationHandler>[1],
-            response: Parameters<SimulationHandler>[2]
-          ) => {
+          'git/get-tree': async (context: Ctx, request: Req, response: Res) => {
             const ownerParam = context.request.params.owner;
             const repoParam = context.request.params.repo;
             const treeShaParam = context.request.params.tree_sha;
@@ -231,13 +265,39 @@ const handlers =
               response.status(200).json(tree);
             }
           },
+          // GET /repos/{owner}/{repo}/git/ref/{ref}
+          'git/get-ref': makeItemHandler('ref', (state, owner, repo, ref) =>
+            simulationStore.selectors.getRef(state, {owner, repo, qualifiedName: normalizeGitRefPath(String(ref))})
+          ),
+          // GET /repos/{owner}/{repo}/git/commits/{commit_sha}
+          'git/get-commit': makeItemHandler('commit_sha', (state, owner, repo, sha) =>
+            simulationStore.selectors.getCommit(state, {owner, repo, sha: String(sha)})
+          ),
+          // GET /repos/{owner}/{repo}/issues
+          'issues/list-for-repo': makeListHandler((state, owner, repo) =>
+            simulationStore.selectors.listIssuesForRepository(state, {owner, repo})
+          ),
+          // GET /repos/{owner}/{repo}/issues/{issue_number}
+          'issues/get': makeItemHandler(
+            'issue_number',
+            (state, owner, repo, number) =>
+              simulationStore.selectors.getIssue(state, {owner, repo, number: Number(number)}),
+            Number
+          ),
+          // GET /repos/{owner}/{repo}/pulls
+          'pulls/list': makeListHandler((state, owner, repo) =>
+            simulationStore.selectors.listPullRequestsForRepository(state, {owner, repo})
+          ),
+          // GET /repos/{owner}/{repo}/pulls/{pull_number}
+          'pulls/get': makeItemHandler(
+            'pull_number',
+            (state, owner, repo, number) =>
+              simulationStore.selectors.getPullRequest(state, {owner, repo, number: Number(number)}),
+            Number
+          ),
 
           // GET /user
-          'users/get-authenticated': async (
-            _context: Parameters<SimulationHandler>[0],
-            _request: Parameters<SimulationHandler>[1],
-            response: Parameters<SimulationHandler>[2]
-          ) => {
+          'users/get-authenticated': async (_context: Ctx, _request: Req, response: Res) => {
             const users = simulationStore.schema.users.selectTableAsList(simulationStore.store.getState());
             const user = users[0];
             if (!user) {
@@ -253,11 +313,7 @@ const handlers =
           },
 
           // GET /user/memberships/orgs
-          'orgs/list-memberships-for-authenticated-user': async (
-            _context: Parameters<SimulationHandler>[0],
-            request: Parameters<SimulationHandler>[1],
-            response: Parameters<SimulationHandler>[2]
-          ) => {
+          'orgs/list-memberships-for-authenticated-user': async (_context: Ctx, request: Req, response: Res) => {
             const users = simulationStore.schema.users.selectTableAsList(getState());
             const requestedLogin = request.get('x-simulacat-user') ?? request.get('x-github-user');
             const user = requestedLogin ? users.find((candidate) => candidate.login === requestedLogin) : users[0];

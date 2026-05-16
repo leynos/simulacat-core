@@ -18,6 +18,72 @@ import {RepositoryVisibility} from '../../__generated__/resolvers-types.ts';
 import type {User} from '../../__generated__/resolvers-types.ts';
 
 /**
+ * Normalizes a Git ref name for repository ref lookup.
+ *
+ * @param qualifiedName Ref name supplied by GraphQL, such as
+ * `refs/heads/main`.
+ * @returns The lookup ref name with a leading `refs/heads/` or `refs/tags/`
+ * prefix removed.
+ *
+ * @example
+ * ```ts
+ * normalizeRefLookup('refs/heads/main') // 'main'
+ * ```
+ */
+const normalizeRefLookup = (qualifiedName: string) => qualifiedName.replace(/^refs\/(heads|tags)\//, '');
+
+interface ConversionContext {
+  simulationStore: ExtendedSimulationStore;
+  toGraphql: ToGraphqlDispatcher;
+}
+
+/**
+ * Paginates repository issue or pull request fixtures and converts each node.
+ *
+ * @typeParam K Repository item type, constrained to `Issue` or `PullRequest`.
+ * @param items Repository-scoped fixture items to paginate.
+ * @param pageArgs Relay pagination arguments.
+ * @param typeName GraphQL fixture discriminator for each item.
+ * @param context Conversion context containing the simulation store and
+ * dispatcher.
+ * @returns A Relay connection whose nodes are GraphQL representations of the
+ * input items.
+ *
+ * Items are paginated with `applyRelayPagination`; each item is converted via
+ * `context.toGraphql(context.simulationStore, typeName, item)`. Empty item
+ * arrays return an empty connection according to the relay helper.
+ */
+function paginateRepoItems<K extends 'Issue' | 'PullRequest'>(
+  items: DataSchemas[K][],
+  pageArgs: PageArgs,
+  typeName: K,
+  context: ConversionContext
+) {
+  return applyRelayPagination(items, pageArgs, (item) => context.toGraphql(context.simulationStore, typeName, item));
+}
+
+/**
+ * Converts an optional repository issue or pull request fixture to GraphQL.
+ *
+ * @param item Repository item fixture to convert, or `undefined`.
+ * @param typeName GraphQL fixture discriminator for the item.
+ * @param context Conversion context containing `simulationStore` and
+ * `toGraphql`.
+ * @returns The GraphQL representation, or `undefined` when `item` is
+ * undefined.
+ *
+ * Conversion is delegated to `context.toGraphql` using
+ * `context.simulationStore`.
+ */
+function resolveRepoItem<K extends 'Issue' | 'PullRequest'>(
+  item: DataSchemas[K] | undefined,
+  typeName: K,
+  context: ConversionContext
+) {
+  return item ? context.toGraphql(context.simulationStore, typeName, item) : undefined;
+}
+
+/**
  * Converts a seeded repository fixture into a `GraphQLData['Repository']`.
  *
  * @param simulationStore `ExtendedSimulationStore` used for linked owner lookups.
@@ -33,13 +99,24 @@ export function convertRepositoryToGraphql(
   toGraphql: ToGraphqlDispatcher
 ): GraphQLData['Repository'] {
   const defaultBranchName = repo.default_branch ?? 'main';
-  const defaultBranchId = Buffer.from(
-    `Branch:${branchStoreKey({owner: repo.owner, repo: repo.name, name: defaultBranchName})}`
-  ).toString('base64');
+  const state = simulationStore.store?.getState();
+  const seededDefaultRef =
+    state && simulationStore.selectors?.getRef
+      ? simulationStore.selectors.getRef(state, {
+          owner: repo.owner,
+          repo: repo.name,
+          qualifiedName: defaultBranchName
+        })
+      : undefined;
+  const defaultBranchId =
+    seededDefaultRef?.node_id ??
+    Buffer.from(`Branch:${branchStoreKey({owner: repo.owner, repo: repo.name, name: defaultBranchName})}`).toString(
+      'base64'
+    );
 
   return {
     __typename: 'Repository',
-    id: repo.node_id ?? repositoryNodeId(repo.owner, repo.name),
+    id: repo.node_id ?? repositoryNodeId({owner: repo.owner, name: repo.name}),
     name: repo.name,
     nameWithOwner: repo.full_name,
     url: repo.url,
@@ -51,9 +128,57 @@ export function convertRepositoryToGraphql(
     get owner() {
       return deriveOwner(simulationStore, repo.owner, toGraphql);
     },
-    defaultBranchRef: {
-      id: defaultBranchId,
-      name: defaultBranchName
+    defaultBranchRef: seededDefaultRef
+      ? toGraphql(simulationStore, 'Ref', seededDefaultRef)
+      : {
+          id: defaultBranchId,
+          name: defaultBranchName
+        },
+    ref({qualifiedName}: {qualifiedName: string}) {
+      if (!state || !simulationStore.selectors?.getRef) return undefined;
+      const ref = simulationStore.selectors.getRef(state, {
+        owner: repo.owner,
+        repo: repo.name,
+        qualifiedName: normalizeRefLookup(qualifiedName)
+      });
+      return ref ? toGraphql(simulationStore, 'Ref', ref) : undefined;
+    },
+    refs(pageArgs: PageArgs & {refPrefix: string}) {
+      if (!state || !simulationStore.selectors?.listRefsForRepository) {
+        return applyRelayPagination([], pageArgs, (ref) => toGraphql(simulationStore, 'Ref', ref));
+      }
+      const refs = simulationStore.selectors
+        .listRefsForRepository(state, {owner: repo.owner, repo: repo.name})
+        .filter((ref) => ref.ref.startsWith(pageArgs.refPrefix));
+      return applyRelayPagination(refs, pageArgs, (ref) => toGraphql(simulationStore, 'Ref', ref));
+    },
+    issue({number}: {number: number}) {
+      const item =
+        state && simulationStore.selectors?.getIssue
+          ? simulationStore.selectors.getIssue(state, {owner: repo.owner, repo: repo.name, number})
+          : undefined;
+      return resolveRepoItem(item, 'Issue', {simulationStore, toGraphql});
+    },
+    issues(pageArgs: PageArgs) {
+      const items =
+        state && simulationStore.selectors?.listIssuesForRepository
+          ? simulationStore.selectors.listIssuesForRepository(state, {owner: repo.owner, repo: repo.name})
+          : [];
+      return paginateRepoItems(items, pageArgs, 'Issue', {simulationStore, toGraphql});
+    },
+    pullRequest({number}: {number: number}) {
+      const item =
+        state && simulationStore.selectors?.getPullRequest
+          ? simulationStore.selectors.getPullRequest(state, {owner: repo.owner, repo: repo.name, number})
+          : undefined;
+      return resolveRepoItem(item, 'PullRequest', {simulationStore, toGraphql});
+    },
+    pullRequests(pageArgs: PageArgs) {
+      const items =
+        state && simulationStore.selectors?.listPullRequestsForRepository
+          ? simulationStore.selectors.listPullRequestsForRepository(state, {owner: repo.owner, repo: repo.name})
+          : [];
+      return paginateRepoItems(items, pageArgs, 'PullRequest', {simulationStore, toGraphql});
     },
     languages(pageArgs: PageArgs) {
       const languages = repo.language ? [{id: repo.language, name: repo.language, size: 0}] : [];
