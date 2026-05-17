@@ -92,6 +92,35 @@ export const parseRequestActor = (headers: HeaderReader): RequestActor => {
   return {kind: 'anonymous'};
 };
 
+const resolveUserActor = (actor: UserActor, users: readonly GitHubUser[]): ResolvedRequestActor => {
+  const user = users.find((candidate) => candidate.login === actor.login);
+  return user ? {...actor, user} : {kind: 'anonymous'};
+};
+
+const findInstallationForApp = (
+  actor: AppActor,
+  installations: readonly GitHubAppInstallation[]
+): GitHubAppInstallation | undefined => {
+  if (actor.appId !== undefined) {
+    return installations.find((candidate) => candidate.app_id === actor.appId);
+  }
+
+  return installations.find((candidate) => candidate.app_slug === actor.slug);
+};
+
+const resolveAppActor = (actor: AppActor, installations: readonly GitHubAppInstallation[]): ResolvedRequestActor => {
+  const installation = findInstallationForApp(actor, installations);
+  return installation ? {...actor, installation} : actor;
+};
+
+const resolveInstallationActor = (
+  actor: InstallationActor,
+  installations: readonly GitHubAppInstallation[]
+): ResolvedRequestActor => {
+  const installation = installations.find((candidate) => candidate.id === actor.installationId);
+  return installation ? {...actor, installation} : actor;
+};
+
 export const resolveRequestActor = (
   actor: RequestActor,
   input: {
@@ -102,21 +131,12 @@ export const resolveRequestActor = (
   switch (actor.kind) {
     case 'anonymous':
       return actor;
-    case 'user': {
-      const user = input.users.find((candidate) => candidate.login === actor.login);
-      return user ? {...actor, user} : {kind: 'anonymous'};
-    }
-    case 'app': {
-      const installation = input.installations.find((candidate) => {
-        if (actor.appId !== undefined) return candidate.app_id === actor.appId;
-        return candidate.app_slug === actor.slug;
-      });
-      return installation ? {...actor, installation} : actor;
-    }
-    case 'installation': {
-      const installation = input.installations.find((candidate) => candidate.id === actor.installationId);
-      return installation ? {...actor, installation} : actor;
-    }
+    case 'user':
+      return resolveUserActor(actor, input.users);
+    case 'app':
+      return resolveAppActor(actor, input.installations);
+    case 'installation':
+      return resolveInstallationActor(actor, input.installations);
   }
 };
 
