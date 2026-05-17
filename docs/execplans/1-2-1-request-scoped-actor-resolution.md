@@ -220,7 +220,14 @@ escalation, not workarounds.
   authenticated user through the shared request actor helpers, and
   `tests/user.test.ts` covers selected users, missing actors, app and
   installation actors, and membership scoping.
-- [ ] Implement milestone 3: GraphQL `viewer` request context behaviour.
+- [x] (2026-05-17T14:47:42+02:00) Ran
+  `coderabbit review --agent` for milestone 2; CodeRabbit reported zero
+  findings.
+- [x] (2026-05-17T14:48:49+02:00) Implemented milestone 3:
+  GraphQL Yoga now builds request context from request headers, `viewer`
+  resolves through the shared actor helpers, and `tests/graphql.test.ts`
+  covers selected users, unauthenticated actor kinds, and REST/GraphQL
+  agreement for equivalent actor input.
 - [ ] Implement milestone 4: documentation, roadmap update, gates,
   CodeRabbit review, push, and draft PR.
 
@@ -252,6 +259,12 @@ escalation, not workarounds.
 - User fixture emails are generated when omitted. Actor selection tests now
   seed explicit email addresses so failures describe actor behaviour rather
   than faker output.
+- GraphQL Yoga exposes thrown `Error` messages directly because this simulator
+  sets `maskedErrors: false`. `assert-ts` prefixes assertion messages, so
+  `viewer` now throws a plain `Error` for the authentication-shaped failure.
+- The current GraphQL user converter populates the GraphQL `id` field from the
+  seeded user id string, but not `databaseId`. The REST/GraphQL agreement test
+  therefore compares REST `id` with GraphQL `id`.
 
 ## Decision Log
 

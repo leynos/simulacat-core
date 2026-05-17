@@ -11,6 +11,21 @@ import type {Resolvers} from '../__generated__/resolvers-types.ts';
 import {toGraphql, deriveOwner} from './to-graphql.ts';
 import {assert} from 'assert-ts';
 import type {ExtendedSimulationStore} from '../store/index.ts';
+import {resolveRequestActor, selectAuthenticatedUser, type RequestActor} from '../store/actors.ts';
+
+type GraphQLContext = {
+  requestActor?: RequestActor;
+};
+
+const selectViewer = (simulationStore: ExtendedSimulationStore, context: GraphQLContext) => {
+  const state = simulationStore.store.getState();
+  const resolvedActor = resolveRequestActor(context.requestActor ?? {kind: 'anonymous'}, {
+    users: simulationStore.schema.users.selectTableAsList(state),
+    installations: simulationStore.schema.installations.selectTableAsList(state)
+  });
+
+  return selectAuthenticatedUser(resolvedActor);
+};
 
 /**
  * Creates the root resolver map for the simulated GitHub GraphQL API.
@@ -23,9 +38,9 @@ import type {ExtendedSimulationStore} from '../store/index.ts';
 export function createResolvers(simulationStore: ExtendedSimulationStore): Resolvers {
   return {
     Query: {
-      viewer() {
-        const [user] = simulationStore.schema.users.selectTableAsList(simulationStore.store.getState());
-        assert(!!user, `no logged in user`);
+      viewer(_root: unknown, _args: unknown, context: GraphQLContext) {
+        const user = selectViewer(simulationStore, context);
+        if (!user) throw new Error('Authentication required');
         return toGraphql(simulationStore, 'User', user);
       },
       user(_: unknown, {login}: {login: string}) {

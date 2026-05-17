@@ -7,6 +7,7 @@
 import {createSchema, createYoga, processRegularResult} from 'graphql-yoga';
 import {isAsyncIterable} from '@graphql-tools/utils';
 import {createResolvers} from './resolvers.ts';
+import {parseRequestActor} from '../store/actors.ts';
 import {getSchema} from '../utils.ts';
 import type {ExtendedSimulationStore} from '../store/index.ts';
 
@@ -43,6 +44,11 @@ export function createHandler(simulationStore: ExtendedSimulationStore) {
       typeDefs: schema,
       resolvers
     }),
+    context({request}) {
+      return {
+        requestActor: parseRequestActor(request.headers)
+      };
+    },
     plugins: [customMediaTypeParser]
   });
 
