@@ -5,7 +5,7 @@ This ExecPlan (execution plan) is a living document. The sections
 `Decision Log`, and `Outcomes & Retrospective` must be kept up to date as work
 proceeds.
 
-Status: IN PROGRESS
+Status: COMPLETE
 
 Roadmap reference: `docs/roadmap.md` task `1.2.1` under section 1.2 "Make
 request actors visible to REST and GraphQL".
@@ -238,8 +238,12 @@ escalation, not workarounds.
   `bunx markdownlint-cli2 "**/*.md"`, `make check-fmt`, `make lint`, and
   `make test`; all passed. `make test` reported 197 passing tests across 13
   files.
-- [ ] Implement milestone 4: documentation, roadmap update, gates,
-  CodeRabbit review, push, and draft PR.
+- [x] (2026-05-17T14:58:32+02:00) Ran final
+  `coderabbit review --agent`; CodeRabbit reported zero findings.
+- [x] (2026-05-17T14:58:32+02:00) Implemented milestone 4:
+  documentation is updated, roadmap item `1.2.1` is marked done, gates pass,
+  CodeRabbit has no findings, and the branch is ready to push to the existing
+  draft PR.
 
 ## Surprises & Discoveries
 
@@ -433,6 +437,36 @@ bunx markdownlint-cli2 "**/*.md" 2>&1 | tee /tmp/markdownlint-simulacat-core-1-2
 
 ## Outcomes & Retrospective
 
-Not yet implemented. When complete, update this section with the exact actor
-contract, tests added, documentation changed, CodeRabbit outcome, final gate
-results, branch, commit ids, and draft PR URL.
+Implemented.
+
+The request actor contract uses `x-simulacat-actor` with values `anonymous`,
+`user:<login>`, `app:<id-or-slug>`, and `installation:<id>`. Legacy
+`x-simulacat-user` and `x-github-user` headers remain aliases for user actors.
+REST `/user`, REST `/user/memberships/orgs`, and GraphQL `viewer` now resolve
+from the request actor instead of the first seeded user. User actors return the
+selected seeded user. Anonymous, unknown, app, and installation actors do not
+map to authenticated-user payloads in this slice and return or surface
+`Authentication required`.
+
+Code changes landed in:
+
+- `0f4a927` — shared actor parser, resolver, unit tests, and `fast-check`
+  coverage.
+- `141accc` — REST `/user` and membership actor resolution.
+- `962f513` — GraphQL Yoga request context and `viewer` actor resolution.
+- `2e7387f` — documentation and roadmap updates.
+
+Validation passed with:
+
+- `bun fmt`
+- `bunx markdownlint-cli2 "**/*.md"`
+- `make check-fmt`
+- `make lint`
+- `make test` with 197 passing tests across 13 files
+- `coderabbit review --agent` after milestones 1, 2, 3, and final
+  documentation, each with zero findings
+
+The implementation branch is `1-2-1-request-scoped-actor-resolution`, tracking
+`origin/1-2-1-request-scoped-actor-resolution`. The draft PR is
+`https://github.com/leynos/simulacat-core/pull/10`. The Lody session is
+`https://lody.ai/leynos/sessions/d58847cc-43e0-48ce-a607-0d18eeb80691`.
