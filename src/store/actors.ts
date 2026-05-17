@@ -51,6 +51,29 @@ const parsePositiveInteger = (input: string): number | undefined => {
   return Number.isSafeInteger(value) ? value : undefined;
 };
 
+const parseAppActor = (rawIdentifier: string): RequestActor => {
+  const appId = parsePositiveInteger(rawIdentifier);
+  return appId === undefined ? {kind: 'app', slug: rawIdentifier} : {kind: 'app', appId};
+};
+
+const parseInstallationActor = (rawIdentifier: string): RequestActor | undefined => {
+  const installationId = parsePositiveInteger(rawIdentifier);
+  return installationId === undefined ? undefined : {kind: 'installation', installationId};
+};
+
+const parseKindedActor = (kind: string, rawIdentifier: string): RequestActor | undefined => {
+  switch (kind) {
+    case 'user':
+      return {kind: 'user', login: rawIdentifier};
+    case 'app':
+      return parseAppActor(rawIdentifier);
+    case 'installation':
+      return parseInstallationActor(rawIdentifier);
+    default:
+      return undefined;
+  }
+};
+
 export const parseActorHeaderValue = (headerValue: string): RequestActor | undefined => {
   const value = headerValue.trim();
   if (!value || value === 'anonymous') return {kind: 'anonymous'};
@@ -62,20 +85,7 @@ export const parseActorHeaderValue = (headerValue: string): RequestActor | undef
   const rawIdentifier = value.slice(separatorIndex + 1).trim();
   if (!rawIdentifier) return undefined;
 
-  switch (kind) {
-    case 'user':
-      return {kind: 'user', login: rawIdentifier};
-    case 'app': {
-      const appId = parsePositiveInteger(rawIdentifier);
-      return appId === undefined ? {kind: 'app', slug: rawIdentifier} : {kind: 'app', appId};
-    }
-    case 'installation': {
-      const installationId = parsePositiveInteger(rawIdentifier);
-      return installationId === undefined ? undefined : {kind: 'installation', installationId};
-    }
-    default:
-      return undefined;
-  }
+  return parseKindedActor(kind, rawIdentifier);
 };
 
 export const parseRequestActor = (headers: HeaderReader): RequestActor => {
