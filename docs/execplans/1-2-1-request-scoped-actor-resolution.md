@@ -5,16 +5,16 @@ This ExecPlan (execution plan) is a living document. The sections
 `Decision Log`, and `Outcomes & Retrospective` must be kept up to date as work
 proceeds.
 
-Status: DRAFT
+Status: IN PROGRESS
 
 Roadmap reference: `docs/roadmap.md` task `1.2.1` under section 1.2 "Make
 request actors visible to REST and GraphQL".
 
-Approval gate: this plan must be explicitly approved before implementation
-starts. Drafting this document, validating it, and committing the plan are
-permitted planning work. Branch renaming, actor implementation, roadmap
-completion, pushing, and draft PR creation are execution work and must wait for
-approval.
+Approval gate: satisfied on 2026-05-17T14:38:16+02:00 when the user asked to
+proceed with implementation of the planned functionality. Drafting this
+document, validating it, and committing the plan were completed before
+approval. Branch renaming, upstream tracking, pushing, and draft PR creation
+were also completed before implementation at the user's explicit request.
 
 ## Purpose / big picture
 
@@ -203,8 +203,12 @@ escalation, not workarounds.
   documentation for REST `/user`, GraphQL authentication, and GitHub App
   installation authentication.
 - [x] (2026-05-16T23:55:12+02:00) Drafted this ExecPlan for review.
-- [ ] Await explicit user approval before implementation.
-- [ ] Rename branch and set upstream tracking.
+- [x] (2026-05-17T14:38:16+02:00) Received explicit approval to implement the
+  planned functionality.
+- [x] (2026-05-17T14:38:16+02:00) Confirmed the current branch is
+  `1-2-1-request-scoped-actor-resolution` and tracks
+  `origin/1-2-1-request-scoped-actor-resolution`.
+- [x] Rename branch and set upstream tracking.
 - [ ] Implement milestone 1: actor model, parser, selectors, and unit tests.
 - [ ] Implement milestone 2: REST `/user` and membership behaviour.
 - [ ] Implement milestone 3: GraphQL `viewer` request context behaviour.
