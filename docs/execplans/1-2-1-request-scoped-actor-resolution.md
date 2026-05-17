@@ -228,6 +228,16 @@ escalation, not workarounds.
   resolves through the shared actor helpers, and `tests/graphql.test.ts`
   covers selected users, unauthenticated actor kinds, and REST/GraphQL
   agreement for equivalent actor input.
+- [x] (2026-05-17T14:51:51+02:00) Ran
+  `coderabbit review --agent` for milestone 3; CodeRabbit reported zero
+  findings.
+- [x] (2026-05-17T14:51:51+02:00) Updated the user, developer,
+  architecture, API reference, REST audit, GraphQL audit, and roadmap
+  documentation for request-scoped actor behaviour.
+- [x] (2026-05-17T14:55:00+02:00) Ran `bun fmt`,
+  `bunx markdownlint-cli2 "**/*.md"`, `make check-fmt`, `make lint`, and
+  `make test`; all passed. `make test` reported 197 passing tests across 13
+  files.
 - [ ] Implement milestone 4: documentation, roadmap update, gates,
   CodeRabbit review, push, and draft PR.
 
@@ -265,6 +275,10 @@ escalation, not workarounds.
 - The current GraphQL user converter populates the GraphQL `id` field from the
   seeded user id string, but not `databaseId`. The REST/GraphQL agreement test
   therefore compares REST `id` with GraphQL `id`.
+- Markdown tables in the API reference and audit documents use aligned pipe
+  columns. Long cell edits required a mechanical table realignment pass, and
+  escaped pipe characters in inline type unions had to be preserved while
+  doing that.
 
 ## Decision Log
 

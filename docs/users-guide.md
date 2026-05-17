@@ -132,6 +132,26 @@ Seeded refs, commits, issues, and pull requests are visible through the
 documented REST endpoints and through repository GraphQL fields such as
 `defaultBranchRef`, `ref`, `issues`, and `pullRequests`.
 
+## Request actors
+
+Authenticated-user surfaces use a simulator-controlled request actor instead
+of the first seeded user. Set the preferred `x-simulacat-actor` header when a
+test needs `/user`, `/user/memberships/orgs`, or GraphQL `viewer` to run as a
+specific seeded user.
+
+| Actor kind | Header value | Observable behaviour |
+| --- | --- | --- |
+| Anonymous | `anonymous` or no actor header | `/user` returns 401 and `viewer` fails with `Authentication required`. |
+| User | `user:octocat` | `/user` and `viewer` resolve the seeded user whose login is `octocat`. |
+| App | `app:1` or `app:simulator-app` | The actor is parsed for later policy work, but authenticated-user surfaces return 401. |
+| Installation | `installation:1` | The actor is parsed for later policy work, but authenticated-user surfaces return 401. |
+
+`x-simulacat-user: octocat` and `x-github-user: octocat` remain compatibility
+aliases for `user:octocat`. Prefer `x-simulacat-actor` for new tests because
+it can represent all supported actor kinds. These headers do not validate real
+GitHub personal access tokens, OAuth tokens, GitHub App JWTs, or installation
+tokens.
+
 ## Store key helpers and parsers
 
 The public store key helpers format and parse canonical keys:

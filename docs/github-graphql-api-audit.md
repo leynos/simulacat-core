@@ -142,16 +142,16 @@ graph embedded inside a very large schema.
 
 ### Top-level queries
 
-| Field                     | Status                        | Notes                                                                                                        |
-| ------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `viewer`                  | Fragile/partially implemented | Explicit resolver exists, but it still resolves to the first seeded user rather than a real auth context.    |
-| `user(login)`             | Implemented                   | Store-backed lookup by user login.                                                                           |
-| `organization(login)`     | Implemented                   | Store-backed lookup by org login.                                                                            |
-| `organizations(...)`      | Implemented                   | Store-backed list with relay pagination.                                                                     |
-| `repository(owner, name)` | Implemented                   | Store-backed repo lookup.                                                                                    |
-| `repositoryOwner(login)`  | Implemented                   | Resolves to org or user from store.                                                                          |
-| `users(...)`              | Not explicitly implemented    | Present in the enterprise schema, but not in the resolver map.                                               |
-| Other public query roots  | Not explicitly implemented    | Most of the public schema entry points have no package resolver.                                             |
+| Field                     | Status                        | Notes                                                                                                                                                         |
+| ------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `viewer`                  | Partially implemented         | Resolves the selected `user:<login>` simulator actor from GraphQL Yoga context. Real token validation and app/installation authorization remain out of scope. |
+| `user(login)`             | Implemented                   | Store-backed lookup by user login.                                                                                                                            |
+| `organization(login)`     | Implemented                   | Store-backed lookup by org login.                                                                                                                             |
+| `organizations(...)`      | Implemented                   | Store-backed list with relay pagination.                                                                                                                      |
+| `repository(owner, name)` | Implemented                   | Store-backed repo lookup.                                                                                                                                     |
+| `repositoryOwner(login)`  | Implemented                   | Resolves to org or user from store.                                                                                                                           |
+| `users(...)`              | Not explicitly implemented    | Present in the enterprise schema, but not in the resolver map.                                                                                                |
+| Other public query roots  | Not explicitly implemented    | Most of the public schema entry points have no package resolver.                                                                                              |
 
 ### Nested fields with real scripting
 

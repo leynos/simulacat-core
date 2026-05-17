@@ -84,6 +84,20 @@ surfaces for refs, commits, issues, and pull requests. Do not expand it into
 reviews, labels, timelines, mergeability, checks, or actor-aware permissions
 without updating the relevant roadmap item and design documentation.
 
+### Request actors
+
+Request actor parsing lives in `src/store/actors.ts`, not in individual REST
+or GraphQL routes. REST handlers pass request headers into the shared parser.
+GraphQL Yoga builds a small context object with the parsed actor, and
+`Query.viewer` resolves the selected user from that context.
+
+New actor-aware behaviour should add focused unit tests for parser or resolver
+invariants and route-level tests for observable REST or GraphQL contracts. Use
+`fast-check` when a parser or key format must hold across a range of generated
+values. Do not add real credential validation, permission checks, or GitHub
+App cryptography under the request actor helper; those are separate
+authorization slices.
+
 ### Gherkin feature scenarios
 
 Feature files live under `features/` and are loaded by

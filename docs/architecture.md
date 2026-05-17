@@ -15,7 +15,8 @@ state store, then exposes that state through REST and GraphQL surfaces.
 4. `extendRouter()` in `src/extend-api.ts` applies caller-provided routes
    first, then mounts the built-in GraphQL, health, and OAuth helper routes.
 5. `createHandler()` and `createResolvers()` expose the same store state through
-   GraphQL Yoga.
+   GraphQL Yoga. GraphQL Yoga also builds request context from simulator actor
+   headers before resolvers run.
 
 ## Module responsibilities
 
@@ -55,6 +56,10 @@ state store, then exposes that state through REST and GraphQL surfaces.
   Provides selectors for repository-scoped refs, commits, issues, and pull
   requests. REST and GraphQL adapters consume these selectors instead of
   deriving keys locally.
+- `src/store/actors.ts`
+  Defines simulator request actor parsing and resolution for anonymous, user,
+  app, and installation actors. REST and GraphQL adapters use these helpers
+  instead of selecting a user locally.
 - `src/store/entities/shared.ts`
   Defines `githubEntityPermissionSchema`.
 - `src/store/index.ts`
@@ -120,6 +125,24 @@ state for REST and GraphQL reads to agree on refs, commits, issues, and pull
 requests, but they do not yet own collaboration policy. Mutations,
 mergeability, labels, reviews, timelines, checks, and actor-aware permissions
 belong to later roadmap slices.
+
+## Request actor flow
+
+`x-simulacat-actor` is the preferred request actor header. The supported values
+are `anonymous`, `user:<login>`, `app:<id-or-slug>`, and `installation:<id>`.
+`x-simulacat-user` and `x-github-user` remain compatibility aliases for user
+actors.
+
+REST authenticated-user handlers parse the request headers through
+`parseRequestActor()`, resolve seeded users and installations through
+`resolveRequestActor()`, and return user-shaped data only when the actor is a
+known user. GraphQL Yoga performs the same parsing in `createHandler()` and
+passes the actor into `createResolvers()` through resolver context, so
+`viewer` and REST `/user` agree for equivalent user actor input.
+
+This is actor representation, not authentication. The simulator does not
+validate OAuth tokens, personal access tokens, GitHub App JWTs, or installation
+tokens, and it does not enforce permissions in this slice.
 
 ## Extension seams
 

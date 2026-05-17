@@ -139,8 +139,8 @@ The explicit OpenAPI handler map lives in
 | `repos/get-content`                            | `GET`  | `/repos/{owner}/{repo}/contents/{path}`              | Stateful/scriptable                | Looks up a blob by owner/repo/path and returns base64 content.                                                                                                                                                        |
 | `git/get-blob`                                 | `GET`  | `/repos/{owner}/{repo}/git/blobs/{file_sha}`         | Stateful/scriptable                | Looks up a blob by owner/repo/sha and returns base64 content.                                                                                                                                                         |
 | `git/get-tree`                                 | `GET`  | `/repos/{owner}/{repo}/git/trees/{tree_sha}`         | Partially scriptable               | The handler now reads `tree_sha`, but it still ignores real tree-sha semantics and simply maps all blobs for the repo.                                                                                                |
-| `users/get-authenticated`                      | `GET`  | `/user`                                              | Partially scriptable               | Returns the first user in the store only; there is no token or auth context.                                                                                                                                          |
-| `orgs/list-memberships-for-authenticated-user` | `GET`  | `/user/memberships/orgs`                             | Partially scriptable               | Returns all orgs as active admin memberships for the first user in the store.                                                                                                                                         |
+| `users/get-authenticated`                      | `GET`  | `/user`                                              | Partially scriptable               | Resolves the selected `user:<login>` simulator actor and returns 401 when no user actor resolves.                                                                                                                     |
+| `orgs/list-memberships-for-authenticated-user` | `GET`  | `/user/memberships/orgs`                             | Partially scriptable               | Resolves the selected user actor and returns only that user's active organization memberships. Legacy user headers remain aliases.                                                                                    |
 
 ## What Is Stubbed But Not Really Mocked
 
@@ -249,7 +249,8 @@ The best practical description is:
 
 > Broad stub coverage is available through the loaded OpenAPI schema, but
 > built-in scriptable GitHub behavior is limited to a small
-> repository/installations/user slice.
+> repository/installations/user slice with simulator-controlled request actor
+> selection.
 
 ## Recommended Follow-Ups
 
