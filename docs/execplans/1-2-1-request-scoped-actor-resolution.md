@@ -212,7 +212,14 @@ escalation, not workarounds.
 - [x] (2026-05-17T14:42:29+02:00) Implemented milestone 1:
   added the shared actor parser and resolver in `src/store/actors.ts`, with
   unit tests and a `fast-check` property test in `tests/actors.test.ts`.
-- [ ] Implement milestone 2: REST `/user` and membership behaviour.
+- [x] (2026-05-17T14:44:20+02:00) Ran
+  `coderabbit review --agent` for milestone 1; CodeRabbit reported zero
+  findings.
+- [x] (2026-05-17T14:45:34+02:00) Implemented milestone 2:
+  REST `GET /user` and `GET /user/memberships/orgs` now resolve the
+  authenticated user through the shared request actor helpers, and
+  `tests/user.test.ts` covers selected users, missing actors, app and
+  installation actors, and membership scoping.
 - [ ] Implement milestone 3: GraphQL `viewer` request context behaviour.
 - [ ] Implement milestone 4: documentation, roadmap update, gates,
   CodeRabbit review, push, and draft PR.
@@ -242,6 +249,9 @@ escalation, not workarounds.
 - `fast-check`'s `stringMatching` arbitrary can generate strings that contain
   an unanchored regular expression rather than strings that equal it. The
   actor login round-trip property now uses an anchored login pattern.
+- User fixture emails are generated when omitted. Actor selection tests now
+  seed explicit email addresses so failures describe actor behaviour rather
+  than faker output.
 
 ## Decision Log
 

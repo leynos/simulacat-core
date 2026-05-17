@@ -1,6 +1,7 @@
 /** @file Integration tests for authenticated-user REST endpoints. */
 import {afterAll, beforeAll, describe, expect, it} from 'bun:test';
 import {simulation} from '../src/index.ts';
+import {requestActorHeader} from '../src/store/actors.ts';
 
 type SimulationServer = Awaited<ReturnType<ReturnType<typeof simulation>['listen']>>;
 
@@ -51,7 +52,10 @@ describe('GET user membership endpoints with an authenticated user', () => {
   beforeAll(async () => {
     const app = simulation({
       initialState: {
-        users: [{login: 'dev', organizations: ['lovely-org']}],
+        users: [
+          {login: 'dev', email: 'dev@example.test', organizations: ['lovely-org']},
+          {login: 'reviewer', email: 'reviewer@example.test', organizations: ['other-org']}
+        ],
         organizations: [{login: 'lovely-org'}, {login: 'other-org'}],
         repositories: [{owner: 'lovely-org', name: 'awesome-repo'}],
         branches: [{owner: 'lovely-org', repo: 'awesome-repo', name: 'main'}],
@@ -64,6 +68,46 @@ describe('GET user membership endpoints with an authenticated user', () => {
 
   afterAll(async () => {
     await server.ensureClose();
+  });
+
+  it('returns the selected authenticated user from the request actor', async () => {
+    const request = await fetch(`${authUrl}/user`, {
+      headers: {
+        [requestActorHeader]: 'user:reviewer'
+      }
+    });
+    const response = await request.json();
+
+    expect(request.status).toEqual(200);
+    expect(response).toEqual(
+      expect.objectContaining({
+        login: 'reviewer',
+        email: 'reviewer@example.test',
+        name: 'reviewer'
+      })
+    );
+  });
+
+  it('returns 401 instead of falling back to the first seeded user without an actor', async () => {
+    const request = await fetch(`${authUrl}/user`);
+    const response = await request.json();
+
+    expect(request.status).toEqual(401);
+    expect(response).toEqual({message: 'Authentication required'});
+  });
+
+  it('returns 401 for app and installation actors on authenticated-user routes', async () => {
+    for (const actor of ['app:1', 'installation:1']) {
+      const request = await fetch(`${authUrl}/user`, {
+        headers: {
+          [requestActorHeader]: actor
+        }
+      });
+      const response = await request.json();
+
+      expect(request.status).toEqual(401);
+      expect(response).toEqual({message: 'Authentication required'});
+    }
   });
 
   it('returns only organizations with memberships for the authenticated user', async () => {
@@ -82,6 +126,24 @@ describe('GET user membership endpoints with an authenticated user', () => {
         organization: expect.objectContaining({login: 'lovely-org'}),
         organization_url: expect.stringContaining('/orgs/lovely-org'),
         user: expect.objectContaining({login: 'dev'})
+      })
+    ]);
+  });
+
+  it('scopes memberships to the preferred request actor header', async () => {
+    const request = await fetch(`${authUrl}/user/memberships/orgs`, {
+      headers: {
+        [requestActorHeader]: 'user:reviewer'
+      }
+    });
+    const response = await request.json();
+
+    expect(request.status).toEqual(200);
+    expect(response).toEqual([
+      expect.objectContaining({
+        organization: expect.objectContaining({login: 'other-org'}),
+        organization_url: expect.stringContaining('/orgs/other-org'),
+        user: expect.objectContaining({login: 'reviewer'})
       })
     ]);
   });

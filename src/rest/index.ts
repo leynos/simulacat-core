@@ -7,6 +7,7 @@
  */
 import type {Document, SimulationHandlers} from '@simulacrum/foundation-simulator';
 import type {ExtendedSimulationStore} from '../store/index.ts';
+import {parseRequestActor, resolveRequestActor, selectAuthenticatedUser} from '../store/actors.ts';
 import {getSchema, type SchemaFile} from '../utils.ts';
 import {blobAsBase64, commitStatusResponse, gitTrees, normalizeGitRefPath} from './utils.ts';
 
@@ -20,6 +21,17 @@ type Req = Parameters<SimulationHandler>[1];
 type Res = Parameters<SimulationHandler>[2];
 
 const notFound = {message: 'Not Found'};
+
+const selectUserForRequest = (simulationStore: ExtendedSimulationStore, request: Req) => {
+  const state = simulationStore.store.getState();
+  const actor = parseRequestActor(request);
+  const resolvedActor = resolveRequestActor(actor, {
+    users: simulationStore.schema.users.selectTableAsList(state),
+    installations: simulationStore.schema.installations.selectTableAsList(state)
+  });
+
+  return selectAuthenticatedUser(resolvedActor);
+};
 
 const handlers =
   (
@@ -297,9 +309,8 @@ const handlers =
           ),
 
           // GET /user
-          'users/get-authenticated': async (_context: Ctx, _request: Req, response: Res) => {
-            const users = simulationStore.schema.users.selectTableAsList(simulationStore.store.getState());
-            const user = users[0];
+          'users/get-authenticated': async (_context: Ctx, request: Req, response: Res) => {
+            const user = selectUserForRequest(simulationStore, request);
             if (!user) {
               return response.status(401).json({message: 'Authentication required'});
             }
@@ -314,9 +325,7 @@ const handlers =
 
           // GET /user/memberships/orgs
           'orgs/list-memberships-for-authenticated-user': async (_context: Ctx, request: Req, response: Res) => {
-            const users = simulationStore.schema.users.selectTableAsList(getState());
-            const requestedLogin = request.get('x-simulacat-user') ?? request.get('x-github-user');
-            const user = requestedLogin ? users.find((candidate) => candidate.login === requestedLogin) : users[0];
+            const user = selectUserForRequest(simulationStore, request);
             if (!user) {
               return response.status(401).json({message: 'Authentication required'});
             }
