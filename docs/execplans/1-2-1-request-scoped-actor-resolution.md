@@ -209,7 +209,9 @@ escalation, not workarounds.
   `1-2-1-request-scoped-actor-resolution` and tracks
   `origin/1-2-1-request-scoped-actor-resolution`.
 - [x] Rename branch and set upstream tracking.
-- [ ] Implement milestone 1: actor model, parser, selectors, and unit tests.
+- [x] (2026-05-17T14:42:29+02:00) Implemented milestone 1:
+  added the shared actor parser and resolver in `src/store/actors.ts`, with
+  unit tests and a `fast-check` property test in `tests/actors.test.ts`.
 - [ ] Implement milestone 2: REST `/user` and membership behaviour.
 - [ ] Implement milestone 3: GraphQL `viewer` request context behaviour.
 - [ ] Implement milestone 4: documentation, roadmap update, gates,
@@ -237,6 +239,9 @@ escalation, not workarounds.
 - Official GitHub GraphQL docs state that GraphQL can authenticate with a
   personal access token, GitHub App, or OAuth app. This plan uses that only as
   prior art for actor kinds, not as a commitment to validate real tokens.
+- `fast-check`'s `stringMatching` arbitrary can generate strings that contain
+  an unanchored regular expression rather than strings that equal it. The
+  actor login round-trip property now uses an anchored login pattern.
 
 ## Decision Log
 
@@ -264,6 +269,14 @@ escalation, not workarounds.
   aliases while documenting one preferred request actor mechanism.
   Rationale: existing tests and users may already rely on those headers for
   membership flows. Removing them is unnecessary for this roadmap item.
+
+- Decision: use `x-simulacat-actor` as the preferred simulator actor header,
+  with values `anonymous`, `user:<login>`, `app:<id-or-slug>`, and
+  `installation:<id>`.
+  Rationale: one explicit development header keeps actor selection separate
+  from real GitHub credentials while representing the four required actor
+  kinds. Existing `x-simulacat-user` and `x-github-user` headers remain
+  compatibility aliases for user actors.
 
 - Decision: defer branch rename, upstream tracking, push, draft PR creation,
   and roadmap completion until after plan approval.
