@@ -5,6 +5,14 @@ import {requestActorHeader} from '../src/store/actors.ts';
 
 type SimulationServer = Awaited<ReturnType<ReturnType<typeof simulation>['listen']>>;
 
+async function fetchMemberships(
+  url: string,
+  headers: Record<string, string>
+): Promise<{status: number; body: unknown}> {
+  const req = await fetch(`${url}/user/memberships/orgs`, {headers});
+  return {status: req.status, body: await req.json()};
+}
+
 describe('GET user endpoints', () => {
   let server: SimulationServer;
   let url: string;
@@ -111,15 +119,10 @@ describe('GET user membership endpoints with an authenticated user', () => {
   });
 
   it('returns only organizations with memberships for the authenticated user', async () => {
-    const request = await fetch(`${authUrl}/user/memberships/orgs`, {
-      headers: {
-        'x-simulacat-user': 'dev'
-      }
-    });
-    const response = await request.json();
+    const {status, body} = await fetchMemberships(authUrl, {'x-simulacat-user': 'dev'});
 
-    expect(request.status).toEqual(200);
-    expect(response).toEqual([
+    expect(status).toEqual(200);
+    expect(body).toEqual([
       expect.objectContaining({
         state: 'active',
         role: 'member',
@@ -131,15 +134,10 @@ describe('GET user membership endpoints with an authenticated user', () => {
   });
 
   it('scopes memberships to the preferred request actor header', async () => {
-    const request = await fetch(`${authUrl}/user/memberships/orgs`, {
-      headers: {
-        [requestActorHeader]: 'user:reviewer'
-      }
-    });
-    const response = await request.json();
+    const {status, body} = await fetchMemberships(authUrl, {[requestActorHeader]: 'user:reviewer'});
 
-    expect(request.status).toEqual(200);
-    expect(response).toEqual([
+    expect(status).toEqual(200);
+    expect(body).toEqual([
       expect.objectContaining({
         organization: expect.objectContaining({login: 'other-org'}),
         organization_url: expect.stringContaining('/orgs/other-org'),
