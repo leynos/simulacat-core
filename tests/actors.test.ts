@@ -34,7 +34,7 @@ const installation = (id: number, app_id: number, app_slug: string): GitHubAppIn
   client_id: 'Iv1.example',
   target_id: 1,
   target_type: 'Organization',
-  permissions: {},
+  permissions: {admin: false, push: false, pull: true},
   events: [],
   updated_at: '2026-01-01T00:00:00.000Z',
   created_at: '2026-01-01T00:00:00.000Z',

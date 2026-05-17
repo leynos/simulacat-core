@@ -10,8 +10,13 @@ import {createResolvers} from './resolvers.ts';
 import {parseRequestActor} from '../store/actors.ts';
 import {getSchema} from '../utils.ts';
 import type {ExtendedSimulationStore} from '../store/index.ts';
+import type {RequestActor} from '../store/actors.ts';
 
 import type {Plugin} from 'graphql-yoga';
+
+type GraphQLUserContext = {
+  requestActor: RequestActor;
+};
 
 /**
  * Normalizes GitHub's custom media type to Yoga's regular JSON result
@@ -38,9 +43,9 @@ export function createHandler(simulationStore: ExtendedSimulationStore) {
   const schema = getSchema('schema.docs-enterprise.graphql');
   const resolvers = createResolvers(simulationStore);
 
-  const yoga = createYoga({
+  const yoga = createYoga<{}, GraphQLUserContext>({
     maskedErrors: false,
-    schema: createSchema({
+    schema: createSchema<GraphQLUserContext>({
       typeDefs: schema,
       resolvers
     }),
