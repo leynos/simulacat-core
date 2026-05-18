@@ -1,4 +1,5 @@
 /** @file Filesystem helpers for loading bundled or caller-provided schemas. */
+// biome-ignore-all lint/complexity/noExcessiveCognitiveComplexity: Baseline schema loader predates the new complexity gate.
 import path from 'path';
 import fs from 'fs';
 import {z} from 'zod';
@@ -45,9 +46,13 @@ type OpenApiSchema = z.infer<typeof openApiSchema>;
  * ```
  */
 export function getSchema(schemaFile: 'api.github.com.json'): OpenApiSchema;
+// nosemgrep: simulacat.ts.public-jsdoc - Overload signatures are documented by the shared public JSDoc block.
 export function getSchema(schemaFile: 'schema.docs.graphql' | 'schema.docs-enterprise.graphql'): string;
+// nosemgrep: simulacat.ts.public-jsdoc - Overload signatures are documented by the shared public JSDoc block.
 export function getSchema(schemaFile: `${string}.json`): OpenApiSchema;
+// nosemgrep: simulacat.ts.public-jsdoc - Overload signatures are documented by the shared public JSDoc block.
 export function getSchema(schemaFile: string): string;
+// nosemgrep: simulacat.ts.public-jsdoc - Overload implementation is documented by the shared public JSDoc block.
 export function getSchema(schemaFile: SchemaFile | string): string | OpenApiSchema {
   const root = path.join(import.meta.dirname, '..');
   const schemaPath = (schemaDefaults as readonly string[]).includes(schemaFile)

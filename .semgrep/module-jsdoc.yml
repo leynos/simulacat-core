@@ -1,0 +1,17 @@
+rules:
+  - id: simulacat.ts.module-jsdoc
+    languages: [generic]
+    severity: ERROR
+    paths:
+      include:
+        - "*.js"
+        - "*.jsx"
+        - "*.mjs"
+        - "*.cjs"
+        - "*.ts"
+        - "*.tsx"
+    message: >-
+      JS/TS files must start with module-level JSDoc, preferably an @file
+      block, after any shebang or 'use strict' directive.
+    pattern-regex: |-
+      \A(?!(?:#![^\n]*\n)?(?:(?:'use strict'|"use strict");\s*\n)?\s*/\*\*[\s\S]{0,240}@file)

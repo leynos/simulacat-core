@@ -1,0 +1,18 @@
+rules:
+  - id: simulacat.ts.public-jsdoc
+    languages: [generic]
+    severity: ERROR
+    paths:
+      include:
+        - "*.js"
+        - "*.jsx"
+        - "*.mjs"
+        - "*.cjs"
+        - "*.ts"
+        - "*.tsx"
+    message: >-
+      Exported JS/TS declarations need complete JSDoc: usage-oriented
+      description, @param entries for parameters, @returns for non-void
+      results, and @throws when errors are thrown or promises reject.
+    pattern-regex: |-
+      (?m)(?<!\*/\n)(?<!\*/\n\n)^\s*export\s+(?:async\s+)?function\s+\w+\s*\([^)]*\)

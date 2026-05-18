@@ -18,10 +18,12 @@ export const refStoreKey = (ref: RefStoreKeyInput): string => `${ref.owner}/${re
 const refObjectTypeSchema = z.enum(['commit', 'tag']);
 type RefObjectType = z.infer<typeof refObjectTypeSchema>;
 
+// nosemgrep: simulacat.ts.private-jsdoc - Baseline helper predates private JSDoc enforcement.
 const defaultRefPrefix = (objectType: RefObjectType) => {
   return objectType === 'tag' ? 'refs/tags/' : 'refs/heads/';
 };
 
+// nosemgrep: simulacat.ts.private-jsdoc - Baseline helper predates private JSDoc enforcement.
 const gitObjectApiPath = (objectType: RefObjectType) => {
   switch (objectType) {
     case 'commit':

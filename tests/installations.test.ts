@@ -1,4 +1,5 @@
 /** @file Integration tests for GitHub App installation REST endpoints. */
+// biome-ignore-all lint/complexity/noExcessiveLinesPerFunction: Baseline test suite predates the new function length gate.
 import {afterAll, beforeAll, describe, expect, it} from 'bun:test';
 import {simulation} from '../src/index.ts';
 

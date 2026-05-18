@@ -1,4 +1,6 @@
 /** @file Store schema, selectors, and extension wiring for GitHub fixtures. */
+// biome-ignore-all lint/complexity/noExcessiveCognitiveComplexity: Baseline store wiring predates the new complexity gate.
+// biome-ignore-all lint/complexity/useMaxParams: Baseline selector callback mirrors the upstream selector API.
 import type {
   SimulationStore,
   ExtendSimulationSchema,

@@ -4,12 +4,14 @@
  * This module normalizes organization fixtures, preserving caller identifiers
  * and filling in the GitHub-style profile URLs used throughout the simulator.
  */
+// biome-ignore-all lint/complexity/noExcessiveCognitiveComplexity: Baseline schema transform predates the new complexity gate.
 import {faker} from '@faker-js/faker';
 import {z} from 'zod';
 
 const {SIMULACAT_GITHUB_API_URL} = process.env;
 const DEFAULT_GITHUB_API_BASE_URL = SIMULACAT_GITHUB_API_URL?.trim() || 'http://localhost:3300';
 
+// nosemgrep: simulacat.ts.private-jsdoc - Baseline helper predates private JSDoc enforcement.
 const deriveOrganizationBaseUrl = (url?: string) => {
   if (!url) {
     return DEFAULT_GITHUB_API_BASE_URL;

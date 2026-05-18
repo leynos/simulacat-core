@@ -10,6 +10,7 @@ import {githubEntityPermissionSchema} from './shared.ts';
 
 let nextGeneratedRepositoryId = 3000;
 
+// nosemgrep: simulacat.ts.private-jsdoc - Baseline helper predates private JSDoc enforcement.
 const nextRepositoryId = () => nextGeneratedRepositoryId++;
 
 type RepositoryKeyInput = {

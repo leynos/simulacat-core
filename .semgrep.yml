@@ -1,0 +1,5 @@
+rules: []
+
+# Semgrep does not support importing local rule files from this root file.
+# Run `uvx --from semgrep semgrep scan --config .semgrep .` so Semgrep loads
+# each rule file in the `.semgrep/` directory.

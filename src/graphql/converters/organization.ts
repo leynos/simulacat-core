@@ -9,6 +9,7 @@ import type {DataSchemas, GraphQLData, ToGraphqlDispatcher} from '../to-graphql-
 import type {ExtendedSimulationStore} from '../../store/index.ts';
 import type {Team, User} from '../../__generated__/resolvers-types.ts';
 
+// nosemgrep: simulacat.ts.public-jsdoc - Baseline converter predates complete public JSDoc enforcement.
 /**
  * Converts a stored organization entity into its GraphQL Organization shape.
  *

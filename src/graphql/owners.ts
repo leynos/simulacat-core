@@ -11,6 +11,7 @@ import {convertRepositoryConnection} from './connections.ts';
 import type {DataSchemas, GraphQLData, ToGraphqlDispatcher} from './to-graphql-shapes.ts';
 import type {ExtendedSimulationStore} from '../store/index.ts';
 
+// nosemgrep: simulacat.ts.public-jsdoc - Baseline helper predates complete public JSDoc enforcement.
 /**
  * Resolves a login to the GraphQL Organization or User owner union member.
  *

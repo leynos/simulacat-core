@@ -1,4 +1,5 @@
 /** @file Integration tests for repository-oriented REST endpoints. */
+// biome-ignore-all lint/complexity/noExcessiveLinesPerFunction: Baseline test suite predates the new function length gate.
 import {afterAll, beforeAll, describe, expect, it} from 'bun:test';
 import {simulation} from '../src/index.ts';
 
@@ -15,6 +16,7 @@ interface ListAndGetConfig {
   assertGetResponse: (response: Record<string, unknown>) => void;
 }
 
+// nosemgrep: simulacat.ts.private-jsdoc - Test helper predates private JSDoc enforcement.
 async function assertListAndGet(baseUrl: string, config: ListAndGetConfig): Promise<void> {
   const listRequest = await fetch(`${baseUrl}${config.listPath}`);
   const listResponse = (await listRequest.json()) as unknown[];

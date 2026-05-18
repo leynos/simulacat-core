@@ -17,7 +17,7 @@ import {
   parseRequestActorWithDiagnostics,
   requestIdFromHeaders,
   resolveRequestActor,
-  selectAuthenticatedUser
+  selectAuthenticatedUser,
 } from '../store/actors.ts';
 import {getSchema, type SchemaFile} from '../utils.ts';
 import {blobAsBase64, commitStatusResponse, gitTrees, normalizeGitRefPath} from './utils.ts';
@@ -96,6 +96,7 @@ const handlers =
     extendedHandlers: ((simulationStore: ExtendedSimulationStore) => SimulationHandlers) | undefined
   ) =>
   (simulationStore: ExtendedSimulationStore): SimulationHandlers => {
+    // nosemgrep: simulacat.ts.private-jsdoc - Tiny closure is scoped to the handler factory.
     const getState = () => simulationStore.store.getState();
     /**
      * Ensures a repository exists before a repository-scoped handler proceeds.

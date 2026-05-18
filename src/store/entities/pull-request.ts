@@ -1,4 +1,5 @@
 /** @file GitHub pull request fixture schema and canonical pull request keys. */
+// biome-ignore-all lint/complexity/noExcessiveCognitiveComplexity: Baseline schema transform predates the new complexity gate.
 import {z} from 'zod';
 import {ENTITY_ID_OFFSETS} from '../entity-id-offsets.ts';
 import {defaultTimestamp} from './defaults.ts';
@@ -75,6 +76,7 @@ export const githubPullRequestSchema = z
     issue_url: z.string().optional()
   })
   .transform((pullRequest) => {
+    // nosemgrep: simulacat.ts.cyclomatic-complexity - Baseline schema transform predates the heuristic rule.
     const key = pullRequestStoreKey(pullRequest);
     if (pullRequest.issue_number !== undefined && pullRequest.issue_number !== pullRequest.number) {
       throw new Error(

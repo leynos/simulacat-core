@@ -1,4 +1,5 @@
 /** @file Unit tests for canonical store key helpers. */
+// biome-ignore-all lint/complexity/noExcessiveLinesPerFunction: Baseline test suite predates the new function length gate.
 import {describe, expect, it} from 'bun:test';
 import fc from 'fast-check';
 import {

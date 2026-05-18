@@ -26,7 +26,27 @@
       "recommended": true,
       "complexity": {
         "noArguments": "off",
-        "noBannedTypes": "off"
+        "noBannedTypes": "off",
+        "noExcessiveCognitiveComplexity": {
+          "level": "error",
+          "options": {
+            "maxAllowedComplexity": 8
+          }
+        },
+        "noExcessiveLinesPerFunction": {
+          "level": "error",
+          "options": {
+            "maxLines": 70,
+            "skipBlankLines": false,
+            "skipIifes": false
+          }
+        },
+        "useMaxParams": {
+          "level": "error",
+          "options": {
+            "max": 4
+          }
+        }
       },
       "a11y": {
         "noStaticElementInteractions": "off",

@@ -1,0 +1,56 @@
+rules:
+  - id: simulacat.ts.nesting-depth
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: >-
+      Function nests control-flow blocks deeper than 3 levels. Extract
+      predicates or helper functions before adding another nested block.
+    pattern-either:
+      - pattern: |
+          function $F(...) {
+            ...
+            if (...) {
+              ...
+              if (...) {
+                ...
+                if (...) {
+                  ...
+                  if (...) {
+                    ...
+                  }
+                }
+              }
+            }
+          }
+      - pattern: |
+          function $F(...) {
+            ...
+            for (...) {
+              ...
+              if (...) {
+                ...
+                while (...) {
+                  ...
+                  if (...) {
+                    ...
+                  }
+                }
+              }
+            }
+          }
+      - pattern: |
+          const $F = (...) => {
+            ...
+            if (...) {
+              ...
+              if (...) {
+                ...
+                if (...) {
+                  ...
+                  if (...) {
+                    ...
+                  }
+                }
+              }
+            }
+          };

@@ -116,6 +116,7 @@ export const buildEarlyEntitySelectors = ({createSelector, schema}: EarlyEntityS
     return schema.pullRequests.selectTable(state)?.[key];
   };
 
+  // nosemgrep: simulacat.ts.private-jsdoc - Baseline helper predates private JSDoc enforcement.
   const resolvePullRequestRelations = (state: AnyState, pullRequest: GitHubPullRequest) => ({
     baseRef: getRef(state, {
       owner: pullRequest.base.owner,

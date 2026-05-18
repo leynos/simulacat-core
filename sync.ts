@@ -5,6 +5,7 @@
  * `fs/promises`, `path`, and `fetch` to download and persist the bundled REST
  * description.
  */
+// biome-ignore-all lint/complexity/noExcessiveCognitiveComplexity: Baseline sync task predates the new complexity gate.
 import {main, type Operation, until} from 'effection';
 import fs from 'fs/promises';
 import path from 'path';

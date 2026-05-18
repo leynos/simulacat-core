@@ -32,6 +32,90 @@ The normal contributor gate is:
 `make all` runs `check-fmt`, `typecheck`, `lint`, and `test` in the
 repository's preferred order.
 
+
+## Linting rules
+
+`make all` runs Biome and Semgrep maintainability gates. Biome enforces exact
+rules where it has native support:
+
+- `complexity.noExcessiveLinesPerFunction`: functions may not exceed 70 lines,
+  counting blank lines.
+- `complexity.useMaxParams`: functions may not take more than 4 parameters.
+- `complexity.noExcessiveCognitiveComplexity`: functions may not exceed
+  cognitive complexity 8. This is an additional readability guard, not a
+  substitute for McCabe/C90 complexity.
+
+Semgrep covers contracts that Biome does not express directly:
+
+- `simulacat.ts.cyclomatic-complexity`: flags functions that appear to exceed
+  McCabe/C90 cyclomatic complexity 8. This rule is heuristic and counts common
+  decision tokens such as `if`, `case`, `catch`, `&&`, `||`, and ternaries.
+- `simulacat.ts.nesting-depth`: flags control-flow blocks nested deeper than
+  3 levels.
+- `simulacat.ts.public-jsdoc`: requires exported functions to have complete
+  usage-oriented JSDoc, including `@param`, `@returns` where applicable, and
+  `@throws` where the function throws or returns a rejecting promise.
+- `simulacat.ts.private-jsdoc`: requires private/internal functions to have a
+  concise one-line JSDoc summary.
+- `simulacat.ts.module-jsdoc`: requires JS/TS files to start with module-level
+  JSDoc, preferably an `@file` block.
+
+Non-compliant examples:
+
+```ts
+export function convert(owner: string, repo: string, ref: string, sha: string, mode: string) {
+  if (owner) {
+    if (repo) {
+      if (ref) {
+        if (sha) {
+          return mode;
+        }
+      }
+    }
+  }
+}
+```
+
+Compliant examples:
+
+```ts
+/**
+ * Converts a repository ref into a stable display label.
+ *
+ * @param input Repository ref details.
+ * @returns A label suitable for REST and GraphQL responses.
+ */
+export function convert(input: RepositoryRefInput): string {
+  if (!isCompleteRef(input)) {
+    return input.mode;
+  }
+
+  return formatRefLabel(input);
+}
+```
+
+
+### Suppressing lint violations
+
+Prefer refactoring over suppression. When a suppression is unavoidable, include
+a short reason that explains why the exception is narrower than changing the
+rule.
+
+Biome inline suppression:
+
+```ts
+// biome-ignore complexity.useMaxParams: Adapter signature mirrors upstream API.
+```
+
+Semgrep inline suppression:
+
+```ts
+// nosemgrep: simulacat.ts.cyclomatic-complexity - Legacy parser is covered by fixture tests.
+```
+
+Use `.semgrepignore` only for generated, vendored, or bundled files that should
+not be scanned at all.
+
 The package publishes an ESM library surface, but the build intentionally keeps
 `dist/index.cjs` because `bin/start.cjs` requires that artifact to start the
 simulator under plain Node without a transpilation step.

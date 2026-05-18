@@ -1,6 +1,8 @@
 /**
  * @file Repository entity conversion helpers for GraphQL responses.
  */
+// biome-ignore-all lint/complexity/noExcessiveCognitiveComplexity: Baseline converter predates the new complexity gate.
+// biome-ignore-all lint/complexity/noExcessiveLinesPerFunction: Baseline converter predates the new length gate.
 import type {PageArgs} from '../relay.ts';
 import {applyRelayPagination} from '../relay.ts';
 import {
