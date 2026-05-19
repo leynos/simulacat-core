@@ -105,6 +105,33 @@ describe('request actor parsing', () => {
       })
     );
   });
+
+  it('round-trips app actor values across a range of positive numeric app IDs', () => {
+    fc.assert(
+      fc.property(fc.integer({min: 1, max: Number.MAX_SAFE_INTEGER}), (appId) => {
+        expect(parseActorHeaderValue(`app:${appId}`)).toEqual({kind: 'app', appId});
+      })
+    );
+  });
+
+  it('round-trips installation actor values across a range of positive installation IDs', () => {
+    fc.assert(
+      fc.property(fc.integer({min: 1, max: Number.MAX_SAFE_INTEGER}), (installationId) => {
+        expect(parseActorHeaderValue(`installation:${installationId}`)).toEqual({
+          kind: 'installation',
+          installationId
+        });
+      })
+    );
+  });
+
+  it('rejects zero and negative integers in app and installation positions', () => {
+    fc.assert(
+      fc.property(fc.integer({max: 0}), (n) => {
+        expect(parseActorHeaderValue(`installation:${n}`)).toBeUndefined();
+      })
+    );
+  });
 });
 
 describe('request actor resolution', () => {
