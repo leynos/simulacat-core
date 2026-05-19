@@ -147,6 +147,10 @@ export const resolveRequestActor = (
       return resolveAppActor(actor, input.installations);
     case 'installation':
       return resolveInstallationActor(actor, input.installations);
+    default: {
+      const exhaustive: never = actor;
+      throw new Error(`Unsupported request actor kind: ${JSON.stringify(exhaustive)}`);
+    }
   }
 };
 

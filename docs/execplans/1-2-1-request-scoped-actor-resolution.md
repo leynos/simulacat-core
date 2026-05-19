@@ -388,7 +388,7 @@ Milestone 5 performs final validation and publishing work. Run, sequentially,
 `coderabbit review --agent` and clear every actionable concern. Commit the
 final implementation state. Run `echo ${LODY_SESSION_ID}`. Push the renamed
 branch and create a draft PR whose title includes the roadmap item number as
-requested: `(1.1.1) Request-scoped actor resolution`. Mention this ExecPlan in
+requested: `(1.2.1) Request-scoped actor resolution`. Mention this ExecPlan in
 the PR summary and include a `## References` section with the Lody session
 link `https://lody.ai/leynos/sessions/${LODY_SESSION_ID}`.
 
