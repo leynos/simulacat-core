@@ -193,7 +193,7 @@ referencing the old parameter types must be updated.
 
 `GET /user`, `GET /user/memberships/orgs`, and `Query.viewer` no longer fall
 back to the first seeded user when no actor header is present. They now return
-HTTP 401 / `Authentication required` for unauthenticated requests.
+HTTP 401 with `Authentication required` for unauthenticated requests.
 
 | Scenario | Before 1.2.1 | After 1.2.1 |
 | --- | --- | --- |
@@ -203,6 +203,11 @@ HTTP 401 / `Authentication required` for unauthenticated requests.
 
 Set `x-simulacat-actor: user:<login>` (or a legacy alias) on every request that
 must exercise `/user`, `/user/memberships/orgs`, or `viewer`.
+
+For REST authenticated-user routes, both `GET /user` and
+`GET /user/memberships/orgs` require `x-simulacat-actor: user:<login>` or a
+legacy user alias. Without an actor that resolves to a seeded user, these routes
+return HTTP 401 with `{"message":"Authentication required"}`.
 
 #### `repositoryStoreKey`
 
