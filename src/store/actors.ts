@@ -83,17 +83,36 @@ const parsePositiveInteger = (input: string): number | undefined => {
   return Number.isSafeInteger(value) ? value : undefined;
 };
 
+/**
+ * Parses the identifier portion of an `app:` actor value.
+ *
+ * Returns `{kind: 'app', appId}` when the identifier is a positive integer,
+ * `{kind: 'app', slug}` for non-numeric identifiers, and undefined for
+ * integer-shaped identifiers that are not positive.
+ */
 const parseAppActor = (rawIdentifier: string): RequestActor | undefined => {
   const appId = parsePositiveInteger(rawIdentifier);
   if (appId !== undefined) return {kind: 'app', appId};
   return integerPattern.test(rawIdentifier) ? undefined : {kind: 'app', slug: rawIdentifier};
 };
 
+/**
+ * Parses the identifier portion of an `installation:` actor value.
+ *
+ * Returns `{kind: 'installation', installationId}` for a positive integer, or
+ * undefined for any other input.
+ */
 const parseInstallationActor = (rawIdentifier: string): RequestActor | undefined => {
   const installationId = parsePositiveInteger(rawIdentifier);
   return installationId === undefined ? undefined : {kind: 'installation', installationId};
 };
 
+/**
+ * Dispatches to the per-kind parse helper based on `kind`.
+ *
+ * Returns undefined for any kind that is not `user`, `app`, or
+ * `installation`.
+ */
 const parseKindedActor = (kind: string, rawIdentifier: string): RequestActor | undefined => {
   switch (kind) {
     case 'user':
@@ -150,11 +169,23 @@ export const parseRequestActor = (headers: HeaderReader): RequestActor => {
   return {kind: 'anonymous'};
 };
 
+/**
+ * Resolves a user actor against the seeded users table.
+ *
+ * Returns `{...actor, user}` when a seeded user login matches `actor.login`,
+ * otherwise collapses to `{kind: 'anonymous'}`.
+ */
 const resolveUserActor = (actor: UserActor, users: readonly GitHubUser[]): ResolvedRequestActor => {
   const user = users.find((candidate) => candidate.login === actor.login);
   return user ? {...actor, user} : {kind: 'anonymous'};
 };
 
+/**
+ * Finds the installation that belongs to an app actor.
+ *
+ * Searches installations by `app_id` when `actor.appId` is set, or by
+ * `app_slug` when only `actor.slug` is set.
+ */
 const findInstallationForApp = (
   actor: AppActor,
   installations: readonly GitHubAppInstallation[]
@@ -166,11 +197,23 @@ const findInstallationForApp = (
   return installations.find((candidate) => candidate.app_slug === actor.slug);
 };
 
+/**
+ * Resolves an app actor against seeded installations.
+ *
+ * Returns `{...actor, installation}` when a matching installation is found,
+ * otherwise returns `actor` unchanged.
+ */
 const resolveAppActor = (actor: AppActor, installations: readonly GitHubAppInstallation[]): ResolvedRequestActor => {
   const installation = findInstallationForApp(actor, installations);
   return installation ? {...actor, installation} : actor;
 };
 
+/**
+ * Resolves an installation actor against seeded installations.
+ *
+ * Finds the installation whose `id` matches `actor.installationId`. Returns
+ * `{...actor, installation}` when found, otherwise returns `actor` unchanged.
+ */
 const resolveInstallationActor = (
   actor: InstallationActor,
   installations: readonly GitHubAppInstallation[]
