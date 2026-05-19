@@ -125,7 +125,7 @@ ______________________________________________________________________
 
 | Surface | Coverage today | Notes |
 | --- | --- | --- |
-| REST routes | Installations, repository lists, branches, blobs, trees, commit status, authenticated user, and org memberships | See [`docs/api-reference.md`](docs/api-reference.md) for the exact route list and [`docs/users-guide.md`](docs/users-guide.md#121--request-scoped-actor-resolution) for authenticated-user actor requirements. |
+| REST routes | Installations, repository lists, branches, blobs, trees, commit status, authenticated user, and org memberships | See [`docs/api-reference.md`](docs/api-reference.md) for the exact route list. Authenticated-user routes require an actor header; see the [users guide](docs/users-guide.md) for details. |
 | GraphQL root queries | `viewer`, `organization`, `organizations`, `repository`, and `repositoryOwner` | Connection pagination uses Relay-style cursors. |
 | GraphQL nested fields | Repository owners, repository topics, languages, and user organizations | Some connections are intentionally stubbed with empty results for now. |
 | Platform routes | `/health`, `/graphql`, OAuth authorize, and OAuth access token endpoints | Useful for local harness bootstrapping and login flows. |

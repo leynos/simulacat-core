@@ -161,4 +161,27 @@ describe('request actor resolution', () => {
       expect.objectContaining({kind: 'installation', installation: expect.objectContaining({app_id: 42})})
     );
   });
+
+  it('returns the anonymous actor unchanged', () => {
+    const actor = resolveRequestActor({kind: 'anonymous'}, {users, installations});
+    expect(actor).toEqual({kind: 'anonymous'});
+  });
+
+  it('returns an app actor unchanged when no installation matches', () => {
+    const actor = resolveRequestActor({kind: 'app', appId: 999}, {users, installations});
+    expect(actor).toEqual({kind: 'app', appId: 999});
+    expect(actor).not.toHaveProperty('installation');
+  });
+
+  it('returns an app actor unchanged when no installation matches by slug', () => {
+    const actor = resolveRequestActor({kind: 'app', slug: 'unknown-app'}, {users, installations});
+    expect(actor).toEqual({kind: 'app', slug: 'unknown-app'});
+    expect(actor).not.toHaveProperty('installation');
+  });
+
+  it('returns an installation actor unchanged when no installation matches', () => {
+    const actor = resolveRequestActor({kind: 'installation', installationId: 999}, {users, installations});
+    expect(actor).toEqual({kind: 'installation', installationId: 999});
+    expect(actor).not.toHaveProperty('installation');
+  });
 });
