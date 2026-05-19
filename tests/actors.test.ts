@@ -85,6 +85,12 @@ describe('request actor parsing', () => {
     ).toEqual({kind: 'user', login: 'reviewer'});
   });
 
+  it('treats an empty preferred actor header as authoritative anonymous input', () => {
+    expect(parseRequestActor(headers({[requestActorHeader]: '', [legacySimulacatUserHeader]: 'dev'}))).toEqual({
+      kind: 'anonymous'
+    });
+  });
+
   it('rejects malformed actor header values', () => {
     expect(parseActorHeaderValue('user:')).toBeUndefined();
     expect(parseActorHeaderValue('installation:0')).toBeUndefined();

@@ -17,6 +17,10 @@ type GraphQLContext = {
   requestActor?: RequestActor;
 };
 
+export class AuthenticationError extends Error {
+  override name = 'AuthenticationError';
+}
+
 const selectViewer = (simulationStore: ExtendedSimulationStore, context: GraphQLContext) => {
   const state = simulationStore.store.getState();
   const resolvedActor = resolveRequestActor(context.requestActor ?? {kind: 'anonymous'}, {
@@ -40,7 +44,7 @@ export function createResolvers(simulationStore: ExtendedSimulationStore): Resol
     Query: {
       viewer(_root: unknown, _args: unknown, context: GraphQLContext) {
         const user = selectViewer(simulationStore, context);
-        if (!user) throw new Error('Authentication required');
+        if (!user) throw new AuthenticationError('Authentication required');
         return toGraphql(simulationStore, 'User', user);
       },
       user(_: unknown, {login}: {login: string}) {

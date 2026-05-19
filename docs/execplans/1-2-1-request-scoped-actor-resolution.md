@@ -165,7 +165,7 @@ escalation, not workarounds.
   before changing implementation. If generated types need regeneration, run
   `bun run generate` and inspect diffs before proceeding.
 
-- Risk: tests could pass while REST and GraphQL disagree about actor
+- Risk: tests could pass, while REST and GraphQL disagree about actor
   selection.
   Severity: high.
   Likelihood: medium.
@@ -271,7 +271,7 @@ escalation, not workarounds.
   an unanchored regular expression rather than strings that equal it. The
   actor login round-trip property now uses an anchored login pattern.
 - User fixture emails are generated when omitted. Actor selection tests now
-  seed explicit email addresses so failures describe actor behaviour rather
+  seed explicit email addresses, so failures describe actor behaviour rather
   than faker output.
 - GraphQL Yoga exposes thrown `Error` messages directly because this simulator
   sets `maskedErrors: false`. `assert-ts` prefixes assertion messages, so
@@ -290,7 +290,7 @@ escalation, not workarounds.
   credentials.
   Rationale: roadmap item `1.2.1` asks whether authenticated GitHub concepts
   can be represented without fixed store shortcuts. Real credential validation
-  would be a larger authorization project and would obscure the core selector
+  would be a larger authorization project, and would obscure the core selector
   change.
 
 - Decision: keep app and installation actor support in the resolver/parser
@@ -298,12 +298,12 @@ escalation, not workarounds.
   actors.
   Rationale: GitHub's authenticated-user surfaces return user-shaped data.
   Simulacat Core does not yet have a first-class GitHub App bot account model.
-  App and installation actors are still needed so later permission and mutation
+  App and installation actors are still needed, so later permission and mutation
   slices can consume the same actor context.
 
 - Decision: use `docs/development.md` for developer guidance updates instead
   of creating `docs/developers-guide.md`.
-  Rationale: the requested file is absent and the repository already names
+  Rationale: the requested file is absent, and the repository already names
   `docs/development.md` as the developer guide.
 
 - Decision: preserve `x-simulacat-user` and `x-github-user` as compatibility
@@ -369,7 +369,7 @@ a minimal request context into GraphQL Yoga. Update
 from context and returns the same user as REST for a user actor. Add
 behavioural tests in `tests/graphql.test.ts` for user actor selection, unknown
 or anonymous actor failure, and REST/GraphQL agreement. The expected failure
-shape should match GraphQL Yoga's existing unmasked error behaviour unless the
+shape should match GraphQL Yoga's existing unmasked error behaviour, unless the
 repository already has a GraphQL auth-error convention.
 
 Milestone 4 updates documentation and release artefacts. Update

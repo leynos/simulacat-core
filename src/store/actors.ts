@@ -90,7 +90,7 @@ export const parseActorHeaderValue = (headerValue: string): RequestActor | undef
 
 export const parseRequestActor = (headers: HeaderReader): RequestActor => {
   const actorHeader = headers.get(requestActorHeader);
-  if (actorHeader) {
+  if (actorHeader !== null && actorHeader !== undefined) {
     return parseActorHeaderValue(actorHeader) ?? {kind: 'anonymous'};
   }
 
