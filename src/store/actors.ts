@@ -75,6 +75,7 @@ export type ResolvedRequestActor =
   | (InstallationActor & {installation?: GitHubAppInstallation});
 
 const positiveIntegerPattern = /^[1-9]\d*$/;
+const integerPattern = /^-?\d+$/;
 
 const parsePositiveInteger = (input: string): number | undefined => {
   if (!positiveIntegerPattern.test(input)) return undefined;
@@ -82,9 +83,10 @@ const parsePositiveInteger = (input: string): number | undefined => {
   return Number.isSafeInteger(value) ? value : undefined;
 };
 
-const parseAppActor = (rawIdentifier: string): RequestActor => {
+const parseAppActor = (rawIdentifier: string): RequestActor | undefined => {
   const appId = parsePositiveInteger(rawIdentifier);
-  return appId === undefined ? {kind: 'app', slug: rawIdentifier} : {kind: 'app', appId};
+  if (appId !== undefined) return {kind: 'app', appId};
+  return integerPattern.test(rawIdentifier) ? undefined : {kind: 'app', slug: rawIdentifier};
 };
 
 const parseInstallationActor = (rawIdentifier: string): RequestActor | undefined => {

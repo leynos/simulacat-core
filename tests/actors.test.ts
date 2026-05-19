@@ -129,6 +129,7 @@ describe('request actor parsing', () => {
     fc.assert(
       fc.property(fc.integer({max: 0}), (n) => {
         expect(parseActorHeaderValue(`installation:${n}`)).toBeUndefined();
+        expect(parseActorHeaderValue(`app:${n}`)).toBeUndefined();
       })
     );
   });
