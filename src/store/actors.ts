@@ -105,6 +105,14 @@ const parseKindedActor = (kind: string, rawIdentifier: string): RequestActor | u
   }
 };
 
+/**
+ * Parses a single actor header value into a request actor.
+ *
+ * Trims the value; returns the anonymous actor for an empty string or the
+ * literal `anonymous`; returns undefined for an unknown kind, a missing
+ * separator, or an empty identifier; delegates per-kind parsing to private
+ * helpers.
+ */
 export const parseActorHeaderValue = (headerValue: string): RequestActor | undefined => {
   const value = headerValue.trim();
   if (!value || value === 'anonymous') return {kind: 'anonymous'};
@@ -119,6 +127,13 @@ export const parseActorHeaderValue = (headerValue: string): RequestActor | undef
   return parseKindedActor(kind, rawIdentifier);
 };
 
+/**
+ * Selects the request actor from preferred and legacy actor headers.
+ *
+ * Prefers the `x-simulacat-actor` header, falling back to anonymous on parse
+ * failure. Otherwise reads `x-simulacat-user` then `x-github-user` as
+ * compatibility aliases, and defaults to anonymous when neither is present.
+ */
 export const parseRequestActor = (headers: HeaderReader): RequestActor => {
   const actorHeader = headers.get(requestActorHeader);
   if (actorHeader !== null && actorHeader !== undefined) {
@@ -162,6 +177,12 @@ const resolveInstallationActor = (
   return installation ? {...actor, installation} : actor;
 };
 
+/**
+ * Enriches a parsed actor against seeded users and installations tables.
+ *
+ * Unknown user actors collapse to anonymous. App and installation actors are
+ * enriched with the matching installation record when one is found.
+ */
 export const resolveRequestActor = (
   actor: RequestActor,
   input: {
@@ -185,6 +206,11 @@ export const resolveRequestActor = (
   }
 };
 
+/**
+ * Returns the resolved GitHub user for user actors.
+ *
+ * Returns undefined for anonymous, app, installation, and unresolved actors.
+ */
 export const selectAuthenticatedUser = (actor: ResolvedRequestActor): GitHubUser | undefined => {
   return actor.kind === 'user' ? actor.user : undefined;
 };

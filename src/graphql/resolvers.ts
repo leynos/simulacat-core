@@ -13,14 +13,32 @@ import {assert} from 'assert-ts';
 import type {ExtendedSimulationStore} from '../store/index.ts';
 import {resolveRequestActor, selectAuthenticatedUser, type RequestActor} from '../store/actors.ts';
 
+/**
+ * GraphQL resolver context populated by the Yoga context function.
+ *
+ * Carries the optional parsed `RequestActor` before resolvers run.
+ */
 type GraphQLContext = {
   requestActor?: RequestActor;
 };
 
+/**
+ * Error thrown when a GraphQL field requires an authenticated user actor.
+ *
+ * Extends `Error` with `name = 'AuthenticationError'` so callers can classify
+ * authentication failures from `Query.viewer`.
+ */
 export class AuthenticationError extends Error {
   override name = 'AuthenticationError';
 }
 
+/**
+ * Selects the viewer user for the current GraphQL context.
+ *
+ * Resolves the context actor against the store's users and installations
+ * tables and returns the matching `GitHubUser`, or undefined when the actor is
+ * anonymous or unknown.
+ */
 const selectViewer = (simulationStore: ExtendedSimulationStore, context: GraphQLContext) => {
   const state = simulationStore.store.getState();
   const resolvedActor = resolveRequestActor(context.requestActor ?? {kind: 'anonymous'}, {

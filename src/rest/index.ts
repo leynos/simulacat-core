@@ -22,9 +22,16 @@ type Res = Parameters<SimulationHandler>[2];
 
 const notFound = {message: 'Not Found'};
 
+/**
+ * Selects the authenticated user for a REST request.
+ *
+ * Extracts the request actor from the incoming headers via the `HeaderReader`
+ * shim, resolves it against the store's users and installations tables, and
+ * returns the authenticated `GitHubUser` or undefined.
+ */
 const selectUserForRequest = (simulationStore: ExtendedSimulationStore, request: Req) => {
   const state = simulationStore.store.getState();
-  const actor = parseRequestActor(request);
+  const actor = parseRequestActor({get: (name: string) => request.get(name)});
   const resolvedActor = resolveRequestActor(actor, {
     users: simulationStore.schema.users.selectTableAsList(state),
     installations: simulationStore.schema.installations.selectTableAsList(state)
