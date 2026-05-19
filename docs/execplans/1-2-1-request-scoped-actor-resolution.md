@@ -326,12 +326,9 @@ escalation, not workarounds.
 
 ## External references and prior art
 
-- GitHub REST `GET /user` documentation:
-  `https://docs.github.com/rest/users/users?apiVersion=2026-03-10`
-- GitHub App installation authentication documentation:
-  `https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/authenticating-as-a-github-app-installation`
-- GitHub GraphQL authentication documentation:
-  `https://docs.github.com/en/graphql/guides/forming-calls-with-graphql`
+- GitHub REST `GET /user` documentation[^1]
+- GitHub App installation authentication documentation[^2]
+- GitHub GraphQL authentication documentation[^3]
 
 These references are signposts for actor semantics only. Simulacat Core should
 remain explicit that this slice provides simulator actor selection, not full
@@ -470,3 +467,7 @@ The implementation branch is `1-2-1-request-scoped-actor-resolution`, tracking
 `origin/1-2-1-request-scoped-actor-resolution`. The draft PR is
 `https://github.com/leynos/simulacat-core/pull/10`. The Lody session is
 `https://lody.ai/leynos/sessions/d58847cc-43e0-48ce-a607-0d18eeb80691`.
+
+[^1]: <https://docs.github.com/rest/users/users?apiVersion=2026-03-10>
+[^2]: <https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/authenticating-as-a-github-app-installation>
+[^3]: <https://docs.github.com/en/graphql/guides/forming-calls-with-graphql>

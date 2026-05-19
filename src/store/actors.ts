@@ -7,36 +7,67 @@
  */
 import type {GitHubAppInstallation, GitHubUser} from './entities.ts';
 
+/** Header used to select the request actor for REST and GraphQL calls. */
 export const requestActorHeader = 'x-simulacat-actor';
+
+/** Legacy header that selects an authenticated user actor by login. */
 export const legacySimulacatUserHeader = 'x-simulacat-user';
+
+/** GitHub-compatible legacy header that selects a user actor by login. */
 export const legacyGitHubUserHeader = 'x-github-user';
 
+/** Minimal header reader accepted by request actor parsing helpers. */
 export type HeaderReader = {
+  /** Return the header value for `name`, or nullish when it is absent. */
   get(name: string): string | null | undefined;
 };
 
+/** Anonymous request actor used when no authenticated principal is selected. */
 export type AnonymousActor = {
+  /** Discriminator for unauthenticated simulator requests. */
   kind: 'anonymous';
 };
 
+/** User request actor identified by a GitHub login, for example `user:dev`. */
 export type UserActor = {
+  /** Discriminator for authenticated user requests. */
   kind: 'user';
+
+  /** Login used to resolve the actor against seeded `GitHubUser` rows. */
   login: string;
 };
 
+/** GitHub App request actor identified by either app id or slug. */
 export type AppActor = {
+  /** Discriminator for GitHub App requests. */
   kind: 'app';
+
+  /** Numeric app id parsed from `app:<id>` when the identifier is numeric. */
   appId?: number;
+
+  /** App slug parsed from `app:<slug>` when the identifier is non-numeric. */
   slug?: string;
 };
 
+/** Installation request actor identified by a GitHub App installation id. */
 export type InstallationActor = {
+  /** Discriminator for installation-scoped requests. */
   kind: 'installation';
+
+  /** Installation id parsed from `installation:<id>`. */
   installationId: number;
 };
 
+/** Parsed request actor before fixture-backed store resolution. */
 export type RequestActor = AnonymousActor | UserActor | AppActor | InstallationActor;
 
+/**
+ * Request actor after matching against seeded users or installations.
+ *
+ * User actors include a `GitHubUser` only when their login resolves. App and
+ * installation actors may include a `GitHubAppInstallation` for later policy
+ * decisions.
+ */
 export type ResolvedRequestActor =
   | AnonymousActor
   | (UserActor & {user: GitHubUser})
