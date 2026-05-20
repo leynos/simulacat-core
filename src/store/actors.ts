@@ -176,12 +176,25 @@ const parseInstallationActor = (rawIdentifier: string): RequestActor | undefined
 };
 
 /**
+ * The two string parts extracted from a kinded actor header value.
+ *
+ * Produced by `parseActorHeaderValue` and consumed exclusively by
+ * `parseKindedActor` to keep string-argument density within threshold.
+ */
+type SplitHeaderValue = {
+  /** Actor kind string extracted from the header (e.g. 'user', 'app'). */
+  kind: string;
+  /** Raw identifier portion following the colon separator. */
+  rawIdentifier: string;
+};
+
+/**
  * Dispatches to the per-kind parse helper based on `kind`.
  *
  * Returns undefined for any kind that is not `user`, `app`, or
  * `installation`.
  */
-const parseKindedActor = (kind: string, rawIdentifier: string): RequestActor | undefined => {
+const parseKindedActor = ({kind, rawIdentifier}: SplitHeaderValue): RequestActor | undefined => {
   switch (kind) {
     case 'user':
       return {kind: 'user', login: rawIdentifier};
@@ -222,7 +235,7 @@ export const parseActorHeaderValue = (headerValue: string): RequestActor | undef
     return undefined;
   }
 
-  const actor = parseKindedActor(kind, rawIdentifier);
+  const actor = parseKindedActor({kind, rawIdentifier});
   recordActorObservation({
     event: 'parse',
     outcome: actor === undefined ? 'rejected' : 'accepted',
