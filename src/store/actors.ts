@@ -139,6 +139,15 @@ export const getActorObservabilityCounters = (): Readonly<Record<string, number>
 };
 
 /**
+ * Clears actor observability counters for test isolation.
+ */
+export const resetActorObservationCounters = (): void => {
+  for (const key of Object.keys(actorObservationCounters)) {
+    delete actorObservationCounters[key];
+  }
+};
+
+/**
  * Parses a string as a positive (> 0) safe integer.
  *
  * Returns the numeric value when the input matches a whole positive-integer
