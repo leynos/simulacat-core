@@ -104,6 +104,13 @@ describe('GET user membership endpoints with an authenticated user', () => {
     expect(response).toEqual({message: 'Authentication required'});
   });
 
+  it('returns a stable 401 body shape when no actor header is present', async () => {
+    const req = await fetch(`${authUrl}/user`);
+    const body = await req.json();
+    expect(req.status).toBe(401);
+    expect(body).toMatchSnapshot();
+  });
+
   it('returns 401 for app and installation actors on authenticated-user routes', async () => {
     for (const actor of ['app:1', 'installation:1']) {
       const request = await fetch(`${authUrl}/user`, {

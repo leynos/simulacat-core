@@ -217,6 +217,16 @@ describe('graphql queries', () => {
     }
   });
 
+  it('returns a stable error shape when no actor header is present', async () => {
+    const res = await fetch(`${url}/graphql`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({query: '{ viewer { login } }'})
+    });
+    const body = await res.json();
+    expect(body).toMatchSnapshot();
+  });
+
   it('agrees with REST /user for equivalent request actor input', async () => {
     const actorHeaders = {
       [requestActorHeader]: 'user:frontsidejack'

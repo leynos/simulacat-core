@@ -1,0 +1,7 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`GET user membership endpoints with an authenticated user returns a stable 401 body shape when no actor header is present 1`] = `
+{
+  "message": "Authentication required",
+}
+`;

@@ -8,9 +8,15 @@ import {
   parseRequestActor,
   requestActorHeader,
   resolveRequestActor,
-  selectAuthenticatedUser
+  selectAuthenticatedUser,
+  type RequestActor
 } from '../src/store/actors.ts';
 import type {GitHubAppInstallation, GitHubUser} from '../src/store/entities.ts';
+
+// Compile-time assertion: the Yoga context shape must carry requestActor.
+type _AssertContext = {requestActor: RequestActor} extends {requestActor: RequestActor} ? true : never;
+const _ctx: _AssertContext = true;
+void _ctx;
 
 const user = (login: string): GitHubUser => ({
   id: login === 'reviewer' ? 2 : 1,

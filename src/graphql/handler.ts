@@ -14,6 +14,12 @@ import type {RequestActor} from '../store/actors.ts';
 
 import type {Plugin} from 'graphql-yoga';
 
+/**
+ * Yoga resolver context carrying the parsed simulator request actor.
+ *
+ * Built by the `context` function before any resolver runs and consumed by
+ * `Query.viewer` to derive the authenticated user.
+ */
 type GraphQLUserContext = {
   requestActor: RequestActor;
 };
@@ -51,7 +57,7 @@ export function createHandler(simulationStore: ExtendedSimulationStore) {
     }),
     context({request}) {
       return {
-        requestActor: parseRequestActor(request.headers)
+        requestActor: parseRequestActor({get: (name: string) => request.headers.get(name)})
       };
     },
     plugins: [customMediaTypeParser]

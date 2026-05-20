@@ -77,6 +77,13 @@ export type ResolvedRequestActor =
 const positiveIntegerPattern = /^[1-9]\d*$/;
 const integerPattern = /^-?\d+$/;
 
+/**
+ * Parses a string as a positive (> 0) safe integer.
+ *
+ * Returns the numeric value when the input matches a whole positive-integer
+ * pattern and falls within `Number.MAX_SAFE_INTEGER`; returns undefined
+ * otherwise.
+ */
 const parsePositiveInteger = (input: string): number | undefined => {
   if (!positiveIntegerPattern.test(input)) return undefined;
   const value = Number(input);
