@@ -118,7 +118,7 @@ const isActorObservationEnabled = (): boolean => {
 };
 
 /**
- * Records an actor parse or resolution observation and optionally logs it.
+ * Records an actor selection observation and optionally logs it.
  */
 const recordActorObservation = (observation: ActorObservation): void => {
   const key = [observation.event, observation.actorKind, observation.outcome, observation.reason]
@@ -132,7 +132,7 @@ const recordActorObservation = (observation: ActorObservation): void => {
 };
 
 /**
- * Returns a snapshot of actor parse and resolution counters.
+ * Returns a snapshot of actor selection counters.
  */
 export const getActorObservabilityCounters = (): Readonly<Record<string, number>> => {
   return {...actorObservationCounters};
@@ -227,32 +227,21 @@ const parseKindedActor = ({kind, rawIdentifier}: SplitHeaderValue): RequestActor
 export const parseActorHeaderValue = (headerValue: string): RequestActor | undefined => {
   const value = headerValue.trim();
   if (!value || value === 'anonymous') {
-    recordActorObservation({event: 'parse', actorKind: 'anonymous', outcome: 'accepted'});
     return {kind: 'anonymous'};
   }
 
   const separatorIndex = value.indexOf(':');
   if (separatorIndex < 0) {
-    recordActorObservation({event: 'parse', outcome: 'rejected', reason: 'missing-separator'});
     return undefined;
   }
 
   const kind = value.slice(0, separatorIndex);
   const rawIdentifier = value.slice(separatorIndex + 1).trim();
   if (!rawIdentifier) {
-    recordActorObservation({event: 'parse', outcome: 'rejected', reason: 'empty-identifier'});
     return undefined;
   }
 
-  const actor = parseKindedActor({kind, rawIdentifier});
-  recordActorObservation({
-    event: 'parse',
-    outcome: actor === undefined ? 'rejected' : 'accepted',
-    ...(actor === undefined
-      ? {reason: 'unknown-or-invalid-kind'}
-      : {actorKind: actor.kind, actor: actorDiagnosticLabel(actor)})
-  });
-  return actor;
+  return parseKindedActor({kind, rawIdentifier});
 };
 
 /**
@@ -284,15 +273,7 @@ export const parseRequestActor = (headers: HeaderReader): RequestActor => {
  */
 const resolveUserActor = (actor: UserActor, users: readonly GitHubUser[]): ResolvedRequestActor => {
   const user = users.find((candidate) => candidate.login === actor.login);
-  const resolvedActor: ResolvedRequestActor = user ? {...actor, user} : {kind: 'anonymous'};
-  recordActorObservation({
-    event: 'resolve-user',
-    actorKind: actor.kind,
-    outcome: user ? 'matched' : 'collapsed-to-anonymous',
-    actor: actorDiagnosticLabel(actor),
-    ...(user ? {} : {reason: 'unknown-user'})
-  });
-  return resolvedActor;
+  return user ? {...actor, user} : {kind: 'anonymous'};
 };
 
 /**
@@ -338,22 +319,6 @@ const resolveInstallationActor = (
 };
 
 /**
- * Records whether an app or installation actor resolved to an installation.
- */
-const observeResolvedActor = (
-  actor: AppActor | InstallationActor,
-  resolvedActor: ResolvedRequestActor
-): ResolvedRequestActor => {
-  recordActorObservation({
-    event: 'resolve',
-    actorKind: actor.kind,
-    outcome: 'installation' in resolvedActor ? 'matched-installation' : 'unmatched-installation',
-    actor: actorDiagnosticLabel(actor)
-  });
-  return resolvedActor;
-};
-
-/**
  * Enriches a parsed actor against seeded users and installations tables.
  *
  * Unknown user actors collapse to anonymous. App and installation actors are
@@ -366,22 +331,15 @@ export const resolveRequestActor = (
     installations: readonly GitHubAppInstallation[];
   }
 ): ResolvedRequestActor => {
-  recordActorObservation({
-    event: 'resolve',
-    actorKind: actor.kind,
-    outcome: 'started',
-    actor: actorDiagnosticLabel(actor)
-  });
   switch (actor.kind) {
     case 'anonymous':
-      recordActorObservation({event: 'resolve', actorKind: actor.kind, outcome: 'anonymous'});
       return actor;
     case 'user':
       return resolveUserActor(actor, input.users);
     case 'app':
-      return observeResolvedActor(actor, resolveAppActor(actor, input.installations));
+      return resolveAppActor(actor, input.installations);
     case 'installation':
-      return observeResolvedActor(actor, resolveInstallationActor(actor, input.installations));
+      return resolveInstallationActor(actor, input.installations);
     default: {
       const exhaustive: never = actor;
       throw new Error(`Unsupported request actor kind: ${JSON.stringify(exhaustive)}`);

@@ -21,10 +21,10 @@ import {
 /**
  * GraphQL resolver context populated by the Yoga context function.
  *
- * Carries the optional parsed `RequestActor` before resolvers run.
+ * Carries the parsed `RequestActor` before resolvers run.
  */
-type GraphQLContext = {
-  requestActor?: RequestActor;
+export type GraphQLContext = {
+  requestActor: RequestActor;
 };
 
 /**
@@ -46,7 +46,7 @@ export class AuthenticationError extends Error {
  */
 const selectViewer = (simulationStore: ExtendedSimulationStore, context: GraphQLContext) => {
   const state = simulationStore.store.getState();
-  const resolvedActor = resolveRequestActor(context.requestActor ?? {kind: 'anonymous'}, {
+  const resolvedActor = resolveRequestActor(context.requestActor, {
     users: simulationStore.schema.users.selectTableAsList(state),
     installations: simulationStore.schema.installations.selectTableAsList(state)
   });

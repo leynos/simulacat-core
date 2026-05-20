@@ -2,21 +2,30 @@
 import {describe, expect, it} from 'bun:test';
 import fc from 'fast-check';
 import {
+  getActorObservabilityCounters,
   legacyGitHubUserHeader,
   legacySimulacatUserHeader,
+  observeSelectedActor,
   parseActorHeaderValue,
   parseRequestActor,
   requestActorHeader,
+  resetActorObservationCounters,
   resolveRequestActor,
   selectAuthenticatedUser,
   type RequestActor
 } from '../src/store/actors.ts';
+import type {GraphQLContext} from '../src/graphql/resolvers.ts';
 import type {GitHubAppInstallation, GitHubUser} from '../src/store/entities.ts';
 
 // Compile-time assertion: the Yoga context shape must carry requestActor.
 type _AssertContext = {requestActor: RequestActor} extends {requestActor: RequestActor} ? true : never;
 const _ctx: _AssertContext = true;
 void _ctx;
+
+// Compile-time assertion: handler and resolver contexts agree on requestActor.
+type _AssertGraphQLContext = {requestActor: RequestActor} extends GraphQLContext ? true : never;
+const _graphqlCtx: _AssertGraphQLContext = true;
+void _graphqlCtx;
 
 const user = (login: string): GitHubUser => ({
   id: login === 'reviewer' ? 2 : 1,
@@ -190,5 +199,28 @@ describe('request actor resolution', () => {
     const actor = resolveRequestActor({kind: 'installation', installationId: 999}, {users, installations});
     expect(actor).toEqual({kind: 'installation', installationId: 999});
     expect(actor).not.toHaveProperty('installation');
+  });
+});
+
+describe('actor observability counters', () => {
+  it('records selected actor observations at adapter boundaries', () => {
+    resetActorObservationCounters();
+
+    observeSelectedActor('rest', {kind: 'anonymous'});
+    observeSelectedActor('graphql', {kind: 'user', login: 'dev', user: user('dev')});
+
+    expect(getActorObservabilityCounters()).toEqual({
+      'rest-selected.anonymous.unauthenticated': 1,
+      'graphql-selected.user.authenticated': 1
+    });
+  });
+
+  it('clears selected actor observations for test isolation', () => {
+    resetActorObservationCounters();
+    observeSelectedActor('rest', {kind: 'anonymous'});
+
+    resetActorObservationCounters();
+
+    expect(getActorObservabilityCounters()).toEqual({});
   });
 });

@@ -6,11 +6,10 @@
  */
 import {createSchema, createYoga, processRegularResult} from 'graphql-yoga';
 import {isAsyncIterable} from '@graphql-tools/utils';
-import {createResolvers} from './resolvers.ts';
+import {createResolvers, type GraphQLContext} from './resolvers.ts';
 import {parseRequestActor} from '../store/actors.ts';
 import {getSchema} from '../utils.ts';
 import type {ExtendedSimulationStore} from '../store/index.ts';
-import type {RequestActor} from '../store/actors.ts';
 
 import type {Plugin} from 'graphql-yoga';
 
@@ -20,9 +19,7 @@ import type {Plugin} from 'graphql-yoga';
  * Built by the `context` function before any resolver runs and consumed by
  * `Query.viewer` to derive the authenticated user.
  */
-type GraphQLUserContext = {
-  requestActor: RequestActor;
-};
+type GraphQLUserContext = GraphQLContext;
 
 /**
  * Normalizes GitHub's custom media type to Yoga's regular JSON result
