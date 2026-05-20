@@ -11,7 +11,12 @@ import type {Resolvers} from '../__generated__/resolvers-types.ts';
 import {toGraphql, deriveOwner} from './to-graphql.ts';
 import {assert} from 'assert-ts';
 import type {ExtendedSimulationStore} from '../store/index.ts';
-import {resolveRequestActor, selectAuthenticatedUser, type RequestActor} from '../store/actors.ts';
+import {
+  observeSelectedActor,
+  resolveRequestActor,
+  selectAuthenticatedUser,
+  type RequestActor
+} from '../store/actors.ts';
 
 /**
  * GraphQL resolver context populated by the Yoga context function.
@@ -45,6 +50,7 @@ const selectViewer = (simulationStore: ExtendedSimulationStore, context: GraphQL
     users: simulationStore.schema.users.selectTableAsList(state),
     installations: simulationStore.schema.installations.selectTableAsList(state)
   });
+  observeSelectedActor('graphql', resolvedActor);
 
   return selectAuthenticatedUser(resolvedActor);
 };

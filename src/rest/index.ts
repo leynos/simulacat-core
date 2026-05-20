@@ -7,7 +7,12 @@
  */
 import type {Document, SimulationHandlers} from '@simulacrum/foundation-simulator';
 import type {ExtendedSimulationStore} from '../store/index.ts';
-import {parseRequestActor, resolveRequestActor, selectAuthenticatedUser} from '../store/actors.ts';
+import {
+  observeSelectedActor,
+  parseRequestActor,
+  resolveRequestActor,
+  selectAuthenticatedUser
+} from '../store/actors.ts';
 import {getSchema, type SchemaFile} from '../utils.ts';
 import {blobAsBase64, commitStatusResponse, gitTrees, normalizeGitRefPath} from './utils.ts';
 
@@ -20,6 +25,7 @@ type Ctx = Parameters<SimulationHandler>[0];
 type Req = Parameters<SimulationHandler>[1];
 type Res = Parameters<SimulationHandler>[2];
 
+/** Shared 404 JSON payload used by REST repository and item guards. */
 const notFound = {message: 'Not Found'};
 
 /**
@@ -36,10 +42,14 @@ const selectUserForRequest = (simulationStore: ExtendedSimulationStore, request:
     users: simulationStore.schema.users.selectTableAsList(state),
     installations: simulationStore.schema.installations.selectTableAsList(state)
   });
+  observeSelectedActor('rest', resolvedActor);
 
   return selectAuthenticatedUser(resolvedActor);
 };
 
+/**
+ * Builds default REST handlers and merges caller-provided extensions.
+ */
 const handlers =
   (
     initialState: Record<string, any> | undefined,
