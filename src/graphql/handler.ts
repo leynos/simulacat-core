@@ -19,7 +19,7 @@ import type {Plugin} from 'graphql-yoga';
  * Built by the `context` function before any resolver runs and consumed by
  * `Query.viewer` to derive the authenticated user.
  */
-type GraphQLUserContext = GraphQLContext;
+export type GraphQLUserContext = GraphQLContext;
 
 /**
  * Normalizes GitHub's custom media type to Yoga's regular JSON result

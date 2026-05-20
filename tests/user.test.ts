@@ -1,7 +1,7 @@
 /** @file Integration tests for authenticated-user REST endpoints. */
-import {afterAll, beforeAll, describe, expect, it} from 'bun:test';
+import {afterAll, beforeAll, beforeEach, describe, expect, it} from 'bun:test';
 import {simulation} from '../src/index.ts';
-import {requestActorHeader} from '../src/store/actors.ts';
+import {legacySimulacatUserHeader, requestActorHeader, resetActorObservationCounters} from '../src/store/actors.ts';
 
 type SimulationServer = Awaited<ReturnType<ReturnType<typeof simulation>['listen']>>;
 
@@ -16,6 +16,10 @@ async function fetchMemberships(
 describe('GET user endpoints', () => {
   let server: SimulationServer;
   let url: string;
+
+  beforeEach(() => {
+    resetActorObservationCounters();
+  });
 
   beforeAll(async () => {
     const app = simulation({
@@ -56,6 +60,10 @@ describe('GET user endpoints', () => {
 describe('GET user membership endpoints with an authenticated user', () => {
   let server: SimulationServer;
   let authUrl: string;
+
+  beforeEach(() => {
+    resetActorObservationCounters();
+  });
 
   beforeAll(async () => {
     const app = simulation({
@@ -126,7 +134,7 @@ describe('GET user membership endpoints with an authenticated user', () => {
   });
 
   it('returns only organizations with memberships for the authenticated user', async () => {
-    const {status, body} = await fetchMemberships(authUrl, {'x-simulacat-user': 'dev'});
+    const {status, body} = await fetchMemberships(authUrl, {[legacySimulacatUserHeader]: 'dev'});
 
     expect(status).toEqual(200);
     expect(body).toEqual([

@@ -1,8 +1,9 @@
 /** @file Integration tests for the simulated GraphQL API surface. */
-import {afterAll, beforeAll, describe, expect, it} from 'bun:test';
+import {afterAll, beforeAll, beforeEach, describe, expect, it} from 'bun:test';
 import {simulation} from '../src/index.ts';
+import fc from 'fast-check';
 import {graphql} from '@octokit/graphql';
-import {requestActorHeader} from '../src/store/actors.ts';
+import {requestActorHeader, resetActorObservationCounters} from '../src/store/actors.ts';
 
 type SimulationServer = Awaited<ReturnType<ReturnType<typeof simulation>['listen']>>;
 
@@ -19,6 +20,11 @@ const headers = {
 const client = graphql.defaults({
   baseUrl: url
 });
+
+type ActorAgreementCase = {
+  header?: string;
+  login?: string;
+};
 
 type MembersWithRoleQuery = {
   organization: {
@@ -107,6 +113,10 @@ describe('graphql queries', () => {
   });
   afterAll(async () => {
     await server.ensureClose();
+  });
+
+  beforeEach(() => {
+    resetActorObservationCounters();
   });
 
   it('validates with 200 response', async () => {
@@ -258,6 +268,47 @@ describe('graphql queries', () => {
     expect(graphqlResponse.errors).toBe(undefined);
     expect(graphqlResponse.data.viewer.login).toBe(restUser.login);
     expect(graphqlResponse.data.viewer.id).toBe(restUser.id.toString());
+  });
+
+  it('preserves REST and GraphQL viewer agreement across actor inputs', async () => {
+    await fc.assert(
+      fc.asyncProperty(
+        fc.constantFrom<ActorAgreementCase>(
+          {header: 'user:frontsidejack', login: 'frontsidejack'},
+          {header: 'user:reviewer', login: 'reviewer'},
+          {header: 'user:missing'},
+          {header: 'app:1'},
+          {header: 'installation:1'},
+          {header: 'anonymous'},
+          {}
+        ),
+        async ({header, login}) => {
+          const requestHeaders: Record<string, string> = header === undefined ? {} : {[requestActorHeader]: header};
+          const restResponse = await fetch(`${url}/user`, {headers: requestHeaders});
+          const graphqlResponse = await fetch(`${url}/graphql`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', ...requestHeaders},
+            body: JSON.stringify({query: '{ viewer { login } }'})
+          });
+          const graphqlBody = (await graphqlResponse.json()) as {
+            data?: {viewer?: {login?: string} | null} | null;
+            errors?: unknown[];
+          };
+
+          if (login === undefined) {
+            expect(restResponse.status).toBe(401);
+            expect(Array.isArray(graphqlBody.errors)).toBe(true);
+            return;
+          }
+
+          const restBody = (await restResponse.json()) as {login?: string};
+          expect(restResponse.status).toBe(200);
+          expect(restBody.login).toBe(login);
+          expect(graphqlBody.data?.viewer?.login).toBe(login);
+        }
+      ),
+      {numRuns: 20}
+    );
   });
 
   describe('reads first-class refs, issues, and pull requests from repository state', () => {

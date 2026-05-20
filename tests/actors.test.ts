@@ -14,16 +14,17 @@ import {
   selectAuthenticatedUser,
   type RequestActor
 } from '../src/store/actors.ts';
+import type {GraphQLUserContext} from '../src/graphql/handler.ts';
 import type {GraphQLContext} from '../src/graphql/resolvers.ts';
 import type {GitHubAppInstallation, GitHubUser} from '../src/store/entities.ts';
 
 // Compile-time assertion: the Yoga context shape must carry requestActor.
-type _AssertContext = {requestActor: RequestActor} extends {requestActor: RequestActor} ? true : never;
+type _AssertContext = GraphQLUserContext extends {requestActor: RequestActor} ? true : never;
 const _ctx: _AssertContext = true;
 void _ctx;
 
 // Compile-time assertion: handler and resolver contexts agree on requestActor.
-type _AssertGraphQLContext = {requestActor: RequestActor} extends GraphQLContext ? true : never;
+type _AssertGraphQLContext = GraphQLContext extends {requestActor: RequestActor} ? true : never;
 const _graphqlCtx: _AssertGraphQLContext = true;
 void _graphqlCtx;
 
@@ -98,6 +99,26 @@ describe('request actor parsing', () => {
     expect(
       parseRequestActor(headers({[requestActorHeader]: 'user:reviewer', [legacySimulacatUserHeader]: 'dev'}))
     ).toEqual({kind: 'user', login: 'reviewer'});
+  });
+
+  it('preserves preferred actor precedence across legacy header permutations', () => {
+    fc.assert(
+      fc.property(
+        fc.constantFrom(legacySimulacatUserHeader, legacyGitHubUserHeader),
+        fc.stringMatching(/^[A-Za-z0-9][A-Za-z0-9-]{0,38}$/),
+        fc.stringMatching(/^[A-Za-z0-9][A-Za-z0-9-]{0,38}$/),
+        (legacyHeader, preferredLogin, legacyLogin) => {
+          expect(
+            parseRequestActor(
+              headers({
+                [requestActorHeader]: `user:${preferredLogin}`,
+                [legacyHeader]: legacyLogin
+              })
+            )
+          ).toEqual({kind: 'user', login: preferredLogin});
+        }
+      )
+    );
   });
 
   it('treats an empty preferred actor header as authoritative anonymous input', () => {
