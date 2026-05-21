@@ -35,6 +35,15 @@ const selectOwnerParam = (_state: AnyState, owner: string): string => owner;
 const selectRepoParam = (_state: AnyState, _owner: string, repo: string): string => repo;
 const selectShaOrPathParam = (_state: AnyState, _owner: string, _repo: string, shaOrPath: string): string => shaOrPath;
 
+/** Returns `slice.table` options for one seeded store table. */
+const tableOptions = <K extends keyof NonNullable<ReturnType<typeof convertInitialStateToStoreState>>>(
+  storeInitialState: ReturnType<typeof convertInitialStateToStoreState>,
+  key: K
+) => {
+  if (!storeInitialState) return {};
+  return {initialState: storeInitialState[key]};
+};
+
 type ExtendedSchema = ReturnType<typeof inputSchema>;
 type ExtendActions = typeof inputActions;
 type ExtendSelectors = typeof inputSelectors;
@@ -75,36 +84,24 @@ export type GitHubRepositoryWithOrganizationOwner = Omit<GitHubRepository, 'id' 
 /** Creates the base store schema and seeds it from parsed initial state. */
 const inputSchema =
   <T>(initialState?: GitHubStore, extendedSchema?: ExtendSimulationSchemaInput<T>) =>
-  // Store schema seeding keeps table defaults colocated with the upstream slice API.
-  /* oxlint-disable complexity */
-  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: schema seeding keeps table defaults colocated; refactor is nontrivial.
   ({slice}: ExtendSimulationSchema) => {
     const storeInitialState = convertInitialStateToStoreState(initialState);
     const extended = extendedSchema ? extendedSchema({slice}) : {};
     const slices = {
-      users: slice.table<GitHubUser>(!storeInitialState ? {} : {initialState: storeInitialState.users}),
-      installations: slice.table<GitHubAppInstallation>(
-        !storeInitialState ? {} : {initialState: storeInitialState.installations}
-      ),
-      repositories: slice.table<GitHubRepository>(
-        !storeInitialState ? {} : {initialState: storeInitialState.repositories}
-      ),
-      branches: slice.table<GitHubBranch>(!storeInitialState ? {} : {initialState: storeInitialState.branches}),
-      organizations: slice.table<GitHubOrganization>(
-        !storeInitialState ? {} : {initialState: storeInitialState.organizations}
-      ),
-      blobs: slice.table<GitHubBlob>(!storeInitialState ? {} : {initialState: storeInitialState.blobs}),
-      refs: slice.table<GitHubRef>(!storeInitialState ? {} : {initialState: storeInitialState.refs}),
-      commits: slice.table<GitHubCommit>(!storeInitialState ? {} : {initialState: storeInitialState.commits}),
-      issues: slice.table<GitHubIssue>(!storeInitialState ? {} : {initialState: storeInitialState.issues}),
-      pullRequests: slice.table<GitHubPullRequest>(
-        !storeInitialState ? {} : {initialState: storeInitialState.pullRequests}
-      ),
+      users: slice.table<GitHubUser>(tableOptions(storeInitialState, 'users')),
+      installations: slice.table<GitHubAppInstallation>(tableOptions(storeInitialState, 'installations')),
+      repositories: slice.table<GitHubRepository>(tableOptions(storeInitialState, 'repositories')),
+      branches: slice.table<GitHubBranch>(tableOptions(storeInitialState, 'branches')),
+      organizations: slice.table<GitHubOrganization>(tableOptions(storeInitialState, 'organizations')),
+      blobs: slice.table<GitHubBlob>(tableOptions(storeInitialState, 'blobs')),
+      refs: slice.table<GitHubRef>(tableOptions(storeInitialState, 'refs')),
+      commits: slice.table<GitHubCommit>(tableOptions(storeInitialState, 'commits')),
+      issues: slice.table<GitHubIssue>(tableOptions(storeInitialState, 'issues')),
+      pullRequests: slice.table<GitHubPullRequest>(tableOptions(storeInitialState, 'pullRequests')),
       ...extended
     };
     return slices;
   };
-/* oxlint-enable complexity */
 
 /** Returns the package's built-in action set before caller extensions. */
 const inputActions = (_args: ExtendSimulationActions<ExtendedSchema>): ExtendSimulationActions<ExtendedSchema> => {
@@ -123,6 +120,35 @@ const extendActions =
       ...(extResult as object)
     } as GitHubActions;
   };
+
+/** Reshapes a GitHub organisation into the repository owner subset. */
+const toRepoOwner = (org: GitHubOrganization): GitHubRepoOwner => ({
+  id: Number(org.id),
+  login: org.login,
+  node_id: org.node_id,
+  type: org.type,
+  description: org.description,
+  created_at: org.created_at,
+  teams: org.teams,
+  avatar_url: org.avatar_url,
+  gravatar_id: org.gravatar_id,
+  site_admin: org.site_admin,
+  url: org.url,
+  html_url: org.html_url,
+  followers_url: org.followers_url,
+  following_url: org.following_url,
+  gists_url: org.gists_url,
+  starred_url: org.starred_url,
+  subscriptions_url: org.subscriptions_url,
+  organizations_url: org.organizations_url,
+  repos_url: org.repos_url,
+  events_url: org.events_url,
+  received_events_url: org.received_events_url,
+  hooks_url: org.hooks_url,
+  issues_url: org.issues_url,
+  members_url: org.members_url,
+  public_members_url: org.public_members_url
+});
 
 /** Builds selectors that join organizations and repositories. */
 const buildOrganisationSelectors = ({createSelector, schema}: ExtendSimulationSelectors<ExtendedSchema>) => {
@@ -147,51 +173,30 @@ const buildOrganisationSelectors = ({createSelector, schema}: ExtendSimulationSe
         const repos = !org ? allRepos : allRepos.filter((r) => r.owner === org);
         return repos.map((repo) => {
           const ownerOrg = orgMap?.[repo.owner];
-          const linkedRepo: GitHubRepositoryWithOrganizationOwner = {
+          return {
             ...repo,
             id: Number(repo.id),
-            owner: ownerOrg
-              ? {
-                  ...ownerOrg,
-                  id: Number(ownerOrg.id)
-                }
-              : repo.owner
+            owner: ownerOrg ? toRepoOwner(ownerOrg) : repo.owner
           };
-          if (linkedRepo.owner && typeof linkedRepo.owner !== 'string') {
-            linkedRepo.owner = {
-              id: linkedRepo.owner.id,
-              login: linkedRepo.owner.login,
-              node_id: linkedRepo.owner.node_id,
-              type: linkedRepo.owner.type,
-              description: linkedRepo.owner.description,
-              created_at: linkedRepo.owner.created_at,
-              teams: linkedRepo.owner.teams,
-              avatar_url: linkedRepo.owner.avatar_url,
-              gravatar_id: linkedRepo.owner.gravatar_id,
-              site_admin: linkedRepo.owner.site_admin,
-              url: linkedRepo.owner.url,
-              html_url: linkedRepo.owner.html_url,
-              followers_url: linkedRepo.owner.followers_url,
-              following_url: linkedRepo.owner.following_url,
-              gists_url: linkedRepo.owner.gists_url,
-              starred_url: linkedRepo.owner.starred_url,
-              subscriptions_url: linkedRepo.owner.subscriptions_url,
-              organizations_url: linkedRepo.owner.organizations_url,
-              repos_url: linkedRepo.owner.repos_url,
-              events_url: linkedRepo.owner.events_url,
-              received_events_url: linkedRepo.owner.received_events_url,
-              hooks_url: linkedRepo.owner.hooks_url,
-              issues_url: linkedRepo.owner.issues_url,
-              members_url: linkedRepo.owner.members_url,
-              public_members_url: linkedRepo.owner.public_members_url
-            };
-          }
-          return linkedRepo;
         });
       }
     );
 
   return {allGithubOrganizations, allReposWithOrgs};
+};
+
+/** Resolves the GitHub organisation account for an app installation. */
+const resolveInstallationAccount = (
+  orgs: GitHubOrganization[],
+  repos: GitHubRepository[],
+  appInstall: GitHubAppInstallation,
+  repo?: string
+): GitHubOrganization | undefined => {
+  if (repo) {
+    const repoData = repos.find((r) => r.owner === appInstall.account && r.name === repo);
+    return repoData ? orgs.find((o) => o.login === repoData.owner) : undefined;
+  }
+  return orgs.find((o) => o.login === appInstall.account);
 };
 
 /** Builds selectors that resolve GitHub App installations. */
@@ -207,23 +212,16 @@ const buildInstallationSelectors = ({createSelector, schema}: ExtendSimulationSe
     (_state: AnyState, org: string, _repo?: string) => org,
     (_state: AnyState, _org: string, repo?: string) => repo,
     // biome-ignore lint/complexity/useMaxParams: selector API passes derived inputs positionally.
-    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: selector joins three store slices; refactor is nontrivial.
     (installations, orgs, repos, org, repo) => {
       const appInstall = installations.find((install) => install.account === org);
       if (!appInstall) return undefined;
-      let account;
-      if (repo) {
-        const repoData = repos.find((r) => r.owner === appInstall?.account && r.name === repo);
-        if (repoData) account = orgs.find((o) => o.login === repoData.owner);
-      } else {
-        account = orgs.find((o) => o.login === appInstall?.account);
-      }
+      const account = resolveInstallationAccount(orgs, repos, appInstall, repo);
       if (!account) return undefined;
       return {
         ...appInstall,
         account: {...account},
-        target_id: account?.id,
-        target_type: account?.type
+        target_id: account.id,
+        target_type: account.type
       };
     }
   );
