@@ -161,6 +161,13 @@ describe('GET user membership endpoints with an authenticated user', () => {
     ]);
   });
 
+  it('returns 401 instead of falling back to the first seeded user without an actor', async () => {
+    const {status, body} = await fetchMemberships(authUrl, {});
+
+    expect(status).toEqual(401);
+    expect(body).toEqual({message: 'Authentication required'});
+  });
+
   it('returns 401 for app and installation actors on membership routes', async () => {
     for (const actor of ['app:1', 'installation:1']) {
       const {status, body} = await fetchMemberships(authUrl, {[requestActorHeader]: actor});
