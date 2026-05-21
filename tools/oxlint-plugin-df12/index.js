@@ -11,26 +11,18 @@ const MODULE_JSDOC_PATTERN =
   /^(?:#![^\n]*\n)?(?:\/\*![\s\S]*?\*\/\s*)?(?:(?:'use strict'|"use strict");\s*)?\s*\/\*\*[\s\S]*?@file[\s\S]*?\*\//;
 
 const FUNCTION_NODE_TYPES = new Set(['ArrowFunctionExpression', 'FunctionDeclaration', 'FunctionExpression']);
-const baselineCache = new Map();
 
 /** Loads baseline entries from the repository root. */
 function loadBaseline() {
   const baselinePath = path.join(process.cwd(), '.jsdoc-baseline.json');
-  if (baselineCache.has(baselinePath)) return baselineCache.get(baselinePath);
-  if (!existsSync(baselinePath)) return cacheBaseline(baselinePath, new Set());
+  if (!existsSync(baselinePath)) return new Set();
 
   try {
     const parsed = JSON.parse(readFileSync(baselinePath, 'utf8'));
-    return cacheBaseline(baselinePath, new Set(parsed.entries ?? []));
+    return new Set(parsed.entries ?? []);
   } catch (error) {
     throw new Error(`Failed to parse JSDoc baseline at ${baselinePath}.`, {cause: error});
   }
-}
-
-/** Stores baseline entries for reuse across rule invocations. */
-function cacheBaseline(baselinePath, entries) {
-  baselineCache.set(baselinePath, entries);
-  return entries;
 }
 
 /** Returns a repository-relative path for a linted file. */
@@ -417,6 +409,10 @@ function predicateNodeCount(node, options) {
   if (node.type === 'ConditionalExpression' && options.includeTernary) return 1;
   return 0;
 }
+
+export const testInternals = {
+  countPredicateOperators
+};
 
 /** Reports a predicate when it exceeds the configured operator threshold. */
 function checkPredicate(context, node) {

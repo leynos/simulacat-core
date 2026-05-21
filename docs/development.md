@@ -70,6 +70,12 @@ Existing documentation debt is isolated in `.jsdoc-baseline.json` as
 per-symbol entries. Do not add new entries for new code; remove baseline
 entries as those functions receive complete JSDoc.
 
+The local plugin keeps the maintainability contract in the same Oxlint process
+as the complexity rules. `eslint-plugin-jsdoc` is a broader ESLint ecosystem
+dependency, but this repository does not run ESLint; the local rules enforce the
+project-specific public/private/module split without adding another parser,
+runner, or suppression syntax.
+
 Non-compliant examples:
 
 ```ts
