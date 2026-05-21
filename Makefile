@@ -15,7 +15,7 @@ lint:
 	bun run lint
 
 semgrep:
-	uvx --from semgrep semgrep scan --config .semgrep .
+	uvx --from semgrep semgrep scan --error --config .semgrep .
 
 test:
 	bun run test
