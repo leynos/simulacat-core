@@ -118,6 +118,19 @@ describe('graphql queries', () => {
     resetActorObservationCounters();
   });
 
+  it('validates schema compilation with the request actor context', async () => {
+    const request = await fetch(`${url}/graphql`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({query: '{ __typename }'})
+    });
+    const response = await request.json();
+
+    expect(request.status).toEqual(200);
+    expect(response.errors).toBe(undefined);
+    expect(response.data).toEqual({__typename: 'Query'});
+  });
+
   it('validates with 200 response', async () => {
     const request = await fetch(`${url}/graphql`, {
       method: 'POST',
