@@ -295,7 +295,9 @@ describe('graphql queries', () => {
 
       if (login === undefined) {
         expect(restResponse.status).toBe(401);
+        expect('errors' in graphqlBody).toBe(true);
         expect(Array.isArray(graphqlBody.errors)).toBe(true);
+        expect(graphqlBody.data).toBeNull();
         continue;
       }
 
