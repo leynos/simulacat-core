@@ -318,10 +318,10 @@ const handlers =
             const owner = Array.isArray(ownerParam) ? ownerParam[0] : ownerParam;
             const repo = Array.isArray(repoParam) ? repoParam[0] : repoParam;
             const treeSha = Array.isArray(treeShaParam) ? treeShaParam[0] : treeShaParam;
-            const repository =
-              owner && repo
-                ? simulationStore.selectors.getRepository(simulationStore.store.getState(), owner, repo)
-                : undefined;
+            let repository;
+            if (owner && repo) {
+              repository = simulationStore.selectors.getRepository(simulationStore.store.getState(), owner, repo);
+            }
             const blobs = simulationStore.selectors.getBlobAtOwnerRepo(simulationStore.store.getState(), owner, repo);
             const missingTreeFixture = !owner || !repo || !treeSha || !repository;
             if (missingTreeFixture) {

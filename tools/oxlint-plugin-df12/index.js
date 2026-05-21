@@ -61,21 +61,31 @@ function isExported(node, exportedNames = new Set()) {
   return directlyExported || exportedNames.has(functionName(node));
 }
 
-/** Collects local names exported through `export { name }` declarations. */
+/** Collects local names exported through named and default export declarations. */
 function collectExportedNames(program) {
-  return new Set(program.body.flatMap((statement) => exportedSpecifierNames(statement)));
+  return new Set(program.body.flatMap((statement) => exportedNamesFromStatement(statement)));
 }
 
-/** Returns local names from one named export statement. */
-function exportedSpecifierNames(statement) {
-  if (statement.type !== 'ExportNamedDeclaration') return [];
-  return (statement.specifiers ?? []).flatMap((specifier) => exportedSpecifierName(specifier));
+/** Returns local names from one export statement. */
+function exportedNamesFromStatement(statement) {
+  if (statement.type === 'ExportDefaultDeclaration') return defaultExportedNames(statement);
+  if (statement.type === 'ExportNamedDeclaration') {
+    return (statement.specifiers ?? []).flatMap((specifier) => exportedSpecifierName(specifier));
+  }
+  return [];
 }
 
 /** Returns the local name exported by one export specifier. */
 function exportedSpecifierName(specifier) {
   const local = specifier.local;
   return local?.type === 'Identifier' ? [local.name] : [];
+}
+
+/** Returns local names from `export default name` statements. */
+function defaultExportedNames(statement) {
+  const declaration = statement.declaration;
+  if (declaration?.type === 'Identifier') return [declaration.name];
+  return [];
 }
 
 /** Returns the top-level statement that owns declaration comments. */
@@ -123,6 +133,16 @@ function variableFunctionRecord(node, exportedNames = new Set()) {
     functionNode: node.init,
     isPublic: node.parent?.parent?.type === 'ExportNamedDeclaration' || exportedNames.has(name),
     name
+  };
+}
+
+/** Creates a function record for an inline default-exported function expression. */
+function defaultFunctionExpressionRecord(node) {
+  return {
+    docsNode: node.parent,
+    functionNode: node,
+    isPublic: true,
+    name: functionName(node)
   };
 }
 
@@ -428,7 +448,8 @@ const complexConditionalRule = {
   create(context) {
     return {
       ConditionalExpression(node) {
-        checkPredicate(context, node.test);
+        const options = complexConditionalOptions(context);
+        checkPredicate(context, options.includeTernary ? node : node.test);
       },
       DoWhileStatement(node) {
         checkPredicate(context, node.test);
@@ -470,6 +491,10 @@ const requirePublicJsDocRule = {
         const record = functionRecord(node, exportedNames);
         if (!record.isPublic) return;
         checkFunctionRecord(context, record);
+      },
+      ExportDefaultDeclaration(node) {
+        if (!isFunctionNode(node.declaration) || node.declaration.type === 'FunctionDeclaration') return;
+        checkFunctionRecord(context, defaultFunctionExpressionRecord(node.declaration));
       },
       VariableDeclarator(node) {
         if (!isFunctionNode(node.init)) return;

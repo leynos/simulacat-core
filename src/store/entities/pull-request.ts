@@ -85,10 +85,8 @@ export const githubPullRequestSchema = z
       );
     }
     const issueNumber = pullRequest.number;
-    const closedAt =
-      pullRequest.state === 'closed' || pullRequest.state === 'merged'
-        ? (pullRequest.closed_at ?? pullRequest.updated_at)
-        : null;
+    const isClosedOrMerged = pullRequest.state === 'closed' || pullRequest.state === 'merged';
+    const closedAt = isClosedOrMerged ? (pullRequest.closed_at ?? pullRequest.updated_at) : null;
     const mergedAt = pullRequest.state === 'merged' ? (pullRequest.merged_at ?? pullRequest.updated_at) : null;
 
     return {
