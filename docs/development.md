@@ -98,6 +98,20 @@ values. Do not add real credential validation, permission checks, or GitHub
 App cryptography under the request actor helper; those are separate
 authorization slices.
 
+Actor observability uses process-local counters in `src/store/actors.ts`.
+REST and GraphQL adapters record parse outcomes, store-resolution outcomes,
+resolved actor selections, and authentication failures at their transport
+boundaries. The parser and resolver helpers remain pure and do not log
+directly.
+
+Set `SIMULACAT_ACTOR_OBSERVABILITY=1` or
+`SIMULACAT_ACTOR_OBSERVABILITY=true` to emit the same actor observations as
+structured JSON debug lines on stderr. Each line includes
+`component: "simulacat.actor"`, the event name, actor kind, outcome, source or
+surface where applicable, and a non-sensitive actor label. Tests that inspect
+the counters should call `resetActorObservationCounters()` before each case to
+avoid cross-test leakage.
+
 ### Gherkin feature scenarios
 
 Feature files live under `features/` and are loaded by

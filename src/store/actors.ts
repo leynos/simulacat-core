@@ -87,6 +87,20 @@ type ActorObservation = {
   outcome?: string;
   reason?: string;
   actor?: string;
+  source?: string;
+  surface?: string;
+};
+
+/** Parsed request actor with non-sensitive diagnostic context. */
+export type RequestActorParseResult = {
+  /** Actor selected from the request headers. */
+  actor: RequestActor;
+  /** Header source that selected the actor. */
+  source: 'default' | 'legacy-github-user' | 'legacy-simulacat-user' | 'preferred';
+  /** Whether parsing used an explicit actor or fell back to anonymous. */
+  outcome: 'default' | 'fallback' | 'parsed';
+  /** Optional reason for fallback outcomes. */
+  reason?: string;
 };
 
 /**
@@ -252,17 +266,57 @@ export const parseActorHeaderValue = (headerValue: string): RequestActor | undef
  * compatibility aliases, and defaults to anonymous when neither is present.
  */
 export const parseRequestActor = (headers: HeaderReader): RequestActor => {
+  return parseRequestActorWithDiagnostics(headers).actor;
+};
+
+/**
+ * Selects the request actor and returns parse diagnostics for adapters.
+ *
+ * This is a pure helper: it records no metrics and emits no logs. REST and
+ * GraphQL adapters use the diagnostic result to observe parse outcomes at the
+ * transport boundary.
+ */
+export const parseRequestActorWithDiagnostics = (headers: HeaderReader): RequestActorParseResult => {
   const actorHeader = headers.get(requestActorHeader);
   if (actorHeader !== null && actorHeader !== undefined) {
-    return parseActorHeaderValue(actorHeader) ?? {kind: 'anonymous'};
+    const actor = parseActorHeaderValue(actorHeader);
+    return actor
+      ? {actor, source: 'preferred', outcome: 'parsed'}
+      : {
+          actor: {kind: 'anonymous'},
+          source: 'preferred',
+          outcome: 'fallback',
+          reason: 'invalid-preferred-header'
+        };
   }
 
-  const legacyLogin = headers.get(legacySimulacatUserHeader) ?? headers.get(legacyGitHubUserHeader);
-  if (legacyLogin?.trim()) {
-    return {kind: 'user', login: legacyLogin.trim()};
+  const simulacatLogin = headers.get(legacySimulacatUserHeader);
+  if (simulacatLogin !== null && simulacatLogin !== undefined) {
+    const login = simulacatLogin.trim();
+    return login
+      ? {actor: {kind: 'user', login}, source: 'legacy-simulacat-user', outcome: 'parsed'}
+      : {
+          actor: {kind: 'anonymous'},
+          source: 'legacy-simulacat-user',
+          outcome: 'fallback',
+          reason: 'blank-legacy-header'
+        };
   }
 
-  return {kind: 'anonymous'};
+  const githubLogin = headers.get(legacyGitHubUserHeader);
+  if (githubLogin !== null && githubLogin !== undefined) {
+    const login = githubLogin.trim();
+    return login
+      ? {actor: {kind: 'user', login}, source: 'legacy-github-user', outcome: 'parsed'}
+      : {
+          actor: {kind: 'anonymous'},
+          source: 'legacy-github-user',
+          outcome: 'fallback',
+          reason: 'blank-legacy-header'
+        };
+  }
+
+  return {actor: {kind: 'anonymous'}, source: 'default', outcome: 'default'};
 };
 
 /**
@@ -355,6 +409,89 @@ export const observeSelectedActor = (transport: 'graphql' | 'rest', actor: Resol
     event: `${transport}-selected`,
     actorKind: actor.kind,
     outcome: actor.kind === 'user' ? 'authenticated' : 'unauthenticated',
+    actor: actorDiagnosticLabel(actor)
+  });
+};
+
+/**
+ * Classifies the store-resolution outcome for a parsed request actor.
+ */
+const actorResolutionOutcome = (
+  actor: RequestActor,
+  resolvedActor: ResolvedRequestActor
+): {outcome: string; reason?: string} => {
+  switch (actor.kind) {
+    case 'anonymous':
+      return {outcome: 'anonymous'};
+    case 'user':
+      return resolvedActor.kind === 'user' ? {outcome: 'resolved'} : {outcome: 'unresolved', reason: 'unknown-user'};
+    case 'app':
+      return resolvedActor.kind === 'app' && resolvedActor.installation !== undefined
+        ? {outcome: 'resolved'}
+        : {outcome: 'unresolved', reason: 'unmatched-app'};
+    case 'installation':
+      return resolvedActor.kind === 'installation' && resolvedActor.installation !== undefined
+        ? {outcome: 'resolved'}
+        : {outcome: 'unresolved', reason: 'unmatched-installation'};
+    default: {
+      const exhaustive: never = actor;
+      throw new Error(`Unsupported request actor kind: ${JSON.stringify(exhaustive)}`);
+    }
+  }
+};
+
+/**
+ * Records request actor parse diagnostics for a transport adapter boundary.
+ */
+export const observeParsedRequestActor = (transport: 'graphql' | 'rest', result: RequestActorParseResult): void => {
+  const observation: ActorObservation = {
+    event: `${transport}-parse`,
+    actorKind: result.actor.kind,
+    outcome: result.outcome,
+    source: result.source,
+    actor: actorDiagnosticLabel(result.actor)
+  };
+  if (result.reason !== undefined) {
+    observation.reason = result.reason;
+  }
+  recordActorObservation(observation);
+};
+
+/**
+ * Records how a parsed request actor resolved against seeded store tables.
+ */
+export const observeResolvedRequestActor = (
+  transport: 'graphql' | 'rest',
+  actor: RequestActor,
+  resolvedActor: ResolvedRequestActor
+): void => {
+  const result = actorResolutionOutcome(actor, resolvedActor);
+  const observation: ActorObservation = {
+    event: `${transport}-resolution`,
+    actorKind: actor.kind,
+    outcome: result.outcome,
+    actor: actorDiagnosticLabel(actor)
+  };
+  if (result.reason !== undefined) {
+    observation.reason = result.reason;
+  }
+  recordActorObservation(observation);
+};
+
+/**
+ * Records a 401 or GraphQL authentication failure for a protected surface.
+ */
+export const observeAuthenticationFailure = (
+  transport: 'graphql' | 'rest',
+  actor: ResolvedRequestActor,
+  surface: string
+): void => {
+  recordActorObservation({
+    event: `${transport}-authentication`,
+    actorKind: actor.kind,
+    outcome: 'failure',
+    reason: surface,
+    surface,
     actor: actorDiagnosticLabel(actor)
   });
 };

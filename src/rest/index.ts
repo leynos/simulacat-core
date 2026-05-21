@@ -8,8 +8,11 @@
 import type {Document, SimulationHandlers} from '@simulacrum/foundation-simulator';
 import type {ExtendedSimulationStore} from '../store/index.ts';
 import {
+  observeAuthenticationFailure,
+  observeParsedRequestActor,
+  observeResolvedRequestActor,
   observeSelectedActor,
-  parseRequestActor,
+  parseRequestActorWithDiagnostics,
   resolveRequestActor,
   selectAuthenticatedUser
 } from '../store/actors.ts';
@@ -34,18 +37,21 @@ const notFound = {message: 'Not Found'};
  * Extracts the request actor from the incoming headers via the `HeaderReader`
  * shim, resolves it against the store's users and installations tables,
  * records the resolved actor in the process-local observability counters, and
- * returns the authenticated `GitHubUser` or undefined.
+ * returns both the resolved actor and authenticated `GitHubUser`, or undefined
+ * when the actor cannot authenticate as a user.
  */
 const observeAndSelectUserForRequest = (simulationStore: ExtendedSimulationStore, request: Req) => {
   const state = simulationStore.store.getState();
-  const actor = parseRequestActor({get: (name: string) => request.get(name)});
-  const resolvedActor = resolveRequestActor(actor, {
+  const parseResult = parseRequestActorWithDiagnostics({get: (name: string) => request.get(name)});
+  observeParsedRequestActor('rest', parseResult);
+  const resolvedActor = resolveRequestActor(parseResult.actor, {
     users: simulationStore.schema.users.selectTableAsList(state),
     installations: simulationStore.schema.installations.selectTableAsList(state)
   });
+  observeResolvedRequestActor('rest', parseResult.actor, resolvedActor);
   observeSelectedActor('rest', resolvedActor);
 
-  return selectAuthenticatedUser(resolvedActor);
+  return {resolvedActor, user: selectAuthenticatedUser(resolvedActor)};
 };
 
 /**
@@ -328,8 +334,9 @@ const handlers =
 
           // GET /user
           'users/get-authenticated': async (_context: Ctx, request: Req, response: Res) => {
-            const user = observeAndSelectUserForRequest(simulationStore, request);
+            const {resolvedActor, user} = observeAndSelectUserForRequest(simulationStore, request);
             if (!user) {
+              observeAuthenticationFailure('rest', resolvedActor, 'GET /user');
               return response.status(401).json({message: 'Authentication required'});
             }
             const data = {
@@ -343,8 +350,9 @@ const handlers =
 
           // GET /user/memberships/orgs
           'orgs/list-memberships-for-authenticated-user': async (_context: Ctx, request: Req, response: Res) => {
-            const user = observeAndSelectUserForRequest(simulationStore, request);
+            const {resolvedActor, user} = observeAndSelectUserForRequest(simulationStore, request);
             if (!user) {
+              observeAuthenticationFailure('rest', resolvedActor, 'GET /user/memberships/orgs');
               return response.status(401).json({message: 'Authentication required'});
             }
             const organizations = simulationStore.selectors.allGithubOrganizations(getState());

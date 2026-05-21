@@ -5,9 +5,13 @@ import {
   getActorObservabilityCounters,
   legacyGitHubUserHeader,
   legacySimulacatUserHeader,
+  observeAuthenticationFailure,
+  observeParsedRequestActor,
+  observeResolvedRequestActor,
   observeSelectedActor,
   parseActorHeaderValue,
   parseRequestActor,
+  parseRequestActorWithDiagnostics,
   requestActorHeader,
   resetActorObservationCounters,
   resolveRequestActor,
@@ -124,6 +128,15 @@ describe('request actor parsing', () => {
   it('treats an empty preferred actor header as authoritative anonymous input', () => {
     expect(parseRequestActor(headers({[requestActorHeader]: '', [legacySimulacatUserHeader]: 'dev'}))).toEqual({
       kind: 'anonymous'
+    });
+  });
+
+  it('reports parse diagnostics for invalid preferred actor headers', () => {
+    expect(parseRequestActorWithDiagnostics(headers({[requestActorHeader]: 'nonsense'}))).toEqual({
+      actor: {kind: 'anonymous'},
+      source: 'preferred',
+      outcome: 'fallback',
+      reason: 'invalid-preferred-header'
     });
   });
 
@@ -249,6 +262,25 @@ describe('actor observability counters', () => {
     expect(getActorObservabilityCounters()).toEqual({
       'rest-selected.anonymous.unauthenticated': 1,
       'graphql-selected.user.authenticated': 1
+    });
+  });
+
+  it('records actor parse and authentication failure observations', () => {
+    resetActorObservationCounters();
+
+    observeParsedRequestActor('rest', {
+      actor: {kind: 'anonymous'},
+      source: 'preferred',
+      outcome: 'fallback',
+      reason: 'invalid-preferred-header'
+    });
+    observeResolvedRequestActor('rest', {kind: 'user', login: 'ghost'}, {kind: 'anonymous'});
+    observeAuthenticationFailure('graphql', {kind: 'anonymous'}, 'Query.viewer');
+
+    expect(getActorObservabilityCounters()).toEqual({
+      'rest-parse.anonymous.fallback.invalid-preferred-header': 1,
+      'rest-resolution.user.unresolved.unknown-user': 1,
+      'graphql-authentication.anonymous.failure.Query.viewer': 1
     });
   });
 

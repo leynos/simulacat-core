@@ -12,6 +12,8 @@ import {toGraphql, deriveOwner} from './to-graphql.ts';
 import {assert} from 'assert-ts';
 import type {ExtendedSimulationStore} from '../store/index.ts';
 import {
+  observeAuthenticationFailure,
+  observeResolvedRequestActor,
   observeSelectedActor,
   resolveRequestActor,
   selectAuthenticatedUser,
@@ -42,8 +44,8 @@ export class AuthenticationError extends Error {
  *
  * Resolves the context actor against the store's users and installations
  * tables, records the resolved actor in the process-local observability
- * counters, and returns the matching `GitHubUser`, or undefined when the actor
- * is anonymous or unknown.
+ * counters, and returns both the resolved actor and matching `GitHubUser`, or
+ * undefined when the actor is anonymous or unknown.
  */
 const observeAndSelectViewer = (simulationStore: ExtendedSimulationStore, context: GraphQLContext) => {
   const state = simulationStore.store.getState();
@@ -51,9 +53,10 @@ const observeAndSelectViewer = (simulationStore: ExtendedSimulationStore, contex
     users: simulationStore.schema.users.selectTableAsList(state),
     installations: simulationStore.schema.installations.selectTableAsList(state)
   });
+  observeResolvedRequestActor('graphql', context.requestActor, resolvedActor);
   observeSelectedActor('graphql', resolvedActor);
 
-  return selectAuthenticatedUser(resolvedActor);
+  return {resolvedActor, user: selectAuthenticatedUser(resolvedActor)};
 };
 
 /**
@@ -68,8 +71,11 @@ export function createResolvers(simulationStore: ExtendedSimulationStore): Resol
   return {
     Query: {
       viewer(_root: unknown, _args: unknown, context: GraphQLContext) {
-        const user = observeAndSelectViewer(simulationStore, context);
-        if (!user) throw new AuthenticationError('Authentication required');
+        const {resolvedActor, user} = observeAndSelectViewer(simulationStore, context);
+        if (!user) {
+          observeAuthenticationFailure('graphql', resolvedActor, 'Query.viewer');
+          throw new AuthenticationError('Authentication required');
+        }
         return toGraphql(simulationStore, 'User', user);
       },
       user(_: unknown, {login}: {login: string}) {
