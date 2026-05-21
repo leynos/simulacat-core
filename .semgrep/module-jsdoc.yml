@@ -11,7 +11,7 @@ rules:
         - "*.ts"
         - "*.tsx"
     message: >-
-      JS/TS files must start with module-level JSDoc, preferably an @file
-      block, after any shebang, license block, or 'use strict' directive.
+      JS/TS files must start with a module-level JSDoc block containing an
+      @file tag, after any shebang, license block, or 'use strict' directive.
     pattern-regex: |-
       \A(?!(?:#![^\n]*\n)?(?:/\*![\s\S]*?\*/\s*)?(?:(?:'use strict'|"use strict");\s*\n)?\s*/\*\*[\s\S]*?@file)

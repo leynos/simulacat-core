@@ -4,7 +4,6 @@
  * This module normalizes organization fixtures, preserving caller identifiers
  * and filling in the GitHub-style profile URLs used throughout the simulator.
  */
-// biome-ignore-all lint/complexity/noExcessiveCognitiveComplexity: Baseline schema transform predates the new complexity gate.
 import {faker} from '@faker-js/faker';
 import {z} from 'zod';
 
@@ -60,6 +59,7 @@ export const githubOrganizationSchema = z
     members_url: z.string().optional(),
     public_members_url: z.string().optional()
   })
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: legacy schema transform; refactor deferred.
   .transform((org) => {
     const name = org.name ?? org.login;
     const email =

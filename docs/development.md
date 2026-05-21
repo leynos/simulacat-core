@@ -51,6 +51,9 @@ Semgrep covers contracts that Biome does not express directly:
   functions that appear to exceed McCabe/C90 cyclomatic complexity 8 within a
   bounded body scan. This rule is heuristic and counts common decision tokens
   such as `if`, `case`, `catch`, `&&`, `||`, and ternaries.
+  The rule flags 9 counted decision tokens because that maps to complexity
+  greater than 8. Counted tokens are `if`, `else if`, `case`, `catch`, `&&`,
+  `||`, and the ternary `?:` operator.
 - `simulacat.ts.nesting-depth`: flags control-flow blocks nested deeper than
   3 levels.
 - `simulacat.ts.public-jsdoc`: requires exported function declarations to have
@@ -98,7 +101,7 @@ export function convert(input: RepositoryRefInput): string {
 
 ### Suppressing lint violations
 
-Prefer refactoring over suppression. When a suppression is unavoidable, include
+Prefer refactoring to suppression. When a suppression is unavoidable, include
 a short reason that explains why the exception is narrower than changing the
 rule.
 
@@ -114,8 +117,40 @@ Semgrep inline suppression:
 // nosemgrep: simulacat.ts.cyclomatic-complexity - Legacy parser is covered by fixture tests.
 ```
 
+For cyclomatic-complexity false positives, first try to extract predicates,
+split orchestration from data shaping, or replace repeated branches with a
+lookup table. Use `// nosemgrep: simulacat.ts.cyclomatic-complexity - <reason>`
+only when the function is already bounded and tested, and the matched token
+count is an accepted edge case rather than hidden control-flow complexity. A
+typical accepted workflow is to add the inline suppression beside a legacy
+schema transform, cite the fixture or property tests that cover it in the
+reason, and track the later refactor in the related issue.
+
 Use `.semgrepignore` only for generated, vendored, or bundled files that should
 not be scanned at all.
+
+
+### Security overrides
+
+`package.json` pins a few transitive dependency overrides while upstream
+dependency ranges catch up with patched releases. Remove an override only after
+the upstream dependency accepts the patched range, `bun audit` remains clean,
+and the lockfile no longer resolves the vulnerable version without the pin.
+
+- `brace-expansion` is pinned to `5.0.6` for
+  [GHSA-jxxr-4gwj-5jf2](https://github.com/advisories/GHSA-jxxr-4gwj-5jf2),
+  which fixes large numeric ranges bypassing documented `max` denial-of-service
+  protection.
+- `fast-uri` is pinned to `3.1.2` for
+  [GHSA-v39h-62p7-jpjc](https://github.com/fastify/fast-uri/security/advisories/GHSA-v39h-62p7-jpjc),
+  which fixes host confusion through percent-encoded authority delimiters.
+- `lodash` is pinned to `4.18.1` for
+  [CVE-2026-4800](https://nvd.nist.gov/vuln/detail/CVE-2026-4800) and
+  [CVE-2026-2950](https://nvd.nist.gov/vuln/detail/CVE-2026-2950), which fix
+  template-injection and prototype-pollution bypasses in earlier 4.x releases.
+- `ws` is pinned to `8.20.1` for
+  [GHSA-58qx-3vcg-4xpx](https://github.com/advisories/GHSA-58qx-3vcg-4xpx),
+  which fixes uninitialized memory disclosure.
 
 The package publishes an ESM library surface, but the build intentionally keeps
 `dist/index.cjs` because `bin/start.cjs` requires that artifact to start the

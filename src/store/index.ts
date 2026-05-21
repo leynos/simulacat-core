@@ -1,6 +1,4 @@
 /** @file Store schema, selectors, and extension wiring for GitHub fixtures. */
-// biome-ignore-all lint/complexity/noExcessiveCognitiveComplexity: Baseline store wiring predates the new complexity gate.
-// biome-ignore-all lint/complexity/useMaxParams: Baseline selector callback mirrors the upstream selector API.
 import type {
   SimulationStore,
   ExtendSimulationSchema,
@@ -77,6 +75,7 @@ export type GitHubRepositoryWithOrganizationOwner = Omit<GitHubRepository, 'id' 
 /** Creates the base store schema and seeds it from parsed initial state. */
 const inputSchema =
   <T>(initialState?: GitHubStore, extendedSchema?: ExtendSimulationSchemaInput<T>) =>
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: schema seeding keeps table defaults colocated; refactor is nontrivial.
   ({slice}: ExtendSimulationSchema) => {
     const storeInitialState = convertInitialStateToStoreState(initialState);
     const extended = extendedSchema ? extendedSchema({slice}) : {};
@@ -204,6 +203,8 @@ const buildInstallationSelectors = ({createSelector, schema}: ExtendSimulationSe
     schema.repositories.selectTableAsList,
     (_state: AnyState, org: string, _repo?: string) => org,
     (_state: AnyState, _org: string, repo?: string) => repo,
+    // biome-ignore lint/complexity/useMaxParams: selector API passes derived inputs positionally.
+    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: selector joins three store slices; refactor is nontrivial.
     (installations, orgs, repos, org, repo) => {
       const appInstall = installations.find((install) => install.account === org);
       if (!appInstall) return undefined;

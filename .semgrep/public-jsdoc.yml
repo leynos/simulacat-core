@@ -15,4 +15,4 @@ rules:
       description, @param entries for parameters, @returns for non-void
       results, and @throws when errors are thrown or promises reject.
     pattern-regex: |-
-      (?m)(?<!\*/\n)(?<!\*/\n\n)^\s*export\s+(?:async\s+)?function\s+\w+\s*\([^)]*\)
+      (?m)(?<!\*/\n)(?<!\*/\n\n)(?<!\*/\n\n\n)(?<!\*/\n\n\n\n)(?<!\*/\n\n\n\n\n)(?<!\*/\n\n\n\n\n\n)^\s*export\s+(?:default\s+)?(?:async\s+)?function\s+\w*\s*\([^)]*\)

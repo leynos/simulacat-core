@@ -13,4 +13,4 @@ rules:
     message: >-
       Private/internal JS/TS functions need a concise one-line JSDoc summary.
     pattern-regex: |-
-      (?m)(?<!\*/\n)(?<!\*/\n\n)^\s*(?!export\s+)(?:async\s+function\s+\w+|function\s+\w+|const\s+\w+\s*=\s*(?:async\s*)?\([^)]*\)\s*=>)
+      (?m)(?<!\*/\n)(?<!\*/\n\n)(?<!\*/\n\n\n)(?<!\*/\n\n\n\n)(?<!\*/\n\n\n\n\n)(?<!\*/\n\n\n\n\n\n)^\s*(?!export\s+)(?:async\s+function\s+\w+|function\s+\w+|const\s+\w+\s*=\s*(?:async\s*)?\([^)]*\)\s*=>)
