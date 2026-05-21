@@ -150,6 +150,14 @@ describe('request actor parsing', () => {
     );
   });
 
+  it('round-trips app actor slugs across a range of non-numeric identifiers', () => {
+    fc.assert(
+      fc.property(fc.stringMatching(/^[A-Za-z][A-Za-z0-9-]{0,38}$/), (slug) => {
+        expect(parseActorHeaderValue(`app:${slug}`)).toEqual({kind: 'app', slug});
+      })
+    );
+  });
+
   it('round-trips installation actor values across a range of positive installation IDs', () => {
     fc.assert(
       fc.property(fc.integer({min: 1, max: Number.MAX_SAFE_INTEGER}), (installationId) => {

@@ -38,13 +38,14 @@ export class AuthenticationError extends Error {
 }
 
 /**
- * Selects the viewer user for the current GraphQL context.
+ * Observes and selects the viewer user for the current GraphQL context.
  *
  * Resolves the context actor against the store's users and installations
- * tables and returns the matching `GitHubUser`, or undefined when the actor is
- * anonymous or unknown.
+ * tables, records the resolved actor in the process-local observability
+ * counters, and returns the matching `GitHubUser`, or undefined when the actor
+ * is anonymous or unknown.
  */
-const selectViewer = (simulationStore: ExtendedSimulationStore, context: GraphQLContext) => {
+const observeAndSelectViewer = (simulationStore: ExtendedSimulationStore, context: GraphQLContext) => {
   const state = simulationStore.store.getState();
   const resolvedActor = resolveRequestActor(context.requestActor, {
     users: simulationStore.schema.users.selectTableAsList(state),
@@ -67,7 +68,7 @@ export function createResolvers(simulationStore: ExtendedSimulationStore): Resol
   return {
     Query: {
       viewer(_root: unknown, _args: unknown, context: GraphQLContext) {
-        const user = selectViewer(simulationStore, context);
+        const user = observeAndSelectViewer(simulationStore, context);
         if (!user) throw new AuthenticationError('Authentication required');
         return toGraphql(simulationStore, 'User', user);
       },

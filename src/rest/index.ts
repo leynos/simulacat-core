@@ -29,13 +29,14 @@ type Res = Parameters<SimulationHandler>[2];
 const notFound = {message: 'Not Found'};
 
 /**
- * Selects the authenticated user for a REST request.
+ * Observes and selects the authenticated user for a REST request.
  *
  * Extracts the request actor from the incoming headers via the `HeaderReader`
- * shim, resolves it against the store's users and installations tables, and
+ * shim, resolves it against the store's users and installations tables,
+ * records the resolved actor in the process-local observability counters, and
  * returns the authenticated `GitHubUser` or undefined.
  */
-const selectUserForRequest = (simulationStore: ExtendedSimulationStore, request: Req) => {
+const observeAndSelectUserForRequest = (simulationStore: ExtendedSimulationStore, request: Req) => {
   const state = simulationStore.store.getState();
   const actor = parseRequestActor({get: (name: string) => request.get(name)});
   const resolvedActor = resolveRequestActor(actor, {
@@ -327,7 +328,7 @@ const handlers =
 
           // GET /user
           'users/get-authenticated': async (_context: Ctx, request: Req, response: Res) => {
-            const user = selectUserForRequest(simulationStore, request);
+            const user = observeAndSelectUserForRequest(simulationStore, request);
             if (!user) {
               return response.status(401).json({message: 'Authentication required'});
             }
@@ -342,7 +343,7 @@ const handlers =
 
           // GET /user/memberships/orgs
           'orgs/list-memberships-for-authenticated-user': async (_context: Ctx, request: Req, response: Res) => {
-            const user = selectUserForRequest(simulationStore, request);
+            const user = observeAndSelectUserForRequest(simulationStore, request);
             if (!user) {
               return response.status(401).json({message: 'Authentication required'});
             }
