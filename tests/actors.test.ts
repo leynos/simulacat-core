@@ -72,6 +72,39 @@ const headers = (values: Record<string, string | undefined>) => ({
   }
 });
 
+const buildPrecedenceHeaders = (
+  hasPreferred: boolean,
+  hasSimulacat: boolean,
+  hasGithub: boolean,
+  preferredValue: string,
+  simulacatLogin: string,
+  githubLogin: string
+): Record<string, string> => ({
+  ...(hasPreferred ? {[requestActorHeader]: preferredValue} : {}),
+  ...(hasSimulacat ? {[legacySimulacatUserHeader]: simulacatLogin} : {}),
+  ...(hasGithub ? {[legacyGitHubUserHeader]: githubLogin} : {})
+});
+
+const expectedActorForPrecedence = (
+  hasPreferred: boolean,
+  hasSimulacat: boolean,
+  hasGithub: boolean,
+  preferredValue: string,
+  simulacatLogin: string,
+  githubLogin: string
+): RequestActor => {
+  if (hasPreferred) {
+    return preferredValue === 'user:preferred' ? {kind: 'user', login: 'preferred'} : {kind: 'anonymous'};
+  }
+  if (hasSimulacat) {
+    return {kind: 'user', login: simulacatLogin};
+  }
+  if (hasGithub) {
+    return {kind: 'user', login: githubLogin};
+  }
+  return {kind: 'anonymous'};
+};
+
 describe('request actor parsing', () => {
   it('defaults to an anonymous actor when no request actor is present', () => {
     expect(parseRequestActor(headers({}))).toEqual({kind: 'anonymous'});
@@ -229,25 +262,23 @@ describe('request actor parsing', () => {
         fc.stringMatching(/^[A-Za-z0-9][A-Za-z0-9-]{0,38}$/),
         (preferredValue, simulacatLogin, githubLogin) => {
           for (const [hasPreferred, hasSimulacat, hasGithub] of presenceCombinations) {
-            const values = {
-              ...(hasPreferred ? {[requestActorHeader]: preferredValue} : {}),
-              ...(hasSimulacat ? {[legacySimulacatUserHeader]: simulacatLogin} : {}),
-              ...(hasGithub ? {[legacyGitHubUserHeader]: githubLogin} : {})
-            };
-
-            const actor = parseRequestActor(headers(values));
-
-            if (hasPreferred) {
-              expect(actor).toEqual(
-                preferredValue === 'user:preferred' ? {kind: 'user', login: 'preferred'} : {kind: 'anonymous'}
-              );
-            } else if (hasSimulacat) {
-              expect(actor).toEqual({kind: 'user', login: simulacatLogin});
-            } else if (hasGithub) {
-              expect(actor).toEqual({kind: 'user', login: githubLogin});
-            } else {
-              expect(actor).toEqual({kind: 'anonymous'});
-            }
+            const headerValues = buildPrecedenceHeaders(
+              hasPreferred,
+              hasSimulacat,
+              hasGithub,
+              preferredValue,
+              simulacatLogin,
+              githubLogin
+            );
+            const expected = expectedActorForPrecedence(
+              hasPreferred,
+              hasSimulacat,
+              hasGithub,
+              preferredValue,
+              simulacatLogin,
+              githubLogin
+            );
+            expect(parseRequestActor(headers(headerValues))).toEqual(expected);
           }
         }
       )
