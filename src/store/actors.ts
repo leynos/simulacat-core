@@ -317,6 +317,40 @@ export const parseRequestActor = (headers: HeaderReader): RequestActor => {
   return parseRequestActorWithDiagnostics(headers).actor;
 };
 
+/** Discriminates the two legacy login header sources. */
+type LegacyHeaderSource = 'legacy-simulacat-user' | 'legacy-github-user';
+
+/**
+ * Parses the preferred `x-simulacat-actor` header value into diagnostics.
+ *
+ * Invalid preferred header values are authoritative and therefore fall back to
+ * anonymous rather than consulting legacy user headers.
+ */
+const parsePreferredActorHeader = (actorHeader: string): RequestActorParseResult => {
+  const actor = parseActorHeaderValue(actorHeader);
+  return actor
+    ? {actor, source: 'preferred', outcome: 'parsed'}
+    : {
+        actor: {kind: 'anonymous'},
+        source: 'preferred',
+        outcome: 'fallback',
+        reason: 'invalid-preferred-header'
+      };
+};
+
+/**
+ * Parses a legacy login header value into actor parse diagnostics.
+ *
+ * Blank legacy header values collapse to anonymous with a stable
+ * `blank-legacy-header` reason.
+ */
+const parseLegacyLoginHeader = (headerValue: string, source: LegacyHeaderSource): RequestActorParseResult => {
+  const login = headerValue.trim();
+  return login
+    ? {actor: {kind: 'user', login}, source, outcome: 'parsed'}
+    : {actor: {kind: 'anonymous'}, source, outcome: 'fallback', reason: 'blank-legacy-header'};
+};
+
 /**
  * Selects the request actor and returns parse diagnostics for adapters.
  *
@@ -330,41 +364,17 @@ export const parseRequestActor = (headers: HeaderReader): RequestActor => {
 export const parseRequestActorWithDiagnostics = (headers: HeaderReader): RequestActorParseResult => {
   const actorHeader = headers.get(requestActorHeader);
   if (actorHeader !== null && actorHeader !== undefined) {
-    const actor = parseActorHeaderValue(actorHeader);
-    return actor
-      ? {actor, source: 'preferred', outcome: 'parsed'}
-      : {
-          actor: {kind: 'anonymous'},
-          source: 'preferred',
-          outcome: 'fallback',
-          reason: 'invalid-preferred-header'
-        };
+    return parsePreferredActorHeader(actorHeader);
   }
 
   const simulacatLogin = headers.get(legacySimulacatUserHeader);
   if (simulacatLogin !== null && simulacatLogin !== undefined) {
-    const login = simulacatLogin.trim();
-    return login
-      ? {actor: {kind: 'user', login}, source: 'legacy-simulacat-user', outcome: 'parsed'}
-      : {
-          actor: {kind: 'anonymous'},
-          source: 'legacy-simulacat-user',
-          outcome: 'fallback',
-          reason: 'blank-legacy-header'
-        };
+    return parseLegacyLoginHeader(simulacatLogin, 'legacy-simulacat-user');
   }
 
   const githubLogin = headers.get(legacyGitHubUserHeader);
   if (githubLogin !== null && githubLogin !== undefined) {
-    const login = githubLogin.trim();
-    return login
-      ? {actor: {kind: 'user', login}, source: 'legacy-github-user', outcome: 'parsed'}
-      : {
-          actor: {kind: 'anonymous'},
-          source: 'legacy-github-user',
-          outcome: 'fallback',
-          reason: 'blank-legacy-header'
-        };
+    return parseLegacyLoginHeader(githubLogin, 'legacy-github-user');
   }
 
   return {actor: {kind: 'anonymous'}, source: 'default', outcome: 'default'};
