@@ -29,7 +29,6 @@ export interface GitHubUser {
   created_at: string;
 }
 
-// nosemgrep: simulacat.ts.private-jsdoc - Baseline helper predates private JSDoc enforcement.
 const getNextInstallationId = (usedInstallationIds: Set<number>, nextInstallationId: number) => {
   let candidateId = nextInstallationId;
 

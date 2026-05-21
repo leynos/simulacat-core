@@ -29,14 +29,13 @@ The normal contributor gate is:
 3. `bun check:types`
 4. `bun test`
 
-`make all` runs `check-fmt`, `typecheck`, `lint`, and `test` in the
-repository's preferred order.
-
+`make all` runs `check-fmt`, `typecheck`, `lint`, `oxlint`, `jsdoc`, and
+`test` in the repository's preferred order.
 
 ## Linting rules
 
-`make all` runs Biome and Semgrep maintainability gates. Biome enforces exact
-rules where it has native support:
+`make all` runs Biome, Oxlint, and the AST-based JSDoc checker as
+maintainability gates. Biome enforces exact rules where it has native support:
 
 - `complexity.noExcessiveLinesPerFunction`: functions may not exceed 70 lines,
   counting blank lines.
@@ -45,25 +44,25 @@ rules where it has native support:
   cognitive complexity 8. This is an additional readability guard, not a
   substitute for McCabe/C90 complexity.
 
-Semgrep covers contracts that Biome does not express directly:
+Oxlint covers the complexity contracts that require syntax-aware analysis:
 
-- `simulacat.ts.cyclomatic-complexity`: flags JavaScript and TypeScript
-  functions that appear to exceed McCabe/C90 cyclomatic complexity 8 within a
-  bounded body scan. This rule is heuristic and counts common decision tokens
-  such as `if`, `case`, `catch`, `&&`, `||`, and ternaries.
-  The rule flags 9 counted decision tokens because that maps to complexity
-  greater than 8. Counted tokens are `if`, `else if`, `case`, `catch`, `&&`,
-  `||`, and the ternary `?:` operator.
-- `simulacat.ts.nesting-depth`: flags control-flow blocks nested deeper than
-  3 levels.
-- `simulacat.ts.public-jsdoc`: requires exported function declarations to have
-  complete usage-oriented JavaScript documentation (JSDoc), including `@param`,
-  `@returns` where applicable, and `@throws` where the function throws or
-  returns a rejecting promise.
-- `simulacat.ts.private-jsdoc`: requires private/internal functions to have a
-  concise one-line JSDoc summary.
-- `simulacat.ts.module-jsdoc`: requires JS/TS files to start with module-level
-  JSDoc, preferably an `@file` block.
+- `complexity`: functions may not exceed McCabe/C90 cyclomatic complexity 8.
+  The rule uses `{ "max": 8, "variant": "classic" }`, where `classic` is
+  Oxlint's McCabe variant.
+- `max-depth`: blocks may not nest deeper than 3 levels.
+
+`scripts/check-jsdoc.ts` uses the TypeScript parser, not declaration regexes,
+to enforce JavaScript documentation (JSDoc):
+
+- Exported functions need a usage-oriented description, `@param` entries for
+  named parameters, `@returns` where a value is returned, and `@throws` or
+  `@rejects` when errors can escape.
+- Private/internal top-level functions need a concise one-line JSDoc summary.
+- JS/TS files must start with a module-level JSDoc block containing `@file`.
+
+Existing documentation debt is isolated in `.jsdoc-baseline.json` as
+per-symbol entries. Do not add new entries for new code; remove baseline
+entries as those functions receive complete JSDoc.
 
 Non-compliant examples:
 
@@ -111,46 +110,17 @@ Biome inline suppression:
 // biome-ignore complexity.useMaxParams: Adapter signature mirrors upstream API.
 ```
 
-Semgrep inline suppression:
+Oxlint inline suppression:
 
 ```ts
-// nosemgrep: simulacat.ts.cyclomatic-complexity - Legacy parser is covered by fixture tests.
+// oxlint-disable-next-line complexity
 ```
 
-For cyclomatic-complexity false positives, first try to extract predicates,
-split orchestration from data shaping, or replace repeated branches with a
-lookup table. Use `// nosemgrep: simulacat.ts.cyclomatic-complexity - <reason>`
-only when the function is already bounded and tested, and the matched token
-count is an accepted edge case rather than hidden control-flow complexity. A
-typical accepted workflow is to add the inline suppression beside a legacy
-schema transform, cite the fixture or property tests that cover it in the
-reason, and track the later refactor in the related issue.
+JSDoc checker suppression:
 
-Use `.semgrepignore` only for generated, vendored, or bundled files that should
-not be scanned at all.
-
-
-### Security overrides
-
-`package.json` pins a few transitive dependency overrides while upstream
-dependency ranges catch up with patched releases. Remove an override only after
-the upstream dependency accepts the patched range, `bun audit` remains clean,
-and the lockfile no longer resolves the vulnerable version without the pin.
-
-- `brace-expansion` is pinned to `5.0.6` for
-  [GHSA-jxxr-4gwj-5jf2](https://github.com/advisories/GHSA-jxxr-4gwj-5jf2),
-  which fixes large numeric ranges bypassing documented `max` denial-of-service
-  protection.
-- `fast-uri` is pinned to `3.1.2` for
-  [GHSA-v39h-62p7-jpjc](https://github.com/fastify/fast-uri/security/advisories/GHSA-v39h-62p7-jpjc),
-  which fixes host confusion through percent-encoded authority delimiters.
-- `lodash` is pinned to `4.18.1` for
-  [CVE-2026-4800](https://nvd.nist.gov/vuln/detail/CVE-2026-4800) and
-  [CVE-2026-2950](https://nvd.nist.gov/vuln/detail/CVE-2026-2950), which fix
-  template-injection and prototype-pollution bypasses in earlier 4.x releases.
-- `ws` is pinned to `8.20.1` for
-  [GHSA-58qx-3vcg-4xpx](https://github.com/advisories/GHSA-58qx-3vcg-4xpx),
-  which fixes uninitialized memory disclosure.
+```ts
+// jsdoc-check-ignore-next-line: Legacy adapter is documented at the call site.
+```
 
 The package publishes an ESM library surface, but the build intentionally keeps
 `dist/index.cjs` because `bin/start.cjs` requires that artifact to start the

@@ -31,7 +31,6 @@ export function toGraphql<T extends keyof DataSchemas>(
   __typename: T,
   entity: DataSchemas[T]
 ): GraphQLData[T];
-// nosemgrep: simulacat.ts.public-jsdoc - Overload implementation is documented by the public overload block.
 export function toGraphql(
   simulationStore: ExtendedSimulationStore,
   __typename: keyof DataSchemas,

@@ -44,7 +44,6 @@ export interface RelayPagingOptions {
  */
 const identity = <A>(a: A): A => a;
 
-// nosemgrep: simulacat.ts.private-jsdoc - Baseline helper predates private JSDoc enforcement.
 /**
  * Parses a string cursor into a non-negative integer index.
  *

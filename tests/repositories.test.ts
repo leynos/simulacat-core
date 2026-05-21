@@ -16,7 +16,6 @@ interface ListAndGetConfig {
   assertGetResponse: (response: Record<string, unknown>) => void;
 }
 
-// nosemgrep: simulacat.ts.private-jsdoc - Test helper predates private JSDoc enforcement.
 async function assertListAndGet(baseUrl: string, config: ListAndGetConfig): Promise<void> {
   const listRequest = await fetch(`${baseUrl}${config.listPath}`);
   const listResponse = (await listRequest.json()) as unknown[];

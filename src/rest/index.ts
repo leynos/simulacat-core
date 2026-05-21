@@ -96,7 +96,6 @@ const handlers =
     extendedHandlers: ((simulationStore: ExtendedSimulationStore) => SimulationHandlers) | undefined
   ) =>
   (simulationStore: ExtendedSimulationStore): SimulationHandlers => {
-    // nosemgrep: simulacat.ts.private-jsdoc - Tiny closure is scoped to the handler factory.
     const getState = () => simulationStore.store.getState();
     /**
      * Ensures a repository exists before a repository-scoped handler proceeds.
@@ -310,6 +309,8 @@ const handlers =
             }
           },
           // GET /repos/{owner}/{repo}/git/trees/{tree_sha}
+          // OpenAPI handler normalizes route params and response fallbacks inline.
+          // oxlint-disable-next-line complexity
           'git/get-tree': async (context: Ctx, request: Req, response: Res) => {
             const ownerParam = context.request.params.owner;
             const repoParam = context.request.params.repo;

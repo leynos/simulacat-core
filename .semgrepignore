@@ -1,6 +1,0 @@
-node_modules/
-dist/
-schema/
-src/__generated__/
-repository-mock-data/
-bun.lock

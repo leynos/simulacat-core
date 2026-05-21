@@ -9,7 +9,6 @@ import {faker} from '@faker-js/faker';
 import {z} from 'zod';
 import {githubEntityPermissionSchema} from './shared.ts';
 
-// nosemgrep: simulacat.ts.private-jsdoc - Baseline helper predates private JSDoc enforcement.
 const fallbackInstallationTimestamp = () => faker.date.recent().toISOString();
 
 export const githubAppInstallationSchema = z

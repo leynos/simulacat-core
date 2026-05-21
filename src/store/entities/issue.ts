@@ -65,6 +65,8 @@ export const githubIssueSchema = z
     html_url: z.string().optional(),
     repository_url: z.string().optional()
   })
+  // Legacy schema transform keeps GitHub URL defaults colocated with validation.
+  // oxlint-disable-next-line complexity
   .transform((issue) => {
     const key = issueStoreKey(issue);
 

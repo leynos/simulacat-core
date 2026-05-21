@@ -34,7 +34,6 @@ type BuildGithubInitialStoreOptions = {
   userOverrides?: Record<string, unknown>;
 };
 
-// nosemgrep: simulacat.ts.private-jsdoc - Test helper predates private JSDoc enforcement.
 const buildGithubInitialStore = (options: BuildGithubInitialStoreOptions = {}) => ({
   users: [{login: 'dev', organizations: [], ...(options.userOverrides ?? {})}],
   organizations: [{login: 'test-org'}],
@@ -44,13 +43,11 @@ const buildGithubInitialStore = (options: BuildGithubInitialStoreOptions = {}) =
   ...(options.storeOverrides ?? {})
 });
 
-// nosemgrep: simulacat.ts.private-jsdoc - Test helper predates private JSDoc enforcement.
 const parseGithubInitialStore = (options: BuildGithubInitialStoreOptions = {}) =>
   githubInitialStoreSchema.parse(buildGithubInitialStore(options));
 
 type StoreState = ReturnType<typeof convertInitialStateToStoreState>;
 
-// nosemgrep: simulacat.ts.private-jsdoc - Test helper predates private JSDoc enforcement.
 const requireStoreState = (store: StoreState) => {
   if (!store) {
     throw new Error('convertInitialStateToStoreState returned null for parsed input');

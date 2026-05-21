@@ -75,6 +75,8 @@ export type GitHubRepositoryWithOrganizationOwner = Omit<GitHubRepository, 'id' 
 /** Creates the base store schema and seeds it from parsed initial state. */
 const inputSchema =
   <T>(initialState?: GitHubStore, extendedSchema?: ExtendSimulationSchemaInput<T>) =>
+  // Store schema seeding keeps table defaults colocated with the upstream slice API.
+  /* oxlint-disable complexity */
   // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: schema seeding keeps table defaults colocated; refactor is nontrivial.
   ({slice}: ExtendSimulationSchema) => {
     const storeInitialState = convertInitialStateToStoreState(initialState);
@@ -102,6 +104,7 @@ const inputSchema =
     };
     return slices;
   };
+/* oxlint-enable complexity */
 
 /** Returns the package's built-in action set before caller extensions. */
 const inputActions = (_args: ExtendSimulationActions<ExtendedSchema>): ExtendSimulationActions<ExtendedSchema> => {

@@ -8,7 +8,6 @@ import {toGithubRepositoryOwner} from '../owners.ts';
 import type {DataSchemas, GraphQLData, ToGraphqlDispatcher} from '../to-graphql-shapes.ts';
 import type {ExtendedSimulationStore} from '../../store/index.ts';
 
-// nosemgrep: simulacat.ts.public-jsdoc - Baseline converter predates complete public JSDoc enforcement.
 /**
  * Converts a stored user entity into its GraphQL User shape.
  *

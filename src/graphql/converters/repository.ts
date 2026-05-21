@@ -95,6 +95,8 @@ function resolveRepoItem<K extends 'Issue' | 'PullRequest'>(
  * `url`, `createdAt`, and `defaultBranchRef`; relation fields stay lazy or
  * placeholder-backed instead of being fully resolved here.
  */
+// Repository GraphQL conversion intentionally assembles several lazy relation adapters.
+// oxlint-disable-next-line complexity
 export function convertRepositoryToGraphql(
   simulationStore: ExtendedSimulationStore,
   repo: DataSchemas['Repository'],
