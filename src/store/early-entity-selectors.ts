@@ -65,8 +65,8 @@ const buildRepoIndex = <T extends RepositoryCoords>(
 /**
  * Builds repository-scoped selectors for early collaboration entities.
  *
- * @param args Selector construction dependencies, including `createSelector`
- * and the store schema slices for refs, commits, issues, and pull requests.
+ * @param createSelector Selector factory from the underlying store.
+ * @param schema Store schema slices for refs, commits, issues, and pull requests.
  * @returns Selector functions for resolving refs, commits, issues, and pull
  * requests by owner-scoped repository coordinates.
  */

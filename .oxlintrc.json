@@ -1,5 +1,6 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "jsPlugins": ["./tools/oxlint-plugin-df12/index.js"],
   "ignorePatterns": ["dist/**", "node_modules/**", "repository-mock-data/**", "schema/**", "src/__generated__/**"],
   "categories": {
     "correctness": "off",
@@ -23,6 +24,17 @@
       {
         "max": 3
       }
-    ]
+    ],
+    "df12/complex-conditional": [
+      "error",
+      {
+        "maxLogicalOperators": 1,
+        "includeTernary": true,
+        "includeNullishCoalescing": false
+      }
+    ],
+    "df12/require-module-jsdoc": "error",
+    "df12/require-public-jsdoc": "error",
+    "df12/require-private-jsdoc": "error"
   }
 }

@@ -323,7 +323,8 @@ const handlers =
                 ? simulationStore.selectors.getRepository(simulationStore.store.getState(), owner, repo)
                 : undefined;
             const blobs = simulationStore.selectors.getBlobAtOwnerRepo(simulationStore.store.getState(), owner, repo);
-            if (!owner || !repo || !treeSha || !repository) {
+            const missingTreeFixture = !owner || !repo || !treeSha || !repository;
+            if (missingTreeFixture) {
               response.status(404).send('fixture does not exist');
             } else {
               const tree = gitTrees({

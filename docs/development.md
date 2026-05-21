@@ -29,13 +29,14 @@ The normal contributor gate is:
 3. `bun check:types`
 4. `bun test`
 
-`make all` runs `check-fmt`, `typecheck`, `lint`, `oxlint`, `jsdoc`, and
-`test` in the repository's preferred order.
+`make all` runs `check-fmt`, `typecheck`, `lint`, and `test` in the
+repository's preferred order. The `lint` target runs the `biomejs` and
+`oxlint` sub-targets.
 
 ## Linting rules
 
-`make all` runs Biome, Oxlint, and the AST-based JSDoc checker as
-maintainability gates. Biome enforces exact rules where it has native support:
+`make all` runs Biome and Oxlint as maintainability gates. Biome enforces
+exact rules where it has native support:
 
 - `complexity.noExcessiveLinesPerFunction`: functions may not exceed 70 lines,
   counting blank lines.
@@ -50,15 +51,20 @@ Oxlint covers the complexity contracts that require syntax-aware analysis:
   The rule uses `{ "max": 8, "variant": "classic" }`, where `classic` is
   Oxlint's McCabe variant.
 - `max-depth`: blocks may not nest deeper than 3 levels.
+- `df12/complex-conditional`: branch predicates may not contain more than 1
+  logical operator. The local rule counts `&&` and `||`, includes ternary
+  predicates, and excludes `??` by default.
 
-`scripts/check-jsdoc.ts` uses the TypeScript parser, not declaration regexes,
-to enforce JavaScript documentation (JSDoc):
+The local `tools/oxlint-plugin-df12` plugin also splits JavaScript
+documentation (JSDoc) enforcement into separate Oxlint rules:
 
-- Exported functions need a usage-oriented description, `@param` entries for
-  named parameters, `@returns` where a value is returned, and `@throws` or
-  `@rejects` when errors can escape.
-- Private/internal top-level functions need a concise one-line JSDoc summary.
-- JS/TS files must start with a module-level JSDoc block containing `@file`.
+- `df12/require-public-jsdoc`: exported functions need a usage-oriented
+  description, `@param` entries for named parameters, `@returns` where a value
+  is returned, and `@throws` or `@rejects` when errors can escape.
+- `df12/require-private-jsdoc`: private/internal top-level functions need a
+  concise one-line JSDoc summary.
+- `df12/require-module-jsdoc`: JS/TS files must start with a module-level
+  JSDoc block containing `@file`.
 
 Existing documentation debt is isolated in `.jsdoc-baseline.json` as
 per-symbol entries. Do not add new entries for new code; remove baseline
@@ -119,7 +125,7 @@ Oxlint inline suppression:
 JSDoc checker suppression:
 
 ```ts
-// jsdoc-check-ignore-next-line: Legacy adapter is documented at the call site.
+// oxlint-disable-next-line df12/require-public-jsdoc -- Legacy adapter is documented at the call site.
 ```
 
 The package publishes an ESM library surface, but the build intentionally keeps
