@@ -74,23 +74,50 @@ export type ResolvedRequestActor =
   | (AppActor & {installation?: GitHubAppInstallation})
   | (InstallationActor & {installation?: GitHubAppInstallation});
 
-/** Matches canonical positive integer text without leading zeroes. */
+/**
+ * Matches canonical positive integer text without leading zeroes.
+ *
+ * Used when parsing numeric app and installation identifiers where `007`
+ * must not be treated as the number `7`.
+ */
 const positiveIntegerPattern = /^[1-9]\d*$/;
 
-/** Matches integer-shaped text, including non-positive and leading-zero input. */
+/**
+ * Matches integer-shaped text, including non-positive and leading-zero input.
+ *
+ * App identifiers use this broader shape to reject invalid integer-like input
+ * instead of silently treating it as an app slug.
+ */
 const integerPattern = /^-?\d+$/;
 
-/** In-process counters keyed by actor observation event dimensions. */
+/**
+ * In-process counters keyed by actor observation event dimensions.
+ *
+ * This module state is process-local diagnostic data. Tests reset it through
+ * `resetActorObservationCounters` to avoid cross-test leakage.
+ */
 const actorObservationCounters: Record<string, number> = {};
 
-/** Structured payload recorded for actor parsing and resolution diagnostics. */
+/**
+ * Structured payload recorded for actor parsing and resolution diagnostics.
+ *
+ * The payload intentionally uses non-sensitive actor labels and stable outcome
+ * strings so optional debug logs can be correlated with counter keys.
+ */
 type ActorObservation = {
+  /** Event family, for example `rest-parse` or `graphql-authentication`. */
   event: string;
+  /** Actor kind associated with the observation when one is available. */
   actorKind?: RequestActor['kind'];
+  /** Stable outcome label such as `parsed`, `resolved`, or `failure`. */
   outcome?: string;
+  /** Optional failure or fallback reason used in counter keys. */
   reason?: string;
+  /** Non-sensitive actor label suitable for diagnostics. */
   actor?: string;
+  /** Header source used by parse observations. */
   source?: string;
+  /** Route or GraphQL field used by authentication-failure observations. */
   surface?: string;
 };
 
@@ -113,6 +140,9 @@ export type RequestActorParseResult = {
 
 /**
  * Returns the non-sensitive actor label used in diagnostic actor events.
+ *
+ * @param actor Parsed or resolved actor to label.
+ * @returns A stable label that avoids embedding seeded user fixture details.
  */
 const actorDiagnosticLabel = (actor: RequestActor | ResolvedRequestActor): string => {
   switch (actor.kind) {
@@ -133,6 +163,8 @@ const actorDiagnosticLabel = (actor: RequestActor | ResolvedRequestActor): strin
 
 /**
  * Reports whether actor diagnostic events should be emitted to stderr.
+ *
+ * @returns True when `SIMULACAT_ACTOR_OBSERVABILITY` is `1` or `true`.
  */
 const isActorObservationEnabled = (): boolean => {
   const {SIMULACAT_ACTOR_OBSERVABILITY: enabled} = process.env;
@@ -141,6 +173,9 @@ const isActorObservationEnabled = (): boolean => {
 
 /**
  * Records an actor selection observation and optionally logs it.
+ *
+ * @param observation Structured observation to count and, when enabled, emit
+ * as a JSON debug line.
  */
 const recordActorObservation = (observation: ActorObservation): void => {
   const key = [observation.event, observation.actorKind, observation.outcome, observation.reason]
@@ -155,6 +190,8 @@ const recordActorObservation = (observation: ActorObservation): void => {
 
 /**
  * Returns a snapshot of actor selection counters.
+ *
+ * @returns Copy of the current process-local actor observability counters.
  */
 export const getActorObservabilityCounters = (): Readonly<Record<string, number>> => {
   return {...actorObservationCounters};
@@ -162,6 +199,9 @@ export const getActorObservabilityCounters = (): Readonly<Record<string, number>
 
 /**
  * Clears actor observability counters for test isolation.
+ *
+ * Removes every process-local counter so subsequent tests start from a known
+ * empty observation state.
  */
 export const resetActorObservationCounters = (): void => {
   for (const key of Object.keys(actorObservationCounters)) {
@@ -414,6 +454,9 @@ export const resolveRequestActor = (
 
 /**
  * Records the final selected request actor for a transport adapter boundary.
+ *
+ * @param transport Adapter surface that selected the actor.
+ * @param actor Resolved actor selected for the request.
  */
 export const observeSelectedActor = (transport: 'graphql' | 'rest', actor: ResolvedRequestActor): void => {
   recordActorObservation({
@@ -426,6 +469,10 @@ export const observeSelectedActor = (transport: 'graphql' | 'rest', actor: Resol
 
 /**
  * Classifies the store-resolution outcome for a parsed request actor.
+ *
+ * @param actor Parsed actor before seeded fixture lookup.
+ * @param resolvedActor Actor returned by `resolveRequestActor`.
+ * @returns Stable outcome and optional reason labels for diagnostics.
  */
 const actorResolutionOutcome = (
   actor: RequestActor,
