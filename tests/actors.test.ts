@@ -198,6 +198,61 @@ describe('request actor parsing', () => {
       })
     );
   });
+
+  it('rejects leading-zero integers in app and installation positions', () => {
+    fc.assert(
+      fc.property(fc.integer({min: 1, max: Number.MAX_SAFE_INTEGER}), (n) => {
+        const leadingZeroInteger = `0${n}`;
+
+        expect(parseActorHeaderValue(`installation:${leadingZeroInteger}`)).toBeUndefined();
+        expect(parseActorHeaderValue(`app:${leadingZeroInteger}`)).toBeUndefined();
+      })
+    );
+  });
+
+  it('preserves actor header precedence across all header presence combinations', () => {
+    const presenceCombinations = [
+      [false, false, false],
+      [false, false, true],
+      [false, true, false],
+      [false, true, true],
+      [true, false, false],
+      [true, false, true],
+      [true, true, false],
+      [true, true, true]
+    ] as const;
+
+    fc.assert(
+      fc.property(
+        fc.constantFrom('user:preferred', 'invalid-preferred'),
+        fc.stringMatching(/^[A-Za-z0-9][A-Za-z0-9-]{0,38}$/),
+        fc.stringMatching(/^[A-Za-z0-9][A-Za-z0-9-]{0,38}$/),
+        (preferredValue, simulacatLogin, githubLogin) => {
+          for (const [hasPreferred, hasSimulacat, hasGithub] of presenceCombinations) {
+            const values = {
+              ...(hasPreferred ? {[requestActorHeader]: preferredValue} : {}),
+              ...(hasSimulacat ? {[legacySimulacatUserHeader]: simulacatLogin} : {}),
+              ...(hasGithub ? {[legacyGitHubUserHeader]: githubLogin} : {})
+            };
+
+            const actor = parseRequestActor(headers(values));
+
+            if (hasPreferred) {
+              expect(actor).toEqual(
+                preferredValue === 'user:preferred' ? {kind: 'user', login: 'preferred'} : {kind: 'anonymous'}
+              );
+            } else if (hasSimulacat) {
+              expect(actor).toEqual({kind: 'user', login: simulacatLogin});
+            } else if (hasGithub) {
+              expect(actor).toEqual({kind: 'user', login: githubLogin});
+            } else {
+              expect(actor).toEqual({kind: 'anonymous'});
+            }
+          }
+        }
+      )
+    );
+  });
 });
 
 describe('request actor resolution', () => {

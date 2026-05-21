@@ -74,7 +74,10 @@ export type ResolvedRequestActor =
   | (AppActor & {installation?: GitHubAppInstallation})
   | (InstallationActor & {installation?: GitHubAppInstallation});
 
+/** Matches canonical positive integer text without leading zeroes. */
 const positiveIntegerPattern = /^[1-9]\d*$/;
+
+/** Matches integer-shaped text, including non-positive and leading-zero input. */
 const integerPattern = /^-?\d+$/;
 
 /** In-process counters keyed by actor observation event dimensions. */
@@ -91,7 +94,12 @@ type ActorObservation = {
   surface?: string;
 };
 
-/** Parsed request actor with non-sensitive diagnostic context. */
+/**
+ * Parsed request actor with non-sensitive diagnostic context.
+ *
+ * Adapters use this value to observe whether a header parsed directly, fell
+ * back to anonymous, or defaulted because no actor header was present.
+ */
 export type RequestActorParseResult = {
   /** Actor selected from the request headers. */
   actor: RequestActor;
@@ -275,6 +283,9 @@ export const parseRequestActor = (headers: HeaderReader): RequestActor => {
  * This is a pure helper: it records no metrics and emits no logs. REST and
  * GraphQL adapters use the diagnostic result to observe parse outcomes at the
  * transport boundary.
+ *
+ * @param headers Header reader shim supplied by a transport adapter.
+ * @returns The selected actor plus source, outcome, and fallback reason.
  */
 export const parseRequestActorWithDiagnostics = (headers: HeaderReader): RequestActorParseResult => {
   const actorHeader = headers.get(requestActorHeader);
@@ -442,6 +453,9 @@ const actorResolutionOutcome = (
 
 /**
  * Records request actor parse diagnostics for a transport adapter boundary.
+ *
+ * @param transport Adapter surface that parsed the request actor.
+ * @param result Parsed actor result returned by `parseRequestActorWithDiagnostics`.
  */
 export const observeParsedRequestActor = (transport: 'graphql' | 'rest', result: RequestActorParseResult): void => {
   const observation: ActorObservation = {
@@ -459,6 +473,10 @@ export const observeParsedRequestActor = (transport: 'graphql' | 'rest', result:
 
 /**
  * Records how a parsed request actor resolved against seeded store tables.
+ *
+ * @param transport Adapter surface that resolved the actor.
+ * @param actor Parsed actor before fixture-backed resolution.
+ * @param resolvedActor Actor after matching seeded users and installations.
  */
 export const observeResolvedRequestActor = (
   transport: 'graphql' | 'rest',
@@ -480,6 +498,10 @@ export const observeResolvedRequestActor = (
 
 /**
  * Records a 401 or GraphQL authentication failure for a protected surface.
+ *
+ * @param transport Adapter surface that rejected the request.
+ * @param actor Resolved actor that failed to authenticate as a user.
+ * @param surface Route or GraphQL field that required authentication.
  */
 export const observeAuthenticationFailure = (
   transport: 'graphql' | 'rest',
