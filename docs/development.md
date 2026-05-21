@@ -47,14 +47,16 @@ rules where it has native support:
 
 Semgrep covers contracts that Biome does not express directly:
 
-- `simulacat.ts.cyclomatic-complexity`: flags functions that appear to exceed
-  McCabe/C90 cyclomatic complexity 8. This rule is heuristic and counts common
-  decision tokens such as `if`, `case`, `catch`, `&&`, `||`, and ternaries.
+- `simulacat.ts.cyclomatic-complexity`: flags JavaScript and TypeScript
+  functions that appear to exceed McCabe/C90 cyclomatic complexity 8 within a
+  bounded body scan. This rule is heuristic and counts common decision tokens
+  such as `if`, `case`, `catch`, `&&`, `||`, and ternaries.
 - `simulacat.ts.nesting-depth`: flags control-flow blocks nested deeper than
   3 levels.
-- `simulacat.ts.public-jsdoc`: requires exported functions to have complete
-  usage-oriented JSDoc, including `@param`, `@returns` where applicable, and
-  `@throws` where the function throws or returns a rejecting promise.
+- `simulacat.ts.public-jsdoc`: requires exported function declarations to have
+  complete usage-oriented JavaScript documentation (JSDoc), including `@param`,
+  `@returns` where applicable, and `@throws` where the function throws or
+  returns a rejecting promise.
 - `simulacat.ts.private-jsdoc`: requires private/internal functions to have a
   concise one-line JSDoc summary.
 - `simulacat.ts.module-jsdoc`: requires JS/TS files to start with module-level
@@ -93,7 +95,6 @@ export function convert(input: RepositoryRefInput): string {
   return formatRefLabel(input);
 }
 ```
-
 
 ### Suppressing lint violations
 

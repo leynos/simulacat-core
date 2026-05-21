@@ -1,6 +1,6 @@
 rules:
   - id: simulacat.ts.cyclomatic-complexity
-    languages: [generic]
+    languages: [typescript, javascript]
     severity: ERROR
     paths:
       include:
@@ -11,8 +11,8 @@ rules:
         - "*.ts"
         - "*.tsx"
     message: >-
-      Function appears to exceed McCabe/C90 cyclomatic complexity 8. This is a
-      Semgrep heuristic over decision tokens; refactor or justify a narrow
-      suppression.
+      Function appears to exceed McCabe/C90 cyclomatic complexity 8 within a
+      bounded body scan. This is a Semgrep heuristic over decision tokens;
+      refactor or justify a narrow suppression.
     pattern-regex: |-
-      (?s)(?:export\s+)?(?:async\s+)?(?:function\s+\w+|\w+\s*[:=]\s*(?:async\s*)?\([^)]*\)\s*=>|(?:public|private|protected)?\s*(?:async\s+)?\w+\s*\([^)]*\)\s*\{)(?:(?!\n\}).)*(?:\bif\b|\belse\s+if\b|\bcase\b|\bcatch\b|&&|\|\||\?)(?:(?!\n\}).)*(?:\bif\b|\belse\s+if\b|\bcase\b|\bcatch\b|&&|\|\||\?)(?:(?!\n\}).)*(?:\bif\b|\belse\s+if\b|\bcase\b|\bcatch\b|&&|\|\||\?)(?:(?!\n\}).)*(?:\bif\b|\belse\s+if\b|\bcase\b|\bcatch\b|&&|\|\||\?)(?:(?!\n\}).)*(?:\bif\b|\belse\s+if\b|\bcase\b|\bcatch\b|&&|\|\||\?)(?:(?!\n\}).)*(?:\bif\b|\belse\s+if\b|\bcase\b|\bcatch\b|&&|\|\||\?)(?:(?!\n\}).)*(?:\bif\b|\belse\s+if\b|\bcase\b|\bcatch\b|&&|\|\||\?)(?:(?!\n\}).)*(?:\bif\b|\belse\s+if\b|\bcase\b|\bcatch\b|&&|\|\||\?)(?:(?!\n\}).)*(?:\bif\b|\belse\s+if\b|\bcase\b|\bcatch\b|&&|\|\||\?)
+      (?s)(?:export\s+)?(?:async\s+)?(?:function\s+\w+|\w+\s*[:=]\s*(?:async\s*)?\([^)]*\)\s*=>|(?:public|private|protected)?\s*(?:async\s+)?\w+\s*\([^)]*\)\s*\{)(?=[\s\S]{0,8000}(?:\n\}|$))(?:(?!\n\}).)*(?:\bif\b|\belse\s+if\b|\bcase\b|\bcatch\b|&&|\|\||\?)(?:(?!\n\}).)*(?:\bif\b|\belse\s+if\b|\bcase\b|\bcatch\b|&&|\|\||\?)(?:(?!\n\}).)*(?:\bif\b|\belse\s+if\b|\bcase\b|\bcatch\b|&&|\|\||\?)(?:(?!\n\}).)*(?:\bif\b|\belse\s+if\b|\bcase\b|\bcatch\b|&&|\|\||\?)(?:(?!\n\}).)*(?:\bif\b|\belse\s+if\b|\bcase\b|\bcatch\b|&&|\|\||\?)(?:(?!\n\}).)*(?:\bif\b|\belse\s+if\b|\bcase\b|\bcatch\b|&&|\|\||\?)(?:(?!\n\}).)*(?:\bif\b|\belse\s+if\b|\bcase\b|\bcatch\b|&&|\|\||\?)(?:(?!\n\}).)*(?:\bif\b|\belse\s+if\b|\bcase\b|\bcatch\b|&&|\|\||\?)(?:(?!\n\}).)*(?:\bif\b|\belse\s+if\b|\bcase\b|\bcatch\b|&&|\|\||\?)

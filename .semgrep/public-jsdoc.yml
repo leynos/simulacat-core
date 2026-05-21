@@ -11,7 +11,7 @@ rules:
         - "*.ts"
         - "*.tsx"
     message: >-
-      Exported JS/TS declarations need complete JSDoc: usage-oriented
+      Exported JS/TS function declarations need complete JSDoc: usage-oriented
       description, @param entries for parameters, @returns for non-void
       results, and @throws when errors are thrown or promises reject.
     pattern-regex: |-
