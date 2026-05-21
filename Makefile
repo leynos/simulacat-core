@@ -1,9 +1,9 @@
-.PHONY: all check-fmt typecheck lint oxlint jsdoc test build clean generate markdownlint nixie
+.PHONY: all check-fmt typecheck lint biomejs oxlint jsdoc test build clean generate markdownlint nixie
 
 MDLINT ?= markdownlint-cli2
 XARGS_R := $(shell if xargs --help 2>&1 | grep -q '\\-r'; then printf -- '-r'; fi)
 
-all: check-fmt typecheck lint oxlint jsdoc test
+all: check-fmt typecheck lint test
 
 check-fmt:
 	bunx @biomejs/biome check --linter-enabled=false --assist-enabled=false .
@@ -11,7 +11,9 @@ check-fmt:
 typecheck:
 	bun run check:types
 
-lint:
+lint: biomejs oxlint jsdoc
+
+biomejs:
 	bun run lint
 
 oxlint:
