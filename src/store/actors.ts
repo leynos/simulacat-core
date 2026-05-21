@@ -468,6 +468,31 @@ export const observeSelectedActor = (transport: 'graphql' | 'rest', actor: Resol
 };
 
 /**
+ * Classifies whether a user actor resolved to a seeded GitHub user.
+ */
+const userResolutionOutcome = (resolvedActor: ResolvedRequestActor): {outcome: string; reason?: string} => {
+  return resolvedActor.kind === 'user' ? {outcome: 'resolved'} : {outcome: 'unresolved', reason: 'unknown-user'};
+};
+
+/**
+ * Classifies whether an app actor resolved to a seeded installation.
+ */
+const appResolutionOutcome = (resolvedActor: ResolvedRequestActor): {outcome: string; reason?: string} => {
+  return resolvedActor.kind === 'app' && resolvedActor.installation !== undefined
+    ? {outcome: 'resolved'}
+    : {outcome: 'unresolved', reason: 'unmatched-app'};
+};
+
+/**
+ * Classifies whether an installation actor resolved to a seeded installation.
+ */
+const installationResolutionOutcome = (resolvedActor: ResolvedRequestActor): {outcome: string; reason?: string} => {
+  return resolvedActor.kind === 'installation' && resolvedActor.installation !== undefined
+    ? {outcome: 'resolved'}
+    : {outcome: 'unresolved', reason: 'unmatched-installation'};
+};
+
+/**
  * Classifies the store-resolution outcome for a parsed request actor.
  *
  * @param actor Parsed actor before seeded fixture lookup.
@@ -482,15 +507,11 @@ const actorResolutionOutcome = (
     case 'anonymous':
       return {outcome: 'anonymous'};
     case 'user':
-      return resolvedActor.kind === 'user' ? {outcome: 'resolved'} : {outcome: 'unresolved', reason: 'unknown-user'};
+      return userResolutionOutcome(resolvedActor);
     case 'app':
-      return resolvedActor.kind === 'app' && resolvedActor.installation !== undefined
-        ? {outcome: 'resolved'}
-        : {outcome: 'unresolved', reason: 'unmatched-app'};
+      return appResolutionOutcome(resolvedActor);
     case 'installation':
-      return resolvedActor.kind === 'installation' && resolvedActor.installation !== undefined
-        ? {outcome: 'resolved'}
-        : {outcome: 'unresolved', reason: 'unmatched-installation'};
+      return installationResolutionOutcome(resolvedActor);
     default: {
       const exhaustive: never = actor;
       throw new Error(`Unsupported request actor kind: ${JSON.stringify(exhaustive)}`);
