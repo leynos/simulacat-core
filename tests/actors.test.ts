@@ -386,8 +386,8 @@ describe('actor observability counters', () => {
     observeSelectedActor('graphql', {kind: 'user', login: 'dev', user: user('dev')});
 
     expect(getActorObservabilityCounters()).toEqual({
-      'rest-selected.anonymous.unauthenticated': 1,
-      'graphql-selected.user.authenticated': 1
+      'rest-selected.anonymous.selected': 1,
+      'graphql-selected.user.selected': 1
     });
   });
 

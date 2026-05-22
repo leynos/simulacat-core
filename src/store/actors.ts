@@ -557,7 +557,7 @@ export const observeSelectedActor = (
       {
         event: `${transport}-selected`,
         actorKind: actor.kind,
-        outcome: actor.kind === 'user' ? 'authenticated' : 'unauthenticated',
+        outcome: 'selected',
         actor: actorDiagnosticLabel(actor)
       },
       context
