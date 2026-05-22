@@ -86,6 +86,13 @@ type PrecedenceActorValues = {
   githubLogin: string;
 };
 
+/**
+ * Builds the header record for one precedence test combination.
+ *
+ * @param combination - Boolean header-presence flags for the test case.
+ * @param values - Candidate actor header values used when a header is present.
+ * @returns A request header record suitable for `parseRequestActor`.
+ */
 const buildPrecedenceHeaders = (
   combination: PrecedenceCombination,
   values: PrecedenceActorValues
@@ -95,6 +102,13 @@ const buildPrecedenceHeaders = (
   ...(combination.hasGithub ? {[legacyGitHubUserHeader]: values.githubLogin} : {})
 });
 
+/**
+ * Computes the actor expected for one precedence test combination.
+ *
+ * @param combination - Boolean header-presence flags for the test case.
+ * @param values - Candidate actor header values used when a header is present.
+ * @returns The `RequestActor` expected after precedence rules are applied.
+ */
 const expectedActorForPrecedence = (
   combination: PrecedenceCombination,
   values: PrecedenceActorValues
