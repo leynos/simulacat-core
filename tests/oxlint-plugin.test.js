@@ -75,6 +75,26 @@ function runOxlint({configPath, cwd = PROJECT_ROOT, filePath}) {
   });
 }
 
+/** Runs Oxlint against a one-file fixture workspace. */
+function runFixture({name, rules, source}) {
+  const workspace = createFixtureWorkspace();
+  try {
+    const configPath = writeConfig({
+      directory: workspace.directory,
+      rules
+    });
+    const filePath = writeSource({
+      directory: workspace.directory,
+      name,
+      source
+    });
+
+    return runOxlint({configPath, filePath});
+  } finally {
+    workspace.cleanup();
+  }
+}
+
 /** Counts diagnostics for one rule id. */
 function countRuleFindings(output, ruleId) {
   return output.split('\n').filter((line) => line.includes(ruleId)).length;
@@ -170,25 +190,19 @@ function predicateAst(maxDepth = 3) {
 
 describe('df12/complex-conditional', () => {
   it('counts logical operators in branch predicates without counting nested callback predicates', () => {
-    const workspace = createFixtureWorkspace();
-    try {
-      const configPath = writeConfig({
-        directory: workspace.directory,
-        rules: {
-          'df12/complex-conditional': [
-            'error',
-            {
-              includeNullishCoalescing: false,
-              includeTernary: true,
-              maxLogicalOperators: 1
-            }
-          ]
-        }
-      });
-      const filePath = writeSource({
-        directory: workspace.directory,
-        name: 'complex-conditional.ts',
-        source: `
+    const result = runFixture({
+      name: 'complex-conditional.ts',
+      rules: {
+        'df12/complex-conditional': [
+          'error',
+          {
+            includeNullishCoalescing: false,
+            includeTernary: true,
+            maxLogicalOperators: 1
+          }
+        ]
+      },
+      source: `
           function checks(a, b, c, items, ready) {
             if (a) {}
             if (a && b) {}
@@ -197,76 +211,52 @@ describe('df12/complex-conditional', () => {
             if (items.some((item) => item.ready && item.enabled) && ready) {}
           }
         `
-      });
+    });
 
-      const result = runOxlint({configPath, filePath});
-      expect(result.status).toBe(1);
-      expect(countRuleFindings(result.stdout, 'df12(complex-conditional)')).toBe(2);
-    } finally {
-      workspace.cleanup();
-    }
+    expect(result.status).toBe(1);
+    expect(countRuleFindings(result.stdout, 'df12(complex-conditional)')).toBe(2);
   });
 
   it('counts ternary roots and nested logical operators when ternaries are included', () => {
-    const workspace = createFixtureWorkspace();
-    try {
-      const configPath = writeConfig({
-        directory: workspace.directory,
-        rules: {
-          'df12/complex-conditional': [
-            'error',
-            {
-              includeTernary: true,
-              maxLogicalOperators: 1
-            }
-          ]
-        }
-      });
-      const filePath = writeSource({
-        directory: workspace.directory,
-        name: 'complex-ternary.ts',
-        source: `
+    const result = runFixture({
+      name: 'complex-ternary.ts',
+      rules: {
+        'df12/complex-conditional': [
+          'error',
+          {
+            includeTernary: true,
+            maxLogicalOperators: 1
+          }
+        ]
+      },
+      source: `
           const x = a ? (b && c) : d;
         `
-      });
+    });
 
-      const result = runOxlint({configPath, filePath});
-      expect(result.status).toBe(1);
-      expect(countRuleFindings(result.stdout, 'df12(complex-conditional)')).toBe(1);
-    } finally {
-      workspace.cleanup();
-    }
+    expect(result.status).toBe(1);
+    expect(countRuleFindings(result.stdout, 'df12(complex-conditional)')).toBe(1);
   });
 
   it('does not double-report ternaries used directly as statement tests', () => {
-    const workspace = createFixtureWorkspace();
-    try {
-      const configPath = writeConfig({
-        directory: workspace.directory,
-        rules: {
-          'df12/complex-conditional': [
-            'error',
-            {
-              includeTernary: true,
-              maxLogicalOperators: 1
-            }
-          ]
-        }
-      });
-      const filePath = writeSource({
-        directory: workspace.directory,
-        name: 'direct-test-ternary.ts',
-        source: `
+    const result = runFixture({
+      name: 'direct-test-ternary.ts',
+      rules: {
+        'df12/complex-conditional': [
+          'error',
+          {
+            includeTernary: true,
+            maxLogicalOperators: 1
+          }
+        ]
+      },
+      source: `
           if (a ? (b && c) : d) {}
         `
-      });
+    });
 
-      const result = runOxlint({configPath, filePath});
-      expect(result.status).toBe(1);
-      expect(countRuleFindings(result.stdout, 'df12(complex-conditional)')).toBe(1);
-    } finally {
-      workspace.cleanup();
-    }
+    expect(result.status).toBe(1);
+    expect(countRuleFindings(result.stdout, 'df12(complex-conditional)')).toBe(1);
   });
 });
 
@@ -669,6 +659,7 @@ describe('df12 JSDoc baseline', () => {
   });
 
   it('caches an empty baseline when the baseline JSON is invalid', () => {
+    testInternals.resetBaselineCache();
     const workspace = createFixtureWorkspace();
     const previousCwd = process.cwd();
     try {

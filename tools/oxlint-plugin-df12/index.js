@@ -34,6 +34,11 @@ function loadBaseline() {
   }
 }
 
+/** Clears cached baseline state for deterministic unit tests. */
+function resetBaselineCache() {
+  baselineCache = null;
+}
+
 /** Returns a repository-relative path for a linted file. */
 function relativeFilename(context) {
   const filename = context.filename ?? context.getFilename?.() ?? '';
@@ -428,7 +433,8 @@ export const testInternals = {
   collectExportedNames,
   containsNode,
   countPredicateOperators,
-  loadBaseline
+  loadBaseline,
+  resetBaselineCache
 };
 
 /** Reports a predicate when it exceeds the configured operator threshold. */
