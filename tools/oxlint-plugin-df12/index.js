@@ -12,17 +12,25 @@ const MODULE_JSDOC_PATTERN =
 
 const FUNCTION_NODE_TYPES = new Set(['ArrowFunctionExpression', 'FunctionDeclaration', 'FunctionExpression']);
 const TEST_STATEMENT_NODE_TYPES = new Set(['DoWhileStatement', 'ForStatement', 'IfStatement', 'WhileStatement']);
+let baselineCache = null;
 
 /** Loads baseline entries from the repository root. */
 function loadBaseline() {
+  if (baselineCache) return baselineCache;
+
   const baselinePath = path.join(process.cwd(), '.jsdoc-baseline.json');
-  if (!existsSync(baselinePath)) return new Set();
+  if (!existsSync(baselinePath)) {
+    baselineCache = new Set();
+    return baselineCache;
+  }
 
   try {
     const parsed = JSON.parse(readFileSync(baselinePath, 'utf8'));
-    return new Set(parsed.entries ?? []);
-  } catch (error) {
-    throw new Error(`Failed to parse JSDoc baseline at ${baselinePath}.`, {cause: error});
+    baselineCache = new Set(parsed.entries ?? []);
+    return baselineCache;
+  } catch {
+    baselineCache = new Set();
+    return baselineCache;
   }
 }
 

@@ -668,7 +668,7 @@ describe('df12 JSDoc baseline', () => {
     }
   });
 
-  it('fails clearly when the baseline JSON is invalid', () => {
+  it('caches an empty baseline when the baseline JSON is invalid', () => {
     const workspace = createFixtureWorkspace();
     const previousCwd = process.cwd();
     try {
@@ -676,7 +676,13 @@ describe('df12 JSDoc baseline', () => {
       writeFileSync(baselinePath, '{', 'utf8');
       process.chdir(workspace.directory);
 
-      expect(() => testInternals.loadBaseline()).toThrow('Failed to parse JSDoc baseline');
+      const invalidBaseline = testInternals.loadBaseline();
+      writeFileSync(baselinePath, JSON.stringify({entries: ['later.ts#value']}), 'utf8');
+      const cachedBaseline = testInternals.loadBaseline();
+
+      expect(invalidBaseline.size).toBe(0);
+      expect(cachedBaseline.size).toBe(0);
+      expect(cachedBaseline).toBe(invalidBaseline);
     } finally {
       process.chdir(previousCwd);
       workspace.cleanup();
