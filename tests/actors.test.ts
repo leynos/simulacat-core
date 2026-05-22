@@ -346,6 +346,51 @@ describe('request actor resolution', () => {
     expect(actor).toEqual({kind: 'installation', installationId: 999});
     expect(actor).not.toHaveProperty('installation');
   });
+
+  it('resolves user actors across generated fixture logins', () => {
+    fc.assert(
+      fc.property(fc.stringMatching(/^[A-Za-z0-9][A-Za-z0-9-]{0,38}$/), (login) => {
+        const actor = resolveRequestActor({kind: 'user', login}, {users: [user(login)], installations});
+
+        expect(selectAuthenticatedUser(actor)).toEqual(expect.objectContaining({login}));
+      })
+    );
+  });
+
+  it('resolves app actors across generated app identifiers', () => {
+    fc.assert(
+      fc.property(
+        fc.integer({min: 1, max: Number.MAX_SAFE_INTEGER}),
+        fc.stringMatching(/^[A-Za-z][A-Za-z0-9-]{0,38}$/),
+        (appId, appSlug) => {
+          const appInstallations = [installation(99, appId, appSlug)];
+
+          expect(resolveRequestActor({kind: 'app', appId}, {users, installations: appInstallations})).toEqual(
+            expect.objectContaining({kind: 'app', installation: expect.objectContaining({app_id: appId})})
+          );
+          expect(resolveRequestActor({kind: 'app', slug: appSlug}, {users, installations: appInstallations})).toEqual(
+            expect.objectContaining({kind: 'app', installation: expect.objectContaining({app_slug: appSlug})})
+          );
+        }
+      )
+    );
+  });
+
+  it('resolves installation actors across generated positive installation IDs', () => {
+    fc.assert(
+      fc.property(fc.integer({min: 1, max: Number.MAX_SAFE_INTEGER}), (installationId) => {
+        const appInstallations = [installation(installationId, 42, 'simulator-app')];
+        const actor = resolveRequestActor(
+          {kind: 'installation', installationId},
+          {users, installations: appInstallations}
+        );
+
+        expect(actor).toEqual(
+          expect.objectContaining({kind: 'installation', installation: expect.objectContaining({id: installationId})})
+        );
+      })
+    );
+  });
 });
 
 describe('actor observability counters', () => {

@@ -1,13 +1,15 @@
 /**
  * @file GraphQL Yoga handler creation for the simulated GitHub schema.
  *
- * This module loads the bundled GraphQL SDL, creates the Yoga schema, and
- * applies the REST-compatible media-type processor used by the simulator.
+ * This module loads the bundled GraphQL SDL, parses request actors from
+ * incoming headers, builds Yoga context carrying the parsed `requestActor` for
+ * resolver use, and applies the REST-compatible media-type processor used by
+ * the simulator.
  */
 import {createSchema, createYoga, processRegularResult} from 'graphql-yoga';
 import {isAsyncIterable} from '@graphql-tools/utils';
 import {createResolvers, type GraphQLContext} from './resolvers.ts';
-import {observeParsedRequestActor, parseRequestActorWithDiagnostics, requestIdFromHeaders} from '../store/actors.ts';
+import {parseRequestActorWithDiagnostics, requestIdFromHeaders} from '../store/actors.ts';
 import {getSchema} from '../utils.ts';
 import type {ExtendedSimulationStore} from '../store/index.ts';
 
@@ -55,10 +57,10 @@ export function createHandler(simulationStore: ExtendedSimulationStore) {
     context({request}) {
       const headers = {get: (name: string) => request.headers.get(name)};
       const requestId = requestIdFromHeaders(headers);
-      const observationContext = requestId === undefined ? undefined : {requestId};
       const parseResult = parseRequestActorWithDiagnostics(headers);
-      observeParsedRequestActor('graphql', parseResult, observationContext);
-      return requestId === undefined ? {requestActor: parseResult.actor} : {requestActor: parseResult.actor, requestId};
+      return requestId === undefined
+        ? {requestActor: parseResult.actor, requestActorParseResult: parseResult}
+        : {requestActor: parseResult.actor, requestActorParseResult: parseResult, requestId};
     },
     plugins: [customMediaTypeParser]
   });

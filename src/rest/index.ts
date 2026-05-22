@@ -8,10 +8,12 @@
 import type {Document, SimulationHandlers} from '@simulacrum/foundation-simulator';
 import type {ExtendedSimulationStore} from '../store/index.ts';
 import {
+  type ActorObservationContext,
   observeAuthenticationFailure,
   observeParsedRequestActor,
   observeResolvedRequestActor,
   observeSelectedActor,
+  type RequestActorParseResult,
   parseRequestActorWithDiagnostics,
   requestIdFromHeaders,
   resolveRequestActor,
@@ -33,29 +35,53 @@ type Res = Parameters<SimulationHandler>[2];
 const notFound = {message: 'Not Found'};
 
 /**
- * Observes and selects the authenticated user for a REST request.
+ * Selects the authenticated user for a parsed REST request actor.
  *
- * Extracts the request actor from the incoming headers via the `HeaderReader`
- * shim, resolves it against the store's users and installations tables,
- * records the resolved actor in the process-local observability counters, and
- * returns both the resolved actor and authenticated `GitHubUser`, or undefined
- * when the actor cannot authenticate as a user.
+ * Resolves the parsed actor against the store's users and installations
+ * tables, and returns both the resolved actor and authenticated `GitHubUser`,
+ * or undefined when the actor cannot authenticate as a user. Observation is
+ * performed explicitly by REST handlers after this query helper returns.
  */
-const observeAndSelectUserForRequest = (simulationStore: ExtendedSimulationStore, request: Req) => {
+const selectUserForRequest = (simulationStore: ExtendedSimulationStore, parseResult: RequestActorParseResult) => {
   const state = simulationStore.store.getState();
-  const headers = {get: (name: string) => request.get(name)};
-  const requestId = requestIdFromHeaders(headers);
-  const observationContext = requestId === undefined ? undefined : {requestId};
-  const parseResult = parseRequestActorWithDiagnostics(headers);
-  observeParsedRequestActor('rest', parseResult, observationContext);
   const resolvedActor = resolveRequestActor(parseResult.actor, {
     users: simulationStore.schema.users.selectTableAsList(state),
     installations: simulationStore.schema.installations.selectTableAsList(state)
   });
+
+  return {resolvedActor, user: selectAuthenticatedUser(resolvedActor)};
+};
+
+/**
+ * Parses REST actor headers and builds observation context.
+ *
+ * @param request Incoming REST request adapter.
+ * @returns Parsed actor diagnostics plus optional request correlation context.
+ */
+const parseActorRequest = (
+  request: Req
+): {parseResult: RequestActorParseResult; observationContext?: ActorObservationContext} => {
+  const headers = {get: (name: string) => request.get(name)};
+  const requestId = requestIdFromHeaders(headers);
+  const parseResult = parseRequestActorWithDiagnostics(headers);
+  return requestId === undefined ? {parseResult} : {parseResult, observationContext: {requestId}};
+};
+
+/**
+ * Observes a REST actor parse, resolution, and final selection.
+ *
+ * @param parseResult Parsed actor diagnostics selected from request headers.
+ * @param resolvedActor Actor after fixture-backed resolution.
+ * @param observationContext Optional request correlation context.
+ */
+const observeRestActorSelection = (
+  parseResult: RequestActorParseResult,
+  resolvedActor: ReturnType<typeof selectUserForRequest>['resolvedActor'],
+  observationContext?: ActorObservationContext
+): void => {
+  observeParsedRequestActor('rest', parseResult, observationContext);
   observeResolvedRequestActor('rest', parseResult.actor, resolvedActor, observationContext);
   observeSelectedActor('rest', resolvedActor, observationContext);
-
-  return {resolvedActor, user: selectAuthenticatedUser(resolvedActor), observationContext};
 };
 
 /**
@@ -338,7 +364,9 @@ const handlers =
 
           // GET /user
           'users/get-authenticated': async (_context: Ctx, request: Req, response: Res) => {
-            const {resolvedActor, user, observationContext} = observeAndSelectUserForRequest(simulationStore, request);
+            const {parseResult, observationContext} = parseActorRequest(request);
+            const {resolvedActor, user} = selectUserForRequest(simulationStore, parseResult);
+            observeRestActorSelection(parseResult, resolvedActor, observationContext);
             if (!user) {
               observeAuthenticationFailure('rest', resolvedActor, 'GET /user', observationContext);
               return response.status(401).json({message: 'Authentication required'});
@@ -354,7 +382,9 @@ const handlers =
 
           // GET /user/memberships/orgs
           'orgs/list-memberships-for-authenticated-user': async (_context: Ctx, request: Req, response: Res) => {
-            const {resolvedActor, user, observationContext} = observeAndSelectUserForRequest(simulationStore, request);
+            const {parseResult, observationContext} = parseActorRequest(request);
+            const {resolvedActor, user} = selectUserForRequest(simulationStore, parseResult);
+            observeRestActorSelection(parseResult, resolvedActor, observationContext);
             if (!user) {
               observeAuthenticationFailure('rest', resolvedActor, 'GET /user/memberships/orgs', observationContext);
               return response.status(401).json({message: 'Authentication required'});

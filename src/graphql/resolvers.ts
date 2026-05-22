@@ -13,8 +13,11 @@ import {assert} from 'assert-ts';
 import type {ExtendedSimulationStore} from '../store/index.ts';
 import {
   observeAuthenticationFailure,
+  observeParsedRequestActor,
   observeResolvedRequestActor,
   observeSelectedActor,
+  type ActorObservationContext,
+  type RequestActorParseResult,
   resolveRequestActor,
   selectAuthenticatedUser,
   type RequestActor
@@ -27,6 +30,7 @@ import {
  */
 export type GraphQLContext = {
   requestActor: RequestActor;
+  requestActorParseResult: RequestActorParseResult;
   requestId?: string;
 };
 
@@ -41,24 +45,31 @@ export class AuthenticationError extends Error {
 }
 
 /**
- * Observes and selects the viewer user for the current GraphQL context.
+ * Selects the viewer user for the current GraphQL context.
  *
  * Resolves the context actor against the store's users and installations
- * tables, records the resolved actor in the process-local observability
- * counters, and returns both the resolved actor and matching `GitHubUser`, or
- * undefined when the actor is anonymous or unknown.
+ * tables, and returns both the resolved actor and matching `GitHubUser`, or
+ * undefined when the actor is anonymous or unknown. Observation is performed
+ * explicitly by resolver handlers after this query helper returns.
  */
-const observeAndSelectViewer = (simulationStore: ExtendedSimulationStore, context: GraphQLContext) => {
+const selectViewer = (simulationStore: ExtendedSimulationStore, context: GraphQLContext) => {
   const state = simulationStore.store.getState();
-  const observationContext = context.requestId === undefined ? undefined : {requestId: context.requestId};
   const resolvedActor = resolveRequestActor(context.requestActor, {
     users: simulationStore.schema.users.selectTableAsList(state),
     installations: simulationStore.schema.installations.selectTableAsList(state)
   });
-  observeResolvedRequestActor('graphql', context.requestActor, resolvedActor, observationContext);
-  observeSelectedActor('graphql', resolvedActor, observationContext);
 
-  return {resolvedActor, user: selectAuthenticatedUser(resolvedActor), observationContext};
+  return {resolvedActor, user: selectAuthenticatedUser(resolvedActor)};
+};
+
+/**
+ * Builds GraphQL actor observation context from resolver context.
+ *
+ * @param context Resolver context that may carry a request identifier.
+ * @returns Optional observation context with request correlation details.
+ */
+const actorObservationContext = (context: GraphQLContext): ActorObservationContext | undefined => {
+  return context.requestId === undefined ? undefined : {requestId: context.requestId};
 };
 
 /**
@@ -73,7 +84,11 @@ export function createResolvers(simulationStore: ExtendedSimulationStore): Resol
   return {
     Query: {
       viewer(_root: unknown, _args: unknown, context: GraphQLContext) {
-        const {resolvedActor, user, observationContext} = observeAndSelectViewer(simulationStore, context);
+        const observationContext = actorObservationContext(context);
+        observeParsedRequestActor('graphql', context.requestActorParseResult, observationContext);
+        const {resolvedActor, user} = selectViewer(simulationStore, context);
+        observeResolvedRequestActor('graphql', context.requestActor, resolvedActor, observationContext);
+        observeSelectedActor('graphql', resolvedActor, observationContext);
         if (!user) {
           observeAuthenticationFailure('graphql', resolvedActor, 'Query.viewer', observationContext);
           throw new AuthenticationError('Authentication required');
