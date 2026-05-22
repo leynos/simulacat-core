@@ -9,6 +9,14 @@ const basePort = 2999;
 const host = 'http://localhost';
 const url = `${host}:${basePort}`;
 
+const buildActorObservabilityState = () => ({
+  users: [{login: 'obs-user', email: 'obs@example.test', organizations: []}],
+  organizations: [],
+  repositories: [],
+  branches: [],
+  blobs: []
+});
+
 describe('router extension tests', () => {
   let server: SimulationServer;
   beforeAll(async () => {
@@ -67,13 +75,7 @@ describe('actor observability end-to-end', () => {
 
   beforeAll(async () => {
     const app = simulation({
-      initialState: {
-        users: [{login: 'obs-user', email: 'obs@example.test', organizations: []}],
-        organizations: [],
-        repositories: [],
-        branches: [],
-        blobs: []
-      }
+      initialState: buildActorObservabilityState()
     });
     server = await app.listen(0);
     baseUrl = `http://localhost:${server.port}`;
