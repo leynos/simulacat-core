@@ -16,6 +16,12 @@ export const legacySimulacatUserHeader = 'x-simulacat-user';
 /** GitHub-compatible legacy header that selects a user actor by login. */
 export const legacyGitHubUserHeader = 'x-github-user';
 
+/** Preferred request correlation header included in actor diagnostic logs. */
+export const requestIdHeader = 'x-request-id';
+
+/** Alternate request correlation header included in actor diagnostic logs. */
+export const correlationIdHeader = 'x-correlation-id';
+
 /** Minimal header reader accepted by request actor parsing helpers. */
 export type HeaderReader = {
   /** Return the header value for `name`, or nullish when it is absent. */
@@ -119,6 +125,14 @@ type ActorObservation = {
   source?: string;
   /** Route or GraphQL field used by authentication-failure observations. */
   surface?: string;
+  /** Optional request identifier used only in structured logs, not metrics. */
+  requestId?: string;
+};
+
+/** Correlation context attached to actor observations at adapter boundaries. */
+export type ActorObservationContext = {
+  /** Request identifier copied from `x-request-id` or `x-correlation-id`. */
+  requestId?: string;
 };
 
 /**
@@ -172,6 +186,33 @@ const isActorObservationEnabled = (): boolean => {
 };
 
 /**
+ * Extracts a request correlation identifier from supported headers.
+ *
+ * @param headers Header reader supplied by REST or GraphQL adapters.
+ * @returns The first non-blank request id, or undefined when none is present.
+ */
+export const requestIdFromHeaders = (headers: HeaderReader): string | undefined => {
+  const requestId = headers.get(requestIdHeader)?.trim();
+  if (requestId) return requestId;
+  const correlationId = headers.get(correlationIdHeader)?.trim();
+  return correlationId || undefined;
+};
+
+/**
+ * Adds request correlation context to a structured observation.
+ *
+ * @param observation Base actor observation.
+ * @param context Optional request correlation context.
+ * @returns Observation enriched with request id when one is available.
+ */
+const withObservationContext = (
+  observation: ActorObservation,
+  context: ActorObservationContext | undefined
+): ActorObservation => {
+  return context?.requestId ? {...observation, requestId: context.requestId} : observation;
+};
+
+/**
  * Records an actor selection observation and optionally logs it.
  *
  * @param observation Structured observation to count and, when enabled, emit
@@ -195,6 +236,43 @@ const recordActorObservation = (observation: ActorObservation): void => {
  */
 export const getActorObservabilityCounters = (): Readonly<Record<string, number>> => {
   return {...actorObservationCounters};
+};
+
+/**
+ * Escapes a Prometheus label value for text exposition.
+ *
+ * @param value Raw label value.
+ * @returns Label value with backslashes, quotes, and newlines escaped.
+ */
+const escapePrometheusLabel = (value: string): string => {
+  return value.replaceAll('\\', '\\\\').replaceAll('"', '\\"').replaceAll('\n', '\\n');
+};
+
+/**
+ * Exports actor observation counters in Prometheus text exposition format.
+ *
+ * Labels are deliberately bounded to event, actor kind, outcome, and reason;
+ * request ids and actor labels are emitted only in structured logs.
+ */
+export const getActorObservabilityMetrics = (): string => {
+  const lines = [
+    '# HELP simulacat_actor_observations_total Actor authentication observations.',
+    '# TYPE simulacat_actor_observations_total counter'
+  ];
+  for (const [key, value] of Object.entries(actorObservationCounters).sort(([left], [right]) =>
+    left.localeCompare(right)
+  )) {
+    const [event = '', actorKind = '', outcome = '', ...reasonParts] = key.split('.');
+    const reason = reasonParts.join('.');
+    const labels = [
+      `event="${escapePrometheusLabel(event)}"`,
+      `actor_kind="${escapePrometheusLabel(actorKind)}"`,
+      `outcome="${escapePrometheusLabel(outcome)}"`,
+      `reason="${escapePrometheusLabel(reason)}"`
+    ].join(',');
+    lines.push(`simulacat_actor_observations_total{${labels}} ${value}`);
+  }
+  return `${lines.join('\n')}\n`;
 };
 
 /**
@@ -467,14 +545,24 @@ export const resolveRequestActor = (
  *
  * @param transport Adapter surface that selected the actor.
  * @param actor Resolved actor selected for the request.
+ * @param context Optional request correlation context for structured logs.
  */
-export const observeSelectedActor = (transport: 'graphql' | 'rest', actor: ResolvedRequestActor): void => {
-  recordActorObservation({
-    event: `${transport}-selected`,
-    actorKind: actor.kind,
-    outcome: actor.kind === 'user' ? 'authenticated' : 'unauthenticated',
-    actor: actorDiagnosticLabel(actor)
-  });
+export const observeSelectedActor = (
+  transport: 'graphql' | 'rest',
+  actor: ResolvedRequestActor,
+  context?: ActorObservationContext
+): void => {
+  recordActorObservation(
+    withObservationContext(
+      {
+        event: `${transport}-selected`,
+        actorKind: actor.kind,
+        outcome: actor.kind === 'user' ? 'authenticated' : 'unauthenticated',
+        actor: actorDiagnosticLabel(actor)
+      },
+      context
+    )
+  );
 };
 
 /**
@@ -534,8 +622,13 @@ const actorResolutionOutcome = (
  *
  * @param transport Adapter surface that parsed the request actor.
  * @param result Parsed actor result returned by `parseRequestActorWithDiagnostics`.
+ * @param context Optional request correlation context for structured logs.
  */
-export const observeParsedRequestActor = (transport: 'graphql' | 'rest', result: RequestActorParseResult): void => {
+export const observeParsedRequestActor = (
+  transport: 'graphql' | 'rest',
+  result: RequestActorParseResult,
+  context?: ActorObservationContext
+): void => {
   const observation: ActorObservation = {
     event: `${transport}-parse`,
     actorKind: result.actor.kind,
@@ -546,7 +639,7 @@ export const observeParsedRequestActor = (transport: 'graphql' | 'rest', result:
   if (result.reason !== undefined) {
     observation.reason = result.reason;
   }
-  recordActorObservation(observation);
+  recordActorObservation(withObservationContext(observation, context));
 };
 
 /**
@@ -555,11 +648,13 @@ export const observeParsedRequestActor = (transport: 'graphql' | 'rest', result:
  * @param transport Adapter surface that resolved the actor.
  * @param actor Parsed actor before fixture-backed resolution.
  * @param resolvedActor Actor after matching seeded users and installations.
+ * @param context Optional request correlation context for structured logs.
  */
 export const observeResolvedRequestActor = (
   transport: 'graphql' | 'rest',
   actor: RequestActor,
-  resolvedActor: ResolvedRequestActor
+  resolvedActor: ResolvedRequestActor,
+  context?: ActorObservationContext
 ): void => {
   const result = actorResolutionOutcome(actor, resolvedActor);
   const observation: ActorObservation = {
@@ -571,7 +666,7 @@ export const observeResolvedRequestActor = (
   if (result.reason !== undefined) {
     observation.reason = result.reason;
   }
-  recordActorObservation(observation);
+  recordActorObservation(withObservationContext(observation, context));
 };
 
 /**
@@ -580,20 +675,27 @@ export const observeResolvedRequestActor = (
  * @param transport Adapter surface that rejected the request.
  * @param actor Resolved actor that failed to authenticate as a user.
  * @param surface Route or GraphQL field that required authentication.
+ * @param context Optional request correlation context for structured logs.
  */
 export const observeAuthenticationFailure = (
   transport: 'graphql' | 'rest',
   actor: ResolvedRequestActor,
-  surface: string
+  surface: string,
+  context?: ActorObservationContext
 ): void => {
-  recordActorObservation({
-    event: `${transport}-authentication`,
-    actorKind: actor.kind,
-    outcome: 'failure',
-    reason: surface,
-    surface,
-    actor: actorDiagnosticLabel(actor)
-  });
+  recordActorObservation(
+    withObservationContext(
+      {
+        event: `${transport}-authentication`,
+        actorKind: actor.kind,
+        outcome: 'failure',
+        reason: surface,
+        surface,
+        actor: actorDiagnosticLabel(actor)
+      },
+      context
+    )
+  );
 };
 
 /**

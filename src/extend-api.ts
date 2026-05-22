@@ -9,6 +9,7 @@ import type {createFoundationSimulationServer} from '@simulacrum/foundation-simu
 import {stringify} from 'querystring';
 import {createHandler} from './graphql/handler.ts';
 import {normalizeGitRefPath} from './rest/utils.ts';
+import {getActorObservabilityMetrics} from './store/actors.ts';
 import type {ExtendedSimulationStore} from './store/index.ts';
 
 type FoundationExtendRouter = NonNullable<Parameters<typeof createFoundationSimulationServer>[0]['extendRouter']>;
@@ -39,6 +40,10 @@ export const extendRouter =
 
     router.get('/health', (_, response) => {
       response.send({status: 'ok'});
+    });
+
+    router.get('/metrics', (_, response) => {
+      response.type('text/plain; version=0.0.4').send(getActorObservabilityMetrics());
     });
 
     router.use('/graphql', createHandler(simulationStore));

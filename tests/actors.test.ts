@@ -3,6 +3,7 @@ import {describe, expect, it} from 'bun:test';
 import fc from 'fast-check';
 import {
   getActorObservabilityCounters,
+  getActorObservabilityMetrics,
   legacyGitHubUserHeader,
   legacySimulacatUserHeader,
   observeAuthenticationFailure,
@@ -13,6 +14,7 @@ import {
   parseRequestActor,
   parseRequestActorWithDiagnostics,
   requestActorHeader,
+  requestIdFromHeaders,
   resetActorObservationCounters,
   resolveRequestActor,
   selectAuthenticatedUser,
@@ -347,6 +349,36 @@ describe('request actor resolution', () => {
 });
 
 describe('actor observability counters', () => {
+  it('extracts request correlation identifiers from supported headers', () => {
+    expect(requestIdFromHeaders(headers({'x-request-id': ' req-1 '}))).toBe('req-1');
+    expect(requestIdFromHeaders(headers({'x-correlation-id': ' corr-1 '}))).toBe('corr-1');
+    expect(requestIdFromHeaders(headers({'x-request-id': ' ', 'x-correlation-id': ' corr-2 '}))).toBe('corr-2');
+  });
+
+  it('includes request identifiers in structured actor logs', () => {
+    resetActorObservationCounters();
+    const originalDebug = console.debug;
+    const {SIMULACAT_ACTOR_OBSERVABILITY: originalEnabled} = process.env;
+    const lines: string[] = [];
+
+    console.debug = (message?: unknown) => {
+      lines.push(String(message));
+    };
+    Reflect.set(process.env, 'SIMULACAT_ACTOR_OBSERVABILITY', '1');
+    try {
+      observeSelectedActor('rest', {kind: 'anonymous'}, {requestId: 'req-1'});
+    } finally {
+      console.debug = originalDebug;
+      if (originalEnabled === undefined) {
+        Reflect.deleteProperty(process.env, 'SIMULACAT_ACTOR_OBSERVABILITY');
+      } else {
+        Reflect.set(process.env, 'SIMULACAT_ACTOR_OBSERVABILITY', originalEnabled);
+      }
+    }
+
+    expect(JSON.parse(lines[0] ?? '{}')).toEqual(expect.objectContaining({requestId: 'req-1'}));
+  });
+
   it('records selected actor observations at adapter boundaries', () => {
     resetActorObservationCounters();
 
@@ -376,6 +408,9 @@ describe('actor observability counters', () => {
       'rest-resolution.user.unresolved.unknown-user': 1,
       'graphql-authentication.anonymous.failure.Query.viewer': 1
     });
+    expect(getActorObservabilityMetrics()).toContain(
+      'simulacat_actor_observations_total{event="graphql-authentication",actor_kind="anonymous",outcome="failure",reason="Query.viewer"} 1'
+    );
   });
 
   it('clears selected actor observations for test isolation', () => {

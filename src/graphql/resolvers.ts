@@ -27,6 +27,7 @@ import {
  */
 export type GraphQLContext = {
   requestActor: RequestActor;
+  requestId?: string;
 };
 
 /**
@@ -49,14 +50,15 @@ export class AuthenticationError extends Error {
  */
 const observeAndSelectViewer = (simulationStore: ExtendedSimulationStore, context: GraphQLContext) => {
   const state = simulationStore.store.getState();
+  const observationContext = context.requestId === undefined ? undefined : {requestId: context.requestId};
   const resolvedActor = resolveRequestActor(context.requestActor, {
     users: simulationStore.schema.users.selectTableAsList(state),
     installations: simulationStore.schema.installations.selectTableAsList(state)
   });
-  observeResolvedRequestActor('graphql', context.requestActor, resolvedActor);
-  observeSelectedActor('graphql', resolvedActor);
+  observeResolvedRequestActor('graphql', context.requestActor, resolvedActor, observationContext);
+  observeSelectedActor('graphql', resolvedActor, observationContext);
 
-  return {resolvedActor, user: selectAuthenticatedUser(resolvedActor)};
+  return {resolvedActor, user: selectAuthenticatedUser(resolvedActor), observationContext};
 };
 
 /**
@@ -71,9 +73,9 @@ export function createResolvers(simulationStore: ExtendedSimulationStore): Resol
   return {
     Query: {
       viewer(_root: unknown, _args: unknown, context: GraphQLContext) {
-        const {resolvedActor, user} = observeAndSelectViewer(simulationStore, context);
+        const {resolvedActor, user, observationContext} = observeAndSelectViewer(simulationStore, context);
         if (!user) {
-          observeAuthenticationFailure('graphql', resolvedActor, 'Query.viewer');
+          observeAuthenticationFailure('graphql', resolvedActor, 'Query.viewer', observationContext);
           throw new AuthenticationError('Authentication required');
         }
         return toGraphql(simulationStore, 'User', user);

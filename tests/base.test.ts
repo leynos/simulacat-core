@@ -39,4 +39,11 @@ describe('router extension tests', () => {
     expect(res.ok).toBe(true);
     expect(body).toEqual({message: 'Hello from GitHub API simulator!'});
   });
+
+  it('exposes actor observability metrics', async () => {
+    const res: Response = await fetch(`${url}/metrics`);
+    const body = await res.text();
+    expect(res.ok).toBe(true);
+    expect(body).toContain('# TYPE simulacat_actor_observations_total counter');
+  });
 });

@@ -104,12 +104,18 @@ resolved actor selections, and authentication failures at their transport
 boundaries. The parser and resolver helpers remain pure and do not log
 directly.
 
+The built-in `GET /metrics` route exports those counters in Prometheus text
+format as `simulacat_actor_observations_total`. Metric labels are bounded to
+event, actor kind, outcome, and reason. Request identifiers and concrete actor
+labels are deliberately excluded from metrics to avoid high-cardinality series.
+
 Set `SIMULACAT_ACTOR_OBSERVABILITY=1` or
 `SIMULACAT_ACTOR_OBSERVABILITY=true` to emit the same actor observations as
 structured JSON debug lines on stderr. Each line includes
 `component: "simulacat.actor"`, the event name, actor kind, outcome, source or
-surface where applicable, and a non-sensitive actor label. Tests that inspect
-the counters should call `resetActorObservationCounters()` before each case to
+surface where applicable, a non-sensitive actor label, and the inbound
+`x-request-id` or `x-correlation-id` value when present. Tests that inspect the
+counters should call `resetActorObservationCounters()` before each case to
 avoid cross-test leakage.
 
 ### Gherkin feature scenarios

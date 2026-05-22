@@ -7,7 +7,7 @@
 import {createSchema, createYoga, processRegularResult} from 'graphql-yoga';
 import {isAsyncIterable} from '@graphql-tools/utils';
 import {createResolvers, type GraphQLContext} from './resolvers.ts';
-import {observeParsedRequestActor, parseRequestActorWithDiagnostics} from '../store/actors.ts';
+import {observeParsedRequestActor, parseRequestActorWithDiagnostics, requestIdFromHeaders} from '../store/actors.ts';
 import {getSchema} from '../utils.ts';
 import type {ExtendedSimulationStore} from '../store/index.ts';
 
@@ -53,11 +53,12 @@ export function createHandler(simulationStore: ExtendedSimulationStore) {
       resolvers
     }),
     context({request}) {
-      const parseResult = parseRequestActorWithDiagnostics({get: (name: string) => request.headers.get(name)});
-      observeParsedRequestActor('graphql', parseResult);
-      return {
-        requestActor: parseResult.actor
-      };
+      const headers = {get: (name: string) => request.headers.get(name)};
+      const requestId = requestIdFromHeaders(headers);
+      const observationContext = requestId === undefined ? undefined : {requestId};
+      const parseResult = parseRequestActorWithDiagnostics(headers);
+      observeParsedRequestActor('graphql', parseResult, observationContext);
+      return requestId === undefined ? {requestActor: parseResult.actor} : {requestActor: parseResult.actor, requestId};
     },
     plugins: [customMediaTypeParser]
   });

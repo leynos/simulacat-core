@@ -13,6 +13,7 @@ import {
   observeResolvedRequestActor,
   observeSelectedActor,
   parseRequestActorWithDiagnostics,
+  requestIdFromHeaders,
   resolveRequestActor,
   selectAuthenticatedUser
 } from '../store/actors.ts';
@@ -42,16 +43,19 @@ const notFound = {message: 'Not Found'};
  */
 const observeAndSelectUserForRequest = (simulationStore: ExtendedSimulationStore, request: Req) => {
   const state = simulationStore.store.getState();
-  const parseResult = parseRequestActorWithDiagnostics({get: (name: string) => request.get(name)});
-  observeParsedRequestActor('rest', parseResult);
+  const headers = {get: (name: string) => request.get(name)};
+  const requestId = requestIdFromHeaders(headers);
+  const observationContext = requestId === undefined ? undefined : {requestId};
+  const parseResult = parseRequestActorWithDiagnostics(headers);
+  observeParsedRequestActor('rest', parseResult, observationContext);
   const resolvedActor = resolveRequestActor(parseResult.actor, {
     users: simulationStore.schema.users.selectTableAsList(state),
     installations: simulationStore.schema.installations.selectTableAsList(state)
   });
-  observeResolvedRequestActor('rest', parseResult.actor, resolvedActor);
-  observeSelectedActor('rest', resolvedActor);
+  observeResolvedRequestActor('rest', parseResult.actor, resolvedActor, observationContext);
+  observeSelectedActor('rest', resolvedActor, observationContext);
 
-  return {resolvedActor, user: selectAuthenticatedUser(resolvedActor)};
+  return {resolvedActor, user: selectAuthenticatedUser(resolvedActor), observationContext};
 };
 
 /**
@@ -334,9 +338,9 @@ const handlers =
 
           // GET /user
           'users/get-authenticated': async (_context: Ctx, request: Req, response: Res) => {
-            const {resolvedActor, user} = observeAndSelectUserForRequest(simulationStore, request);
+            const {resolvedActor, user, observationContext} = observeAndSelectUserForRequest(simulationStore, request);
             if (!user) {
-              observeAuthenticationFailure('rest', resolvedActor, 'GET /user');
+              observeAuthenticationFailure('rest', resolvedActor, 'GET /user', observationContext);
               return response.status(401).json({message: 'Authentication required'});
             }
             const data = {
@@ -350,9 +354,9 @@ const handlers =
 
           // GET /user/memberships/orgs
           'orgs/list-memberships-for-authenticated-user': async (_context: Ctx, request: Req, response: Res) => {
-            const {resolvedActor, user} = observeAndSelectUserForRequest(simulationStore, request);
+            const {resolvedActor, user, observationContext} = observeAndSelectUserForRequest(simulationStore, request);
             if (!user) {
-              observeAuthenticationFailure('rest', resolvedActor, 'GET /user/memberships/orgs');
+              observeAuthenticationFailure('rest', resolvedActor, 'GET /user/memberships/orgs', observationContext);
               return response.status(401).json({message: 'Authentication required'});
             }
             const organizations = simulationStore.selectors.allGithubOrganizations(getState());
