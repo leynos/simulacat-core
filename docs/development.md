@@ -108,6 +108,11 @@ The built-in `GET /metrics` route exports those counters in Prometheus text
 format as `simulacat_actor_observations_total`. Metric labels are bounded to
 event, actor kind, outcome, and reason. Request identifiers and concrete actor
 labels are deliberately excluded from metrics to avoid high-cardinality series.
+Production monitors should alert on sustained increases in
+`event="rest-authentication"` or `event="graphql-authentication"` with
+`outcome="failure"` compared with the local request baseline. Treat spikes as
+authentication-contract regressions or caller misconfiguration until the
+corresponding structured logs show an expected rollout or test workload.
 
 Set `SIMULACAT_ACTOR_OBSERVABILITY=1` or
 `SIMULACAT_ACTOR_OBSERVABILITY=true` to emit the same actor observations as

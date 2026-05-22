@@ -52,6 +52,8 @@ describe('router extension tests', () => {
   });
 
   it('matches the stable Prometheus metrics snapshot', async () => {
+    await fetch(`${url}/user`);
+
     const res: Response = await fetch(`${url}/metrics`);
     const body = await res.text();
     expect(res.ok).toBe(true);
@@ -86,9 +88,13 @@ describe('actor observability end-to-end', () => {
   });
 
   it('populates observability counters after an actor-authenticated request', async () => {
-    await fetch(`${baseUrl}/user`, {
+    const userRes = await fetch(`${baseUrl}/user`, {
       headers: {'x-simulacat-actor': 'user:obs-user'}
     });
+    const userBody = await userRes.json();
+
+    expect(userRes.ok).toBe(true);
+    expect(userBody).toMatchObject({login: 'obs-user'});
 
     const metricsRes = await fetch(`${baseUrl}/metrics`);
     const body = await metricsRes.text();
