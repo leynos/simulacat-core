@@ -11,6 +11,7 @@ const MODULE_JSDOC_PATTERN =
   /^(?:#![^\n]*\n)?(?:\/\*![\s\S]*?\*\/\s*)?(?:(?:'use strict'|"use strict");\s*)?\s*\/\*\*[\s\S]*?@file[\s\S]*?\*\//;
 
 const FUNCTION_NODE_TYPES = new Set(['ArrowFunctionExpression', 'FunctionDeclaration', 'FunctionExpression']);
+const TEST_STATEMENT_NODE_TYPES = new Set(['DoWhileStatement', 'ForStatement', 'IfStatement', 'WhileStatement']);
 
 /** Loads baseline entries from the repository root. */
 function loadBaseline() {
@@ -410,6 +411,11 @@ function predicateNodeCount(node, options) {
   return 0;
 }
 
+/** Reports whether a ternary is already checked as a statement test. */
+function isDirectStatementTest(node) {
+  return TEST_STATEMENT_NODE_TYPES.has(node.parent?.type) && node.parent.test === node;
+}
+
 export const testInternals = {
   collectExportedNames,
   containsNode,
@@ -447,6 +453,7 @@ const complexConditionalRule = {
   create(context) {
     return {
       ConditionalExpression(node) {
+        if (isDirectStatementTest(node)) return;
         const options = complexConditionalOptions(context);
         checkPredicate(context, options.includeTernary ? node : node.test);
       },

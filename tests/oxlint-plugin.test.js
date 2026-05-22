@@ -237,6 +237,37 @@ describe('df12/complex-conditional', () => {
       workspace.cleanup();
     }
   });
+
+  it('does not double-report ternaries used directly as statement tests', () => {
+    const workspace = createFixtureWorkspace();
+    try {
+      const configPath = writeConfig({
+        directory: workspace.directory,
+        rules: {
+          'df12/complex-conditional': [
+            'error',
+            {
+              includeTernary: true,
+              maxLogicalOperators: 1
+            }
+          ]
+        }
+      });
+      const filePath = writeSource({
+        directory: workspace.directory,
+        name: 'direct-test-ternary.ts',
+        source: `
+          if (a ? (b && c) : d) {}
+        `
+      });
+
+      const result = runOxlint({configPath, filePath});
+      expect(result.status).toBe(1);
+      expect(countRuleFindings(result.stdout, 'df12(complex-conditional)')).toBe(1);
+    } finally {
+      workspace.cleanup();
+    }
+  });
 });
 
 describe('df12/complex-conditional diagnostics', () => {
