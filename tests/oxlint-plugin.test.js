@@ -17,7 +17,7 @@ const JSDOC_RULES = {
 };
 
 /** Creates a temporary plugin fixture workspace. */
-function createFixtureWorkspace() {
+function createWorkspace() {
   const directory = mkdtempSync(path.join(os.tmpdir(), 'simulacat-oxlint-plugin-'));
   return {
     cleanup() {
@@ -75,26 +75,6 @@ function runOxlint({configPath, cwd = PROJECT_ROOT, filePath}) {
   });
 }
 
-/** Runs Oxlint against a one-file fixture workspace. */
-function runFixture({name, rules, source}) {
-  const workspace = createFixtureWorkspace();
-  try {
-    const configPath = writeConfig({
-      directory: workspace.directory,
-      rules
-    });
-    const filePath = writeSource({
-      directory: workspace.directory,
-      name,
-      source
-    });
-
-    return runOxlint({configPath, filePath});
-  } finally {
-    workspace.cleanup();
-  }
-}
-
 /** Counts diagnostics for one rule id. */
 function countRuleFindings(output, ruleId) {
   return output.split('\n').filter((line) => line.includes(ruleId)).length;
@@ -103,6 +83,38 @@ function countRuleFindings(output, ruleId) {
 /** Replaces fixture-local absolute paths with stable snapshot text. */
 function normalizeDiagnostics(output, directory) {
   return output.replaceAll(directory, '<workspace>');
+}
+
+/**
+ * Creates a temporary fixture workspace, writes an Oxlint config and one
+ * TypeScript source file, runs Oxlint, cleans up, and returns the result with
+ * workspace-local absolute paths replaced by the stable token `<workspace>`.
+ *
+ * @param options - Fixture options.
+ * @param options.rules - Oxlint rules object passed to `writeConfig`.
+ * @param options.name - Fixture filename (e.g. `'foo.ts'`).
+ * @param options.source - TypeScript source text to lint.
+ * @param options.cwd - Working directory for the Oxlint process.
+ * @param rules - Oxlint rules object passed to `writeConfig`.
+ * @param name - Fixture filename (e.g. `'foo.ts'`).
+ * @param source - TypeScript source text to lint.
+ * @param cwd - Working directory for the Oxlint process.
+ * @returns The normalised Oxlint process result.
+ */
+export function runFixture({rules, name, source, cwd}) {
+  const workspace = createWorkspace();
+  try {
+    const configPath = writeConfig({directory: workspace.directory, rules});
+    const filePath = writeSource({directory: workspace.directory, name, source});
+    const result = runOxlint({configPath, filePath, ...(cwd !== undefined ? {cwd} : {})});
+    return {
+      status: result.status,
+      stdout: normalizeDiagnostics(result.stdout, workspace.directory),
+      stderr: normalizeDiagnostics(result.stderr ?? '', workspace.directory)
+    };
+  } finally {
+    workspace.cleanup();
+  }
 }
 
 /** Creates an identifier AST node. */
@@ -191,26 +203,22 @@ function predicateAst(maxDepth = 3) {
 describe('df12/complex-conditional', () => {
   it('counts logical operators in branch predicates without counting nested callback predicates', () => {
     const result = runFixture({
-      name: 'complex-conditional.ts',
       rules: {
         'df12/complex-conditional': [
           'error',
-          {
-            includeNullishCoalescing: false,
-            includeTernary: true,
-            maxLogicalOperators: 1
-          }
+          {includeNullishCoalescing: false, includeTernary: true, maxLogicalOperators: 1}
         ]
       },
+      name: 'complex-conditional.ts',
       source: `
-          function checks(a, b, c, items, ready) {
-            if (a) {}
-            if (a && b) {}
-            if (a && b && c) {}
-            if ((a || b) && c) {}
-            if (items.some((item) => item.ready && item.enabled) && ready) {}
-          }
-        `
+      function checks(a, b, c, items, ready) {
+        if (a) {}
+        if (a && b) {}
+        if (a && b && c) {}
+        if ((a || b) && c) {}
+        if (items.some((item) => item.ready && item.enabled) && ready) {}
+      }
+    `
     });
 
     expect(result.status).toBe(1);
@@ -219,19 +227,13 @@ describe('df12/complex-conditional', () => {
 
   it('counts ternary roots and nested logical operators when ternaries are included', () => {
     const result = runFixture({
-      name: 'complex-ternary.ts',
       rules: {
-        'df12/complex-conditional': [
-          'error',
-          {
-            includeTernary: true,
-            maxLogicalOperators: 1
-          }
-        ]
+        'df12/complex-conditional': ['error', {includeTernary: true, maxLogicalOperators: 1}]
       },
+      name: 'complex-ternary.ts',
       source: `
-          const x = a ? (b && c) : d;
-        `
+      const x = a ? (b && c) : d;
+    `
     });
 
     expect(result.status).toBe(1);
@@ -262,33 +264,16 @@ describe('df12/complex-conditional', () => {
 
 describe('df12/complex-conditional diagnostics', () => {
   it('checks diagnostic output for a complex conditional', () => {
-    const workspace = createFixtureWorkspace();
-    try {
-      const configPath = writeConfig({
-        directory: workspace.directory,
-        rules: {
-          'df12/complex-conditional': [
-            'error',
-            {
-              includeTernary: true,
-              maxLogicalOperators: 1
-            }
-          ]
-        }
-      });
-      const filePath = writeSource({
-        directory: workspace.directory,
-        name: 'diagnostic.ts',
-        source: `
-          if (a && b && c) {}
-        `
-      });
-
-      const result = runOxlint({configPath, filePath});
-      expect(normalizeDiagnostics(result.stdout, workspace.directory)).toMatchSnapshot();
-    } finally {
-      workspace.cleanup();
-    }
+    const result = runFixture({
+      rules: {
+        'df12/complex-conditional': ['error', {includeTernary: true, maxLogicalOperators: 1}]
+      },
+      name: 'diagnostic.ts',
+      source: `
+      if (a && b && c) {}
+    `
+    });
+    expect(result.stdout).toMatchSnapshot();
   });
 });
 
@@ -391,16 +376,10 @@ describe('df12/tree traversal helpers', () => {
 
 describe('df12 JSDoc rules', () => {
   it('reports module, public function, and private function documentation contract violations', () => {
-    const workspace = createFixtureWorkspace();
-    try {
-      const configPath = writeConfig({
-        directory: workspace.directory,
-        rules: JSDOC_RULES
-      });
-      const filePath = writeSource({
-        directory: workspace.directory,
-        name: 'missing-jsdoc.ts',
-        source: `
+    const result = runFixture({
+      rules: JSDOC_RULES,
+      name: 'missing-jsdoc.ts',
+      source: `
           export function publicApi(value) {
             if (!value) {
               throw new Error('missing');
@@ -416,29 +395,19 @@ describe('df12 JSDoc rules', () => {
 
           export { reExported };
         `
-      });
+    });
 
-      const result = runOxlint({configPath, filePath});
-      expect(result.status).toBe(1);
-      expect(result.stdout).toContain('df12(require-module-jsdoc)');
-      expect(result.stdout).toContain('df12(require-public-jsdoc)');
-      expect(result.stdout).toContain('df12(require-private-jsdoc)');
-    } finally {
-      workspace.cleanup();
-    }
+    expect(result.status).toBe(1);
+    expect(result.stdout).toContain('df12(require-module-jsdoc)');
+    expect(result.stdout).toContain('df12(require-public-jsdoc)');
+    expect(result.stdout).toContain('df12(require-private-jsdoc)');
   });
 
   it('accepts supported documented function declaration shapes', () => {
-    const workspace = createFixtureWorkspace();
-    try {
-      const configPath = writeConfig({
-        directory: workspace.directory,
-        rules: JSDOC_RULES
-      });
-      const filePath = writeSource({
-        directory: workspace.directory,
-        name: 'documented.ts',
-        source: `
+    const result = runFixture({
+      rules: JSDOC_RULES,
+      name: 'documented.ts',
+      source: `
           /** @file Documented fixture. */
 
           /**
@@ -498,69 +467,48 @@ describe('df12 JSDoc rules', () => {
 
           export { reExported };
         `
-      });
+    });
 
-      const result = runOxlint({configPath, filePath});
-      expect(result.status).toBe(0);
-      expect(result.stdout).toBe('');
-    } finally {
-      workspace.cleanup();
-    }
+    expect(result.status).toBe(0);
+    expect(result.stdout).toBe('');
   });
 });
 
 describe('df12 JSDoc default exports', () => {
   it('reports missing JSDoc for default-exported expressions and aliases', () => {
-    const workspace = createFixtureWorkspace();
-    try {
-      const configPath = writeConfig({
-        directory: workspace.directory,
-        rules: JSDOC_RULES
-      });
-      const expressionPath = writeSource({
-        directory: workspace.directory,
-        name: 'default-expression.ts',
-        source: `
+    const expressionResult = runFixture({
+      rules: JSDOC_RULES,
+      name: 'default-expression.ts',
+      source: `
           /** @file Default expression fixture. */
 
           export default (value) => value;
         `
-      });
-      const aliasPath = writeSource({
-        directory: workspace.directory,
-        name: 'default-alias.ts',
-        source: `
+    });
+    const aliasResult = runFixture({
+      rules: JSDOC_RULES,
+      name: 'default-alias.ts',
+      source: `
           /** @file Default alias fixture. */
 
           const defaultAlias = (value) => value;
 
           export default defaultAlias;
         `
-      });
+    });
 
-      const expressionResult = runOxlint({configPath, filePath: expressionPath});
-      const aliasResult = runOxlint({configPath, filePath: aliasPath});
-      expect(countRuleFindings(expressionResult.stdout, 'df12(require-public-jsdoc)')).toBeGreaterThan(0);
-      expect(countRuleFindings(aliasResult.stdout, 'df12(require-public-jsdoc)')).toBeGreaterThan(0);
-      expect(aliasResult.stdout).not.toContain('df12(require-private-jsdoc)');
-    } finally {
-      workspace.cleanup();
-    }
+    expect(countRuleFindings(expressionResult.stdout, 'df12(require-public-jsdoc)')).toBeGreaterThan(0);
+    expect(countRuleFindings(aliasResult.stdout, 'df12(require-public-jsdoc)')).toBeGreaterThan(0);
+    expect(aliasResult.stdout).not.toContain('df12(require-private-jsdoc)');
   });
 });
 
 describe('df12 JSDoc negative cases', () => {
   it('reports targeted public JSDoc tag omissions', () => {
-    const workspace = createFixtureWorkspace();
-    try {
-      const configPath = writeConfig({
-        directory: workspace.directory,
-        rules: JSDOC_RULES
-      });
-      const filePath = writeSource({
-        directory: workspace.directory,
-        name: 'missing-tags.ts',
-        source: `
+    const result = runFixture({
+      rules: JSDOC_RULES,
+      name: 'missing-tags.ts',
+      source: `
           /** @file Missing tag fixture. */
 
           /**
@@ -581,27 +529,17 @@ describe('df12 JSDoc negative cases', () => {
             return value;
           }
         `
-      });
+    });
 
-      const result = runOxlint({configPath, filePath});
-      expect(result.stdout).toContain('Exported function "missingParam" must document parameter "value".');
-      expect(result.stdout).toContain('Exported function "missingReturn" must document its return value.');
-    } finally {
-      workspace.cleanup();
-    }
+    expect(result.stdout).toContain('Exported function "missingParam" must document parameter "value".');
+    expect(result.stdout).toContain('Exported function "missingReturn" must document its return value.');
   });
 
   it('accepts a documented default-exported alias as public JSDoc', () => {
-    const workspace = createFixtureWorkspace();
-    try {
-      const configPath = writeConfig({
-        directory: workspace.directory,
-        rules: JSDOC_RULES
-      });
-      const filePath = writeSource({
-        directory: workspace.directory,
-        name: 'documented-default-alias.ts',
-        source: `
+    const result = runFixture({
+      rules: JSDOC_RULES,
+      name: 'documented-default-alias.ts',
+      source: `
           /** @file Documented default alias fixture. */
 
           /**
@@ -614,20 +552,16 @@ describe('df12 JSDoc negative cases', () => {
 
           export default defaultAlias;
         `
-      });
+    });
 
-      const result = runOxlint({configPath, filePath});
-      expect(result.status).toBe(0);
-      expect(result.stdout).toBe('');
-    } finally {
-      workspace.cleanup();
-    }
+    expect(result.status).toBe(0);
+    expect(result.stdout).toBe('');
   });
 });
 
 describe('df12 JSDoc baseline', () => {
   it('uses the current baseline file for each lint process', () => {
-    const workspace = createFixtureWorkspace();
+    const workspace = createWorkspace();
     try {
       const configPath = writeConfig({
         directory: workspace.directory,
@@ -660,12 +594,12 @@ describe('df12 JSDoc baseline', () => {
 
   it('caches an empty baseline when the baseline JSON is invalid', () => {
     testInternals.resetBaselineCache();
-    const workspace = createFixtureWorkspace();
+    const directory = mkdtempSync(path.join(os.tmpdir(), 'simulacat-oxlint-plugin-'));
     const previousCwd = process.cwd();
     try {
-      const baselinePath = path.join(workspace.directory, '.jsdoc-baseline.json');
+      const baselinePath = path.join(directory, '.jsdoc-baseline.json');
       writeFileSync(baselinePath, '{', 'utf8');
-      process.chdir(workspace.directory);
+      process.chdir(directory);
 
       const invalidBaseline = testInternals.loadBaseline();
       writeFileSync(baselinePath, JSON.stringify({entries: ['later.ts#value']}), 'utf8');
@@ -676,7 +610,7 @@ describe('df12 JSDoc baseline', () => {
       expect(cachedBaseline).toBe(invalidBaseline);
     } finally {
       process.chdir(previousCwd);
-      workspace.cleanup();
+      rmSync(directory, {force: true, recursive: true});
     }
   });
 });
