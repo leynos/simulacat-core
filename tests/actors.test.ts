@@ -72,35 +72,41 @@ const headers = (values: Record<string, string | undefined>) => ({
   }
 });
 
-/** Flags indicating which actor headers are present in a test case. */
-type HeaderPresence = {
+/** Boolean flags describing which actor headers are present in one test combination. */
+type PrecedenceCombination = {
   hasPreferred: boolean;
   hasSimulacat: boolean;
   hasGithub: boolean;
 };
 
-/** Candidate values for each actor header in a test case. */
-type HeaderCandidates = {
+/** The three actor-value strings used in a precedence test combination. */
+type PrecedenceActorValues = {
   preferredValue: string;
   simulacatLogin: string;
   githubLogin: string;
 };
 
-const buildPrecedenceHeaders = (presence: HeaderPresence, candidates: HeaderCandidates): Record<string, string> => ({
-  ...(presence.hasPreferred ? {[requestActorHeader]: candidates.preferredValue} : {}),
-  ...(presence.hasSimulacat ? {[legacySimulacatUserHeader]: candidates.simulacatLogin} : {}),
-  ...(presence.hasGithub ? {[legacyGitHubUserHeader]: candidates.githubLogin} : {})
+const buildPrecedenceHeaders = (
+  combination: PrecedenceCombination,
+  values: PrecedenceActorValues
+): Record<string, string> => ({
+  ...(combination.hasPreferred ? {[requestActorHeader]: values.preferredValue} : {}),
+  ...(combination.hasSimulacat ? {[legacySimulacatUserHeader]: values.simulacatLogin} : {}),
+  ...(combination.hasGithub ? {[legacyGitHubUserHeader]: values.githubLogin} : {})
 });
 
-const expectedActorForPrecedence = (presence: HeaderPresence, candidates: HeaderCandidates): RequestActor => {
-  if (presence.hasPreferred) {
-    return candidates.preferredValue === 'user:preferred' ? {kind: 'user', login: 'preferred'} : {kind: 'anonymous'};
+const expectedActorForPrecedence = (
+  combination: PrecedenceCombination,
+  values: PrecedenceActorValues
+): RequestActor => {
+  if (combination.hasPreferred) {
+    return values.preferredValue === 'user:preferred' ? {kind: 'user', login: 'preferred'} : {kind: 'anonymous'};
   }
-  if (presence.hasSimulacat) {
-    return {kind: 'user', login: candidates.simulacatLogin};
+  if (combination.hasSimulacat) {
+    return {kind: 'user', login: values.simulacatLogin};
   }
-  if (presence.hasGithub) {
-    return {kind: 'user', login: candidates.githubLogin};
+  if (combination.hasGithub) {
+    return {kind: 'user', login: values.githubLogin};
   }
   return {kind: 'anonymous'};
 };
@@ -261,11 +267,11 @@ describe('request actor parsing', () => {
         fc.stringMatching(/^[A-Za-z0-9][A-Za-z0-9-]{0,38}$/),
         fc.stringMatching(/^[A-Za-z0-9][A-Za-z0-9-]{0,38}$/),
         (preferredValue, simulacatLogin, githubLogin) => {
-          const candidates: HeaderCandidates = {preferredValue, simulacatLogin, githubLogin};
           for (const [hasPreferred, hasSimulacat, hasGithub] of presenceCombinations) {
-            const presence: HeaderPresence = {hasPreferred, hasSimulacat, hasGithub};
-            const headerValues = buildPrecedenceHeaders(presence, candidates);
-            const expected = expectedActorForPrecedence(presence, candidates);
+            const combination = {hasPreferred, hasSimulacat, hasGithub};
+            const actorValues = {preferredValue, simulacatLogin, githubLogin};
+            const headerValues = buildPrecedenceHeaders(combination, actorValues);
+            const expected = expectedActorForPrecedence(combination, actorValues);
             expect(parseRequestActor(headers(headerValues))).toEqual(expected);
           }
         }
