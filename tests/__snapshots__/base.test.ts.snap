@@ -1,0 +1,7 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`router extension tests matches the stable Prometheus metrics snapshot 1`] = `
+"# HELP simulacat_actor_observations_total Actor authentication observations.
+# TYPE simulacat_actor_observations_total counter
+"
+`;

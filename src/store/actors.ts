@@ -401,8 +401,9 @@ type LegacyHeaderSource = 'legacy-simulacat-user' | 'legacy-github-user';
 /**
  * Parses the preferred `x-simulacat-actor` header value into diagnostics.
  *
- * Invalid preferred header values are authoritative and therefore fall back to
- * anonymous rather than consulting legacy user headers.
+ * Returns the parsed actor when `parseActorHeaderValue` succeeds. Falls back
+ * to anonymous with reason `invalid-preferred-header` when the preferred
+ * header cannot be parsed.
  */
 const parsePreferredActorHeader = (actorHeader: string): RequestActorParseResult => {
   const actor = parseActorHeaderValue(actorHeader);
@@ -419,8 +420,9 @@ const parsePreferredActorHeader = (actorHeader: string): RequestActorParseResult
 /**
  * Parses a legacy login header value into actor parse diagnostics.
  *
- * Blank legacy header values collapse to anonymous with a stable
- * `blank-legacy-header` reason.
+ * Trims the header value and produces a user actor for non-empty login
+ * strings. Blank legacy header values collapse to anonymous with reason
+ * `blank-legacy-header`.
  */
 const parseLegacyLoginHeader = (headerValue: string, source: LegacyHeaderSource): RequestActorParseResult => {
   const login = headerValue.trim();
@@ -566,14 +568,21 @@ export const observeSelectedActor = (
 };
 
 /**
- * Classifies whether a user actor resolved to a seeded GitHub user.
+ * Returns the resolution outcome for a `user` actor.
+ *
+ * Produces `resolved` when the resolved actor kind is still `user`, otherwise
+ * `unresolved` with reason `unknown-user`.
  */
 const userResolutionOutcome = (resolvedActor: ResolvedRequestActor): {outcome: string; reason?: string} => {
   return resolvedActor.kind === 'user' ? {outcome: 'resolved'} : {outcome: 'unresolved', reason: 'unknown-user'};
 };
 
 /**
- * Classifies whether an app actor resolved to a seeded installation.
+ * Returns the resolution outcome for an `app` actor.
+ *
+ * Produces `resolved` when the resolved actor kind is `app` and an
+ * installation is attached; otherwise `unresolved` with reason
+ * `unmatched-app`.
  */
 const appResolutionOutcome = (resolvedActor: ResolvedRequestActor): {outcome: string; reason?: string} => {
   return resolvedActor.kind === 'app' && resolvedActor.installation !== undefined
@@ -582,7 +591,11 @@ const appResolutionOutcome = (resolvedActor: ResolvedRequestActor): {outcome: st
 };
 
 /**
- * Classifies whether an installation actor resolved to a seeded installation.
+ * Returns the resolution outcome for an `installation` actor.
+ *
+ * Produces `resolved` when the resolved actor kind is `installation` and an
+ * installation is attached; otherwise `unresolved` with reason
+ * `unmatched-installation`.
  */
 const installationResolutionOutcome = (resolvedActor: ResolvedRequestActor): {outcome: string; reason?: string} => {
   return resolvedActor.kind === 'installation' && resolvedActor.installation !== undefined

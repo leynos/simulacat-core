@@ -3,7 +3,11 @@
  *
  * This module binds generated `Resolvers` types to the in-memory simulation
  * store, using `applyRelayPagination`, `toGraphql`, and `deriveOwner` to serve
- * GraphQL queries.
+ * GraphQL queries. It also defines `GraphQLContext`, the Yoga resolver context
+ * that carries the request-scoped `RequestActor` parsed by the handler before
+ * any resolver runs, and `AuthenticationError`, thrown by `Query.viewer` when
+ * no user actor is resolved. Actor resolution and observation are delegated to
+ * `src/store/actors.ts`.
  */
 import type {PageArgs} from './relay.ts';
 import {applyRelayPagination} from './relay.ts';
