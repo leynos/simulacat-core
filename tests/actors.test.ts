@@ -72,13 +72,23 @@ const headers = (values: Record<string, string | undefined>) => ({
   }
 });
 
+/** Boolean flags indicating which actor headers are present in a test case. */
+type PresenceFlags = {
+  hasPreferred: boolean;
+  hasSimulacat: boolean;
+  hasGithub: boolean;
+};
+
+/** Raw header values supplied to a precedence test case. */
+type HeaderValues = {
+  preferredValue: string;
+  simulacatLogin: string;
+  githubLogin: string;
+};
+
 const buildPrecedenceHeaders = (
-  hasPreferred: boolean,
-  hasSimulacat: boolean,
-  hasGithub: boolean,
-  preferredValue: string,
-  simulacatLogin: string,
-  githubLogin: string
+  {hasPreferred, hasSimulacat, hasGithub}: PresenceFlags,
+  {preferredValue, simulacatLogin, githubLogin}: HeaderValues
 ): Record<string, string> => ({
   ...(hasPreferred ? {[requestActorHeader]: preferredValue} : {}),
   ...(hasSimulacat ? {[legacySimulacatUserHeader]: simulacatLogin} : {}),
@@ -86,12 +96,8 @@ const buildPrecedenceHeaders = (
 });
 
 const expectedActorForPrecedence = (
-  hasPreferred: boolean,
-  hasSimulacat: boolean,
-  hasGithub: boolean,
-  preferredValue: string,
-  simulacatLogin: string,
-  githubLogin: string
+  {hasPreferred, hasSimulacat, hasGithub}: PresenceFlags,
+  {preferredValue, simulacatLogin, githubLogin}: HeaderValues
 ): RequestActor => {
   if (hasPreferred) {
     return preferredValue === 'user:preferred' ? {kind: 'user', login: 'preferred'} : {kind: 'anonymous'};
@@ -261,23 +267,11 @@ describe('request actor parsing', () => {
         fc.stringMatching(/^[A-Za-z0-9][A-Za-z0-9-]{0,38}$/),
         fc.stringMatching(/^[A-Za-z0-9][A-Za-z0-9-]{0,38}$/),
         (preferredValue, simulacatLogin, githubLogin) => {
+          const values: HeaderValues = {preferredValue, simulacatLogin, githubLogin};
           for (const [hasPreferred, hasSimulacat, hasGithub] of presenceCombinations) {
-            const headerValues = buildPrecedenceHeaders(
-              hasPreferred,
-              hasSimulacat,
-              hasGithub,
-              preferredValue,
-              simulacatLogin,
-              githubLogin
-            );
-            const expected = expectedActorForPrecedence(
-              hasPreferred,
-              hasSimulacat,
-              hasGithub,
-              preferredValue,
-              simulacatLogin,
-              githubLogin
-            );
+            const flags: PresenceFlags = {hasPreferred, hasSimulacat, hasGithub};
+            const headerValues = buildPrecedenceHeaders(flags, values);
+            const expected = expectedActorForPrecedence(flags, values);
             expect(parseRequestActor(headers(headerValues))).toEqual(expected);
           }
         }
