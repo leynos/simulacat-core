@@ -279,8 +279,8 @@ function isAstNode(value) {
 }
 
 /** Reports whether a function record is skipped by the baseline. */
-function isBaselined(context, record) {
-  return loadBaseline().has(baselineKey(context, record));
+function isBaselined(context, record, baseline) {
+  return baseline.has(baselineKey(context, record));
 }
 
 /** Reports a missing JSDoc block for a covered function. */
@@ -369,8 +369,8 @@ function checkPrivateFunction(context, record, docs) {
 }
 
 /** Checks a single covered function record. */
-function checkFunctionRecord(context, record) {
-  if (!record.name || isBaselined(context, record)) return;
+function checkFunctionRecord(context, record, baseline) {
+  if (!record.name || isBaselined(context, record, baseline)) return;
   const docs = parseLeadingJsDoc(context, record.docsNode);
   if (!docs) {
     reportMissingJsDoc(context, record);
@@ -411,7 +411,10 @@ function predicateNodeCount(node, options) {
 }
 
 export const testInternals = {
-  countPredicateOperators
+  collectExportedNames,
+  containsNode,
+  countPredicateOperators,
+  loadBaseline
 };
 
 /** Reports a predicate when it exceeds the configured operator threshold. */
@@ -478,6 +481,7 @@ const requireModuleJsDocRule = {
 const requirePublicJsDocRule = {
   meta: {type: 'suggestion', schema: []},
   create(context) {
+    const baseline = loadBaseline();
     let exportedNames = new Set();
     return {
       Program(node) {
@@ -486,16 +490,16 @@ const requirePublicJsDocRule = {
       FunctionDeclaration(node) {
         const record = functionRecord(node, exportedNames);
         if (!record.isPublic) return;
-        checkFunctionRecord(context, record);
+        checkFunctionRecord(context, record, baseline);
       },
       ExportDefaultDeclaration(node) {
         if (!isFunctionNode(node.declaration) || node.declaration.type === 'FunctionDeclaration') return;
-        checkFunctionRecord(context, defaultFunctionExpressionRecord(node.declaration));
+        checkFunctionRecord(context, defaultFunctionExpressionRecord(node.declaration), baseline);
       },
       VariableDeclarator(node) {
         if (!isFunctionNode(node.init)) return;
         const record = variableFunctionRecord(node, exportedNames);
-        if (record.isPublic) checkFunctionRecord(context, record);
+        if (record.isPublic) checkFunctionRecord(context, record, baseline);
       }
     };
   }
@@ -504,6 +508,7 @@ const requirePublicJsDocRule = {
 const requirePrivateJsDocRule = {
   meta: {type: 'suggestion', schema: []},
   create(context) {
+    const baseline = loadBaseline();
     let exportedNames = new Set();
     return {
       Program(node) {
@@ -513,12 +518,12 @@ const requirePrivateJsDocRule = {
         if (!isTopLevelStatement(node)) return;
         const record = functionRecord(node, exportedNames);
         if (record.isPublic) return;
-        checkFunctionRecord(context, record);
+        checkFunctionRecord(context, record, baseline);
       },
       VariableDeclarator(node) {
         if (!isFunctionNode(node.init) || !isTopLevelFunctionVariable(node)) return;
         const record = variableFunctionRecord(node, exportedNames);
-        if (!record.isPublic) checkFunctionRecord(context, record);
+        if (!record.isPublic) checkFunctionRecord(context, record, baseline);
       }
     };
   }

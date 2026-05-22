@@ -85,6 +85,89 @@ function normalizeDiagnostics(output, directory) {
   return output.replaceAll(directory, '<workspace>');
 }
 
+/** Creates an identifier AST node. */
+function identifier(name) {
+  return {type: 'Identifier', name};
+}
+
+/** Creates a logical expression AST node. */
+function logicalExpression(operator, left = identifier('left'), right = identifier('right')) {
+  return {type: 'LogicalExpression', operator, left, right};
+}
+
+/** Counts expected predicate operators for synthetic AST nodes. */
+function expectedPredicateCount(node, options) {
+  if (!node || ['ArrowFunctionExpression', 'FunctionDeclaration', 'FunctionExpression'].includes(node.type)) return 0;
+  const ownCount = expectedOwnPredicateCount(node, options);
+  return (
+    ownCount + Object.entries(node).reduce((sum, [key, value]) => sum + expectedNodeValueCount(key, value, options), 0)
+  );
+}
+
+/** Counts the current synthetic predicate node. */
+function expectedOwnPredicateCount(node, options) {
+  const logicalOperatorCount = {
+    '&&': 1,
+    '||': 1,
+    '??': options.includeNullishCoalescing ? 1 : 0
+  };
+  if (node.type === 'LogicalExpression') return logicalOperatorCount[node.operator] ?? 0;
+  if (node.type === 'ConditionalExpression') return options.includeTernary ? 1 : 0;
+  return 0;
+}
+
+/** Counts expected predicate operators inside one AST-like property value. */
+function expectedNodeValueCount(key, value, options) {
+  if (key === 'parent') return 0;
+  if (Array.isArray(value)) {
+    return value.reduce(
+      (sum, child) => sum + (isSyntheticAstNode(child) ? expectedPredicateCount(child, options) : 0),
+      0
+    );
+  }
+  return isSyntheticAstNode(value) ? expectedPredicateCount(value, options) : 0;
+}
+
+/** Reports whether a generated value is an AST-like node. */
+function isSyntheticAstNode(value) {
+  return Boolean(value && typeof value.type === 'string');
+}
+
+/** Builds a generated synthetic predicate AST. */
+function predicateAst(maxDepth = 3) {
+  const leaf = fc.record({
+    name: fc.string({minLength: 1, maxLength: 8}),
+    type: fc.constant('Identifier')
+  });
+
+  return fc.letrec((tie) => ({
+    node:
+      maxDepth <= 0 ? leaf : fc.oneof(leaf, tie('logical'), tie('conditional'), tie('wrapper'), tie('functionNode')),
+    child: maxDepth <= 1 ? leaf : predicateAst(maxDepth - 1),
+    logical: fc.record({
+      type: fc.constant('LogicalExpression'),
+      operator: fc.constantFrom('&&', '||', '??'),
+      left: tie('child'),
+      right: tie('child')
+    }),
+    conditional: fc.record({
+      type: fc.constant('ConditionalExpression'),
+      test: tie('child'),
+      consequent: tie('child'),
+      alternate: tie('child')
+    }),
+    wrapper: fc.record({
+      type: fc.constant('CallExpression'),
+      callee: leaf,
+      arguments: fc.array(tie('child'), {minLength: 0, maxLength: 3})
+    }),
+    functionNode: fc.record({
+      type: fc.constantFrom('ArrowFunctionExpression', 'FunctionDeclaration', 'FunctionExpression'),
+      body: tie('logical')
+    })
+  })).node;
+}
+
 describe('df12/complex-conditional', () => {
   it('counts logical operators in branch predicates without counting nested callback predicates', () => {
     const workspace = createFixtureWorkspace();
@@ -224,6 +307,64 @@ describe('df12/complex-conditional properties', () => {
         expect(testInternals.countPredicateOperators(expression, {includeTernary: false})).toBe(1);
       })
     );
+  });
+
+  it('matches generated nested predicate counts for all options', () => {
+    const optionsArbitrary = fc.record({
+      includeNullishCoalescing: fc.boolean(),
+      includeTernary: fc.boolean()
+    });
+
+    fc.assert(
+      fc.property(predicateAst(), optionsArbitrary, (node, options) => {
+        expect(testInternals.countPredicateOperators(node, options)).toBe(expectedPredicateCount(node, options));
+      })
+    );
+  });
+});
+
+describe('df12/export collection properties', () => {
+  it('collects local names from generated export declarations', () => {
+    const exportName = fc.string({minLength: 1, maxLength: 8});
+    const exportStatement = exportName.chain((name) =>
+      fc.oneof(
+        fc.constant({
+          specifiers: [{local: identifier(name)}],
+          type: 'ExportNamedDeclaration'
+        }),
+        fc.constant({
+          declaration: identifier(name),
+          type: 'ExportDefaultDeclaration'
+        })
+      )
+    );
+
+    fc.assert(
+      fc.property(fc.array(exportStatement, {minLength: 0, maxLength: 20}), (body) => {
+        const expected = new Set(
+          body.flatMap((statement) =>
+            statement.type === 'ExportNamedDeclaration'
+              ? statement.specifiers.map((specifier) => specifier.local.name)
+              : [statement.declaration.name]
+          )
+        );
+        expect(testInternals.collectExportedNames({body})).toEqual(expected);
+      })
+    );
+  });
+});
+
+describe('df12/tree traversal helpers', () => {
+  it('finds matching descendants while skipping nested function bodies', () => {
+    const root = {
+      type: 'BlockStatement',
+      body: [logicalExpression('&&'), {type: 'ArrowFunctionExpression', body: logicalExpression('||')}],
+      parent: logicalExpression('??')
+    };
+
+    expect(testInternals.containsNode(root, root, (node) => node.operator === '&&')).toBe(true);
+    expect(testInternals.containsNode(root, root, (node) => node.operator === '||')).toBe(false);
+    expect(testInternals.containsNode(root, root, (node) => node.operator === '??')).toBe(false);
   });
 });
 
@@ -492,6 +633,21 @@ describe('df12 JSDoc baseline', () => {
       expect(skippedResult.stdout).not.toContain('df12(require-public-jsdoc)');
       expect(reportedResult.stdout).toContain('df12(require-public-jsdoc)');
     } finally {
+      workspace.cleanup();
+    }
+  });
+
+  it('fails clearly when the baseline JSON is invalid', () => {
+    const workspace = createFixtureWorkspace();
+    const previousCwd = process.cwd();
+    try {
+      const baselinePath = path.join(workspace.directory, '.jsdoc-baseline.json');
+      writeFileSync(baselinePath, '{', 'utf8');
+      process.chdir(workspace.directory);
+
+      expect(() => testInternals.loadBaseline()).toThrow('Failed to parse JSDoc baseline');
+    } finally {
+      process.chdir(previousCwd);
       workspace.cleanup();
     }
   });
