@@ -265,6 +265,21 @@ describe('request actor parsing', () => {
     );
   });
 
+  it('rejects unsafe integers in app and installation positions', () => {
+    fc.assert(
+      fc.property(
+        fc.bigInt({
+          min: BigInt(Number.MAX_SAFE_INTEGER) + 1n,
+          max: BigInt(Number.MAX_SAFE_INTEGER) + 1_000_000n
+        }),
+        (n) => {
+          expect(parseActorHeaderValue(`installation:${n}`)).toBeUndefined();
+          expect(parseActorHeaderValue(`app:${n}`)).toBeUndefined();
+        }
+      )
+    );
+  });
+
   it('preserves actor header precedence across all header presence combinations', () => {
     const presenceCombinations = [
       [false, false, false],
