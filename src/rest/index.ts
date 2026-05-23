@@ -22,13 +22,16 @@ import {
 import {getSchema, type SchemaFile} from '../utils.ts';
 import {blobAsBase64, commitStatusResponse, gitTrees, normalizeGitRefPath} from './utils.ts';
 
-/**
- * Creates the REST handler table consumed by the foundation simulator's
- * OpenAPI adapter.
- */
+/** REST handler callback shape supplied by the foundation simulator. */
 type SimulationHandler = SimulationHandlers[string];
+
+/** OpenAPI handler context parameter supplied to REST route callbacks. */
 type Ctx = Parameters<SimulationHandler>[0];
+
+/** Express-compatible request parameter supplied to REST route callbacks. */
 type Req = Parameters<SimulationHandler>[1];
+
+/** Express-compatible response parameter supplied to REST route callbacks. */
 type Res = Parameters<SimulationHandler>[2];
 
 /** Shared 404 JSON payload used by REST repository and item guards. */
