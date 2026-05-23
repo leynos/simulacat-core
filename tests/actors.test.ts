@@ -449,12 +449,15 @@ describe('actor observability counters', () => {
     observeAuthenticationFailure('graphql', {kind: 'anonymous'}, 'Query.viewer');
 
     expect(getActorObservabilityCounters()).toEqual({
-      'rest-parse.anonymous.fallback.invalid-preferred-header': 1,
+      'rest-parse.anonymous.fallback.preferred.invalid-preferred-header': 1,
       'rest-resolution.user.unresolved.unknown-user': 1,
       'graphql-authentication.anonymous.failure.Query.viewer': 1
     });
     expect(getActorObservabilityMetrics()).toContain(
-      'simulacat_actor_observations_total{event="graphql-authentication",actor_kind="anonymous",outcome="failure",reason="Query.viewer"} 1'
+      'simulacat_actor_observations_total{event="rest-parse",actor_kind="anonymous",outcome="fallback",source="preferred",reason="invalid-preferred-header"} 1'
+    );
+    expect(getActorObservabilityMetrics()).toContain(
+      'simulacat_actor_observations_total{event="graphql-authentication",actor_kind="anonymous",outcome="failure",source="",reason="Query.viewer"} 1'
     );
   });
 

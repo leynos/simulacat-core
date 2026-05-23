@@ -219,7 +219,7 @@ const withObservationContext = (
  * as a JSON debug line.
  */
 const recordActorObservation = (observation: ActorObservation): void => {
-  const key = [observation.event, observation.actorKind, observation.outcome, observation.reason]
+  const key = [observation.event, observation.actorKind, observation.outcome, observation.source, observation.reason]
     .filter((part) => part !== undefined)
     .join('.');
   actorObservationCounters[key] = (actorObservationCounters[key] ?? 0) + 1;
@@ -251,8 +251,8 @@ const escapePrometheusLabel = (value: string): string => {
 /**
  * Exports actor observation counters in Prometheus text exposition format.
  *
- * Labels are deliberately bounded to event, actor kind, outcome, and reason;
- * request ids and actor labels are emitted only in structured logs.
+ * Labels are deliberately bounded to event, actor kind, outcome, source, and
+ * reason; request ids and actor labels are emitted only in structured logs.
  */
 export const getActorObservabilityMetrics = (): string => {
   const lines = [
@@ -262,12 +262,16 @@ export const getActorObservabilityMetrics = (): string => {
   for (const [key, value] of Object.entries(actorObservationCounters).sort(([left], [right]) =>
     left.localeCompare(right)
   )) {
-    const [event = '', actorKind = '', outcome = '', ...reasonParts] = key.split('.');
+    const [event = '', actorKind = '', outcome = '', sourceOrReason = '', ...remainingParts] = key.split('.');
+    const hasSource = event.endsWith('-parse');
+    const source = hasSource ? sourceOrReason : '';
+    const reasonParts = hasSource ? remainingParts : [sourceOrReason, ...remainingParts];
     const reason = reasonParts.join('.');
     const labels = [
       `event="${escapePrometheusLabel(event)}"`,
       `actor_kind="${escapePrometheusLabel(actorKind)}"`,
       `outcome="${escapePrometheusLabel(outcome)}"`,
+      `source="${escapePrometheusLabel(source)}"`,
       `reason="${escapePrometheusLabel(reason)}"`
     ].join(',');
     lines.push(`simulacat_actor_observations_total{${labels}} ${value}`);

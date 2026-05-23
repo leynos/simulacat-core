@@ -3,9 +3,9 @@
 exports[`router extension tests matches the stable Prometheus metrics snapshot 1`] = `
 "# HELP simulacat_actor_observations_total Actor authentication observations.
 # TYPE simulacat_actor_observations_total counter
-simulacat_actor_observations_total{event="rest-authentication",actor_kind="anonymous",outcome="failure",reason="GET /user"} 1
-simulacat_actor_observations_total{event="rest-parse",actor_kind="anonymous",outcome="default",reason=""} 1
-simulacat_actor_observations_total{event="rest-resolution",actor_kind="anonymous",outcome="anonymous",reason=""} 1
-simulacat_actor_observations_total{event="rest-selected",actor_kind="anonymous",outcome="selected",reason=""} 1
+simulacat_actor_observations_total{event="rest-authentication",actor_kind="anonymous",outcome="failure",source="",reason="GET /user"} 1
+simulacat_actor_observations_total{event="rest-parse",actor_kind="anonymous",outcome="default",source="default",reason=""} 1
+simulacat_actor_observations_total{event="rest-resolution",actor_kind="anonymous",outcome="anonymous",source="",reason=""} 1
+simulacat_actor_observations_total{event="rest-selected",actor_kind="anonymous",outcome="selected",source="",reason=""} 1
 "
 `;
