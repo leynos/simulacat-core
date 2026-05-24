@@ -12,8 +12,16 @@ import {normalizeGitRefPath} from './rest/utils.ts';
 import {getActorObservabilityMetrics} from './store/actors.ts';
 import type {ExtendedSimulationStore} from './store/index.ts';
 
+/**
+ * The `extendRouter` callback shape expected by
+ * `createFoundationSimulationServer`.
+ *
+ * Derived from the parameter types of the `extendRouter` option so callers
+ * do not need to import it directly.
+ */
 type FoundationExtendRouter = NonNullable<Parameters<typeof createFoundationSimulationServer>[0]['extendRouter']>;
 
+/** Shared 404 JSON payload returned by routes that cannot locate a resource. */
 const notFound = {message: 'Not Found'};
 
 /**
