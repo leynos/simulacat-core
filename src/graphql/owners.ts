@@ -11,6 +11,16 @@ import {convertRepositoryConnection} from './connections.ts';
 import type {DataSchemas, GraphQLData, ToGraphqlDispatcher} from './to-graphql-shapes.ts';
 import type {ExtendedSimulationStore} from '../store/index.ts';
 
+/**
+ * Resolves a login to the GraphQL Organization or User owner union member.
+ *
+ * @param simulationStore Store and selectors used to find seeded owners.
+ * @param login Organization or user login to resolve.
+ * @param toGraphql Dispatcher used to convert the matched owner.
+ * @returns GraphQL Organization when the login belongs to an organization,
+ * otherwise GraphQL User.
+ * @throws Error when no seeded organization or user exists for `login`.
+ */
 export function deriveOwner(
   simulationStore: ExtendedSimulationStore,
   login: string,

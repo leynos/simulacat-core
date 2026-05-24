@@ -7,20 +7,89 @@
  */
 import type {Document, SimulationHandlers} from '@simulacrum/foundation-simulator';
 import type {ExtendedSimulationStore} from '../store/index.ts';
+import {
+  type ActorObservationContext,
+  observeAuthenticationFailure,
+  observeParsedRequestActor,
+  observeResolvedRequestActor,
+  observeSelectedActor,
+  type RequestActorParseResult,
+  parseRequestActorWithDiagnostics,
+  requestIdFromHeaders,
+  resolveRequestActor,
+  selectAuthenticatedUser
+} from '../store/actors.ts';
 import {getSchema, type SchemaFile} from '../utils.ts';
 import {blobAsBase64, commitStatusResponse, gitTrees, normalizeGitRefPath} from './utils.ts';
 
-/**
- * Creates the REST handler table consumed by the foundation simulator's
- * OpenAPI adapter.
- */
+/** REST handler callback shape supplied by the foundation simulator. */
 type SimulationHandler = SimulationHandlers[string];
+
+/** OpenAPI handler context parameter supplied to REST route callbacks. */
 type Ctx = Parameters<SimulationHandler>[0];
+
+/** Express-compatible request parameter supplied to REST route callbacks. */
 type Req = Parameters<SimulationHandler>[1];
+
+/** Express-compatible response parameter supplied to REST route callbacks. */
 type Res = Parameters<SimulationHandler>[2];
 
+/** Shared 404 JSON payload used by REST repository and item guards. */
 const notFound = {message: 'Not Found'};
 
+/**
+ * Selects the authenticated user for a parsed REST request actor.
+ *
+ * Resolves the parsed actor against the store's users and installations
+ * tables, and returns both the resolved actor and authenticated `GitHubUser`,
+ * or undefined when the actor cannot authenticate as a user. Observation is
+ * performed explicitly by REST handlers after this query helper returns.
+ */
+const selectUserForRequest = (simulationStore: ExtendedSimulationStore, parseResult: RequestActorParseResult) => {
+  const state = simulationStore.store.getState();
+  const resolvedActor = resolveRequestActor(parseResult.actor, {
+    users: simulationStore.schema.users.selectTableAsList(state),
+    installations: simulationStore.schema.installations.selectTableAsList(state)
+  });
+
+  return {resolvedActor, user: selectAuthenticatedUser(resolvedActor)};
+};
+
+/**
+ * Parses REST actor headers and builds observation context.
+ *
+ * @param request Incoming REST request adapter.
+ * @returns Parsed actor diagnostics plus optional request correlation context.
+ */
+const parseActorRequest = (
+  request: Req
+): {parseResult: RequestActorParseResult; observationContext?: ActorObservationContext} => {
+  const headers = {get: (name: string) => request.get(name)};
+  const requestId = requestIdFromHeaders(headers);
+  const parseResult = parseRequestActorWithDiagnostics(headers);
+  return requestId === undefined ? {parseResult} : {parseResult, observationContext: {requestId}};
+};
+
+/**
+ * Observes a REST actor parse, resolution, and final selection.
+ *
+ * @param parseResult Parsed actor diagnostics selected from request headers.
+ * @param resolvedActor Actor after fixture-backed resolution.
+ * @param observationContext Optional request correlation context.
+ */
+const observeRestActorSelection = (
+  parseResult: RequestActorParseResult,
+  resolvedActor: ReturnType<typeof selectUserForRequest>['resolvedActor'],
+  observationContext?: ActorObservationContext
+): void => {
+  observeParsedRequestActor('rest', parseResult, observationContext);
+  observeResolvedRequestActor('rest', parseResult.actor, resolvedActor, observationContext);
+  observeSelectedActor('rest', resolvedActor, observationContext);
+};
+
+/**
+ * Builds default REST handlers and merges caller-provided extensions.
+ */
 const handlers =
   (
     initialState: Record<string, any> | undefined,
@@ -297,10 +366,12 @@ const handlers =
           ),
 
           // GET /user
-          'users/get-authenticated': async (_context: Ctx, _request: Req, response: Res) => {
-            const users = simulationStore.schema.users.selectTableAsList(simulationStore.store.getState());
-            const user = users[0];
+          'users/get-authenticated': async (_context: Ctx, request: Req, response: Res) => {
+            const {parseResult, observationContext} = parseActorRequest(request);
+            const {resolvedActor, user} = selectUserForRequest(simulationStore, parseResult);
+            observeRestActorSelection(parseResult, resolvedActor, observationContext);
             if (!user) {
+              observeAuthenticationFailure('rest', resolvedActor, 'GET /user', observationContext);
               return response.status(401).json({message: 'Authentication required'});
             }
             const data = {
@@ -314,10 +385,11 @@ const handlers =
 
           // GET /user/memberships/orgs
           'orgs/list-memberships-for-authenticated-user': async (_context: Ctx, request: Req, response: Res) => {
-            const users = simulationStore.schema.users.selectTableAsList(getState());
-            const requestedLogin = request.get('x-simulacat-user') ?? request.get('x-github-user');
-            const user = requestedLogin ? users.find((candidate) => candidate.login === requestedLogin) : users[0];
+            const {parseResult, observationContext} = parseActorRequest(request);
+            const {resolvedActor, user} = selectUserForRequest(simulationStore, parseResult);
+            observeRestActorSelection(parseResult, resolvedActor, observationContext);
             if (!user) {
+              observeAuthenticationFailure('rest', resolvedActor, 'GET /user/memberships/orgs', observationContext);
               return response.status(401).json({message: 'Authentication required'});
             }
             const organizations = simulationStore.selectors.allGithubOrganizations(getState());

@@ -77,7 +77,7 @@ docs/api-reference.md §Capability matrix,
 docs/github-rest-api-audit.md §Store and Modeling Constraints, and
 docs/github-graphql-api-audit.md §Explicit Coverage.
 
-- [ ] 1.2.1. Add request-scoped actor resolution.
+- [x] 1.2.1. Add request-scoped actor resolution.
   - Carries legacy task label `1.2.1`.
   - Requires 1.1.2.
   - Support at least anonymous, user, app, and installation actors.

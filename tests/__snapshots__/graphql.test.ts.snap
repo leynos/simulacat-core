@@ -1,0 +1,21 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`graphql queries returns a stable error shape when no actor header is present 1`] = `
+{
+  "data": null,
+  "errors": [
+    {
+      "locations": [
+        {
+          "column": 3,
+          "line": 1,
+        },
+      ],
+      "message": "Authentication required",
+      "path": [
+        "viewer",
+      ],
+    },
+  ],
+}
+`;

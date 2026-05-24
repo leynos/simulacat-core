@@ -132,6 +132,26 @@ Seeded refs, commits, issues, and pull requests are visible through the
 documented REST endpoints and through repository GraphQL fields such as
 `defaultBranchRef`, `ref`, `issues`, and `pullRequests`.
 
+## Request actors
+
+Authenticated-user surfaces use a simulator-controlled request actor instead
+of the first seeded user. Set the preferred `x-simulacat-actor` header when a
+test needs `/user`, `/user/memberships/orgs`, or GraphQL `viewer` to run as a
+specific seeded user.
+
+| Actor kind | Header value | Observable behaviour |
+| --- | --- | --- |
+| Anonymous | `anonymous` or no actor header | `/user` returns 401 and `viewer` fails with `Authentication required`. |
+| User | `user:octocat` | `/user` and `viewer` resolve the seeded user whose login is `octocat`. |
+| App | `app:1` or `app:simulator-app` | The actor is parsed for later policy work, but authenticated-user surfaces return 401. |
+| Installation | `installation:1` | The actor is parsed for later policy work, but authenticated-user surfaces return 401. |
+
+`x-simulacat-user: octocat` and `x-github-user: octocat` remain compatibility
+aliases for `user:octocat`. Prefer `x-simulacat-actor` for new tests because
+it can represent all supported actor kinds. These headers do not validate real
+GitHub personal access tokens, OAuth tokens, GitHub App JWTs, or installation
+tokens.
+
 ## Store key helpers and parsers
 
 The public store key helpers format and parse canonical keys:
@@ -198,3 +218,23 @@ blobStoreKey(blob: GitHubBlob)
 // After
 blobStoreKey(blob: Pick<GitHubBlob, 'owner' | 'repo' | 'path' | 'sha'>)
 ```
+
+### 1.2.1 — Request-scoped actor resolution
+
+`GET /user`, `GET /user/memberships/orgs`, and `Query.viewer` no longer fall
+back to the first seeded user when no actor header is present. They now return
+HTTP 401 with `Authentication required` for unauthenticated requests.
+
+| Scenario | Before 1.2.1 | After 1.2.1 |
+| --- | --- | --- |
+| No actor header sent | First seeded user returned | 401 `{"message":"Authentication required"}` |
+| `x-simulacat-user: <login>` sent | Named user returned (unchanged) | Named user returned (unchanged) |
+| `x-simulacat-actor: user:<login>` sent | Not supported | Named user returned |
+
+Set `x-simulacat-actor: user:<login>` (or a legacy alias) on every request that
+must exercise `/user`, `/user/memberships/orgs`, or `viewer`.
+
+For REST authenticated-user routes, both `GET /user` and
+`GET /user/memberships/orgs` require `x-simulacat-actor: user:<login>` or a
+legacy user alias. Without an actor that resolves to a seeded user, these routes
+return HTTP 401 with `{"message":"Authentication required"}`.

@@ -1,7 +1,8 @@
 /** @file Integration tests for the simulated GraphQL API surface. */
-import {afterAll, beforeAll, describe, expect, it} from 'bun:test';
+import {afterAll, beforeAll, beforeEach, describe, expect, it} from 'bun:test';
 import {simulation} from '../src/index.ts';
 import {graphql} from '@octokit/graphql';
+import {requestActorHeader, resetActorObservationCounters} from '../src/store/actors.ts';
 
 type SimulationServer = Awaited<ReturnType<ReturnType<typeof simulation>['listen']>>;
 
@@ -18,6 +19,11 @@ const headers = {
 const client = graphql.defaults({
   baseUrl: url
 });
+
+type ActorAgreementCase = {
+  header?: string;
+  login?: string;
+};
 
 type MembersWithRoleQuery = {
   organization: {
@@ -56,7 +62,10 @@ describe('graphql queries', () => {
   beforeAll(async () => {
     const app = simulation({
       initialState: {
-        users: [{login: 'frontsidejack', organizations: ['lovely-org']}],
+        users: [
+          {login: 'frontsidejack', email: 'frontsidejack@example.test', organizations: ['lovely-org']},
+          {login: 'reviewer', email: 'reviewer@example.test', organizations: ['Acme']}
+        ],
         organizations: [{login: 'lovely-org'}, {login: 'Acme'}],
         repositories: [
           {owner: 'lovely-org', name: 'awesome-repo'},
@@ -103,6 +112,23 @@ describe('graphql queries', () => {
   });
   afterAll(async () => {
     await server.ensureClose();
+  });
+
+  beforeEach(() => {
+    resetActorObservationCounters();
+  });
+
+  it('validates schema compilation with the request actor context', async () => {
+    const request = await fetch(`${url}/graphql`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({query: '{ __typename }'})
+    });
+    const response = await request.json();
+
+    expect(request.status).toEqual(200);
+    expect(response.errors).toBe(undefined);
+    expect(response.data).toEqual({__typename: 'Query'});
   });
 
   it('validates with 200 response', async () => {
@@ -162,6 +188,137 @@ describe('graphql queries', () => {
       name: 'Awesome-Repo',
       nameWithOwner: 'Acme/Awesome-Repo'
     });
+  });
+
+  it('resolves viewer from the request actor', async () => {
+    const request = await fetch(`${url}/graphql`, {
+      method: 'POST',
+      headers: {
+        ...headers,
+        [requestActorHeader]: 'user:reviewer'
+      },
+      body: JSON.stringify({
+        query: gql`
+          query viewer {
+            viewer {
+              login
+              id
+            }
+          }
+        `
+      })
+    });
+    const response = await request.json();
+
+    expect(request.status).toEqual(200);
+    expect(response.errors).toBe(undefined);
+    expect(response.data.viewer.login).toBe('reviewer');
+  });
+
+  it('fails viewer for anonymous, unknown, app, and installation actors', async () => {
+    for (const actor of [undefined, 'user:missing', 'app:1', 'installation:1']) {
+      const requestHeaders = actor ? {...headers, [requestActorHeader]: actor} : headers;
+      const request = await fetch(`${url}/graphql`, {
+        method: 'POST',
+        headers: requestHeaders,
+        body: JSON.stringify({
+          query: gql`
+            query viewer {
+              viewer {
+                login
+              }
+            }
+          `
+        })
+      });
+      const response = await request.json();
+
+      expect(request.status).toEqual(200);
+      expect(response.errors?.[0]?.message).toBe('Authentication required');
+      expect(response.data).toBeNull();
+    }
+  });
+
+  it('returns a stable error shape when no actor header is present', async () => {
+    const res = await fetch(`${url}/graphql`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({query: '{ viewer { login } }'})
+    });
+    const body = await res.json();
+    expect(body).toMatchSnapshot();
+  });
+
+  it('agrees with REST /user for equivalent request actor input', async () => {
+    const actorHeaders = {
+      [requestActorHeader]: 'user:frontsidejack'
+    };
+    const restRequest = await fetch(`${url}/user`, {
+      headers: actorHeaders
+    });
+    const restUser = await restRequest.json();
+    const graphqlRequest = await fetch(`${url}/graphql`, {
+      method: 'POST',
+      headers: {
+        ...headers,
+        ...actorHeaders
+      },
+      body: JSON.stringify({
+        query: gql`
+          query viewer {
+            viewer {
+              login
+              id
+            }
+          }
+        `
+      })
+    });
+    const graphqlResponse = await graphqlRequest.json();
+
+    expect(restRequest.status).toEqual(200);
+    expect(graphqlResponse.errors).toBe(undefined);
+    expect(graphqlResponse.data.viewer.login).toBe(restUser.login);
+    expect(graphqlResponse.data.viewer.id).toBe(restUser.id.toString());
+  });
+
+  it('preserves REST and GraphQL viewer agreement across actor inputs', async () => {
+    const cases: ActorAgreementCase[] = [
+      {header: 'user:frontsidejack', login: 'frontsidejack'},
+      {header: 'user:reviewer', login: 'reviewer'},
+      {header: 'user:missing'},
+      {header: 'app:1'},
+      {header: 'installation:1'},
+      {header: 'anonymous'},
+      {}
+    ];
+
+    for (const {header, login} of cases) {
+      const requestHeaders: Record<string, string> = header === undefined ? {} : {[requestActorHeader]: header};
+      const restResponse = await fetch(`${url}/user`, {headers: requestHeaders});
+      const graphqlResponse = await fetch(`${url}/graphql`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', ...requestHeaders},
+        body: JSON.stringify({query: '{ viewer { login } }'})
+      });
+      const graphqlBody = (await graphqlResponse.json()) as {
+        data?: {viewer?: {login?: string} | null} | null;
+        errors?: unknown[];
+      };
+
+      if (login === undefined) {
+        expect(restResponse.status).toBe(401);
+        expect('errors' in graphqlBody).toBe(true);
+        expect(Array.isArray(graphqlBody.errors)).toBe(true);
+        expect(graphqlBody.data).toBeNull();
+        continue;
+      }
+
+      const restBody = (await restResponse.json()) as {login?: string};
+      expect(restResponse.status).toBe(200);
+      expect(restBody.login).toBe(login);
+      expect(graphqlBody.data?.viewer?.login).toBe(login);
+    }
   });
 
   describe('reads first-class refs, issues, and pull requests from repository state', () => {

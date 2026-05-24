@@ -9,6 +9,14 @@ import type {DataSchemas, GraphQLData, ToGraphqlDispatcher} from '../to-graphql-
 import type {ExtendedSimulationStore} from '../../store/index.ts';
 import type {Team, User} from '../../__generated__/resolvers-types.ts';
 
+/**
+ * Converts a stored organization entity into its GraphQL Organization shape.
+ *
+ * @param simulationStore Store and selectors used to resolve related fields.
+ * @param org Organization entity from simulator state.
+ * @param toGraphql Dispatcher used for nested GraphQL conversions.
+ * @returns GraphQL Organization with optional fields omitted when absent.
+ */
 export function convertOrganizationToGraphql(
   simulationStore: ExtendedSimulationStore,
   org: DataSchemas['Organization'],

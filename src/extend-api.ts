@@ -9,10 +9,19 @@ import type {createFoundationSimulationServer} from '@simulacrum/foundation-simu
 import {stringify} from 'querystring';
 import {createHandler} from './graphql/handler.ts';
 import {normalizeGitRefPath} from './rest/utils.ts';
+import {getActorObservabilityMetrics} from './store/actors.ts';
 import type {ExtendedSimulationStore} from './store/index.ts';
 
+/**
+ * The `extendRouter` callback shape expected by
+ * `createFoundationSimulationServer`.
+ *
+ * Derived from the parameter types of the `extendRouter` option so callers
+ * do not need to import it directly.
+ */
 type FoundationExtendRouter = NonNullable<Parameters<typeof createFoundationSimulationServer>[0]['extendRouter']>;
 
+/** Shared 404 JSON payload returned by routes that cannot locate a resource. */
 const notFound = {message: 'Not Found'};
 
 /**
@@ -39,6 +48,10 @@ export const extendRouter =
 
     router.get('/health', (_, response) => {
       response.send({status: 'ok'});
+    });
+
+    router.get('/metrics', (_, response) => {
+      response.type('text/plain; version=0.0.4').send(getActorObservabilityMetrics());
     });
 
     router.use('/graphql', createHandler(simulationStore));

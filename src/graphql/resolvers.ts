@@ -3,7 +3,11 @@
  *
  * This module binds generated `Resolvers` types to the in-memory simulation
  * store, using `applyRelayPagination`, `toGraphql`, and `deriveOwner` to serve
- * GraphQL queries.
+ * GraphQL queries. It also defines `GraphQLContext`, the Yoga resolver context
+ * that carries the request-scoped `RequestActor` parsed by the handler before
+ * any resolver runs, and `AuthenticationError`, thrown by `Query.viewer` when
+ * no user actor is resolved. Actor resolution and observation are delegated to
+ * `src/store/actors.ts`.
  */
 import type {PageArgs} from './relay.ts';
 import {applyRelayPagination} from './relay.ts';
@@ -11,6 +15,66 @@ import type {Resolvers} from '../__generated__/resolvers-types.ts';
 import {toGraphql, deriveOwner} from './to-graphql.ts';
 import {assert} from 'assert-ts';
 import type {ExtendedSimulationStore} from '../store/index.ts';
+import {
+  observeAuthenticationFailure,
+  observeParsedRequestActor,
+  observeResolvedRequestActor,
+  observeSelectedActor,
+  type ActorObservationContext,
+  type RequestActorParseResult,
+  resolveRequestActor,
+  selectAuthenticatedUser,
+  type RequestActor
+} from '../store/actors.ts';
+
+/**
+ * GraphQL resolver context populated by the Yoga context function.
+ *
+ * Carries the parsed `RequestActor` before resolvers run.
+ */
+export type GraphQLContext = {
+  requestActor: RequestActor;
+  requestActorParseResult: RequestActorParseResult;
+  requestId?: string;
+};
+
+/**
+ * Error thrown when a GraphQL field requires an authenticated user actor.
+ *
+ * Extends `Error` with `name = 'AuthenticationError'` so callers can classify
+ * authentication failures from `Query.viewer`.
+ */
+export class AuthenticationError extends Error {
+  override name = 'AuthenticationError';
+}
+
+/**
+ * Selects the viewer user for the current GraphQL context.
+ *
+ * Resolves the context actor against the store's users and installations
+ * tables, and returns both the resolved actor and matching `GitHubUser`, or
+ * undefined when the actor is anonymous or unknown. Observation is performed
+ * explicitly by resolver handlers after this query helper returns.
+ */
+const selectViewer = (simulationStore: ExtendedSimulationStore, context: GraphQLContext) => {
+  const state = simulationStore.store.getState();
+  const resolvedActor = resolveRequestActor(context.requestActor, {
+    users: simulationStore.schema.users.selectTableAsList(state),
+    installations: simulationStore.schema.installations.selectTableAsList(state)
+  });
+
+  return {resolvedActor, user: selectAuthenticatedUser(resolvedActor)};
+};
+
+/**
+ * Builds GraphQL actor observation context from resolver context.
+ *
+ * @param context Resolver context that may carry a request identifier.
+ * @returns Optional observation context with request correlation details.
+ */
+const actorObservationContext = (context: GraphQLContext): ActorObservationContext | undefined => {
+  return context.requestId === undefined ? undefined : {requestId: context.requestId};
+};
 
 /**
  * Creates the root resolver map for the simulated GitHub GraphQL API.
@@ -23,9 +87,16 @@ import type {ExtendedSimulationStore} from '../store/index.ts';
 export function createResolvers(simulationStore: ExtendedSimulationStore): Resolvers {
   return {
     Query: {
-      viewer() {
-        const [user] = simulationStore.schema.users.selectTableAsList(simulationStore.store.getState());
-        assert(!!user, `no logged in user`);
+      viewer(_root: unknown, _args: unknown, context: GraphQLContext) {
+        const observationContext = actorObservationContext(context);
+        observeParsedRequestActor('graphql', context.requestActorParseResult, observationContext);
+        const {resolvedActor, user} = selectViewer(simulationStore, context);
+        observeResolvedRequestActor('graphql', context.requestActor, resolvedActor, observationContext);
+        observeSelectedActor('graphql', resolvedActor, observationContext);
+        if (!user) {
+          observeAuthenticationFailure('graphql', resolvedActor, 'Query.viewer', observationContext);
+          throw new AuthenticationError('Authentication required');
+        }
         return toGraphql(simulationStore, 'User', user);
       },
       user(_: unknown, {login}: {login: string}) {

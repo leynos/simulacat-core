@@ -84,6 +84,45 @@ surfaces for refs, commits, issues, and pull requests. Do not expand it into
 reviews, labels, timelines, mergeability, checks, or actor-aware permissions
 without updating the relevant roadmap item and design documentation.
 
+### Request actors
+
+Request actor parsing lives in `src/store/actors.ts`, not in individual REST
+or GraphQL routes. REST handlers pass request headers into the shared parser.
+GraphQL Yoga builds a small context object with the parsed actor, and
+`Query.viewer` resolves the selected user from that context.
+
+New actor-aware behaviour should add focused unit tests for parser or resolver
+invariants and route-level tests for observable REST or GraphQL contracts. Use
+`fast-check` when a parser or key format must hold across a range of generated
+values. Do not add real credential validation, permission checks, or GitHub
+App cryptography under the request actor helper; those are separate
+authorization slices.
+
+Actor observability uses process-local counters in `src/store/actors.ts`.
+REST and GraphQL adapters record parse outcomes, store-resolution outcomes,
+resolved actor selections, and authentication failures at their transport
+boundaries. The parser and resolver helpers remain pure and do not log
+directly.
+
+The built-in `GET /metrics` route exports those counters in Prometheus text
+format as `simulacat_actor_observations_total`. Metric labels are bounded to
+event, actor kind, outcome, and reason. Request identifiers and concrete actor
+labels are deliberately excluded from metrics to avoid high-cardinality series.
+Production monitors should alert on sustained increases in
+`event="rest-authentication"` or `event="graphql-authentication"` with
+`outcome="failure"` compared with the local request baseline. Treat spikes as
+authentication-contract regressions or caller misconfiguration until the
+corresponding structured logs show an expected rollout or test workload.
+
+Set `SIMULACAT_ACTOR_OBSERVABILITY=1` or
+`SIMULACAT_ACTOR_OBSERVABILITY=true` to emit the same actor observations as
+structured JSON debug lines on stderr. Each line includes
+`component: "simulacat.actor"`, the event name, actor kind, outcome, source or
+surface where applicable, a non-sensitive actor label, and the inbound
+`x-request-id` or `x-correlation-id` value when present. Tests that inspect the
+counters should call `resetActorObservationCounters()` before each case to
+avoid cross-test leakage.
+
 ### Gherkin feature scenarios
 
 Feature files live under `features/` and are loaded by
