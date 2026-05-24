@@ -97,10 +97,19 @@ const positiveIntegerPattern = /^[1-9]\d*$/;
 const integerPattern = /^-?\d+$/;
 
 /**
- * In-process counters keyed by actor observation event dimensions.
+ * In-process counters keyed by actor-observation event dimensions.
  *
- * This module state is process-local diagnostic data. Tests reset it through
- * `resetActorObservationCounters` to avoid cross-test leakage.
+ * Concurrency model: This module assumes a single-threaded event loop (Node.js/Bun)
+ * with no Worker threads mutating this state. The increment
+ * `actorObservationCounters[key] = (actorObservationCounters[key] ?? 0) + 1`
+ * relies on that guarantee; it is not atomic across threads.
+ *
+ * Constraint: Do not access or mutate these counters from Worker threads or
+ * other processes. If a multi-threaded model is introduced, replace this map
+ * with a SharedArrayBuffer-backed view and use Atomics.add, and update this
+ * docstring accordingly. See `#14`.
+ *
+ * Tests reset this map via `resetActorObservationCounters()` for isolation.
  */
 const actorObservationCounters: Record<string, number> = {};
 
