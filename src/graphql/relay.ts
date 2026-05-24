@@ -6,6 +6,10 @@ export interface PageArgs {
   after?: string;
 }
 
+/**
+ * Relay connection page metadata indicating cursor boundaries and whether
+ * adjacent pages exist.
+ */
 export interface PageInfo {
   hasNextPage: boolean;
   hasPreviousPage: boolean;
@@ -13,6 +17,10 @@ export interface PageInfo {
   endCursor?: string;
 }
 
+/**
+ * A Relay-compatible paginated result carrying edges, nodes, and page-info for
+ * a single page of `T`.
+ */
 export interface Page<T> {
   totalCount: number;
   edges: {
@@ -23,6 +31,7 @@ export interface Page<T> {
   pageInfo: PageInfo;
 }
 
+/** Cursor-based pagination arguments accepted by Relay connections. */
 export interface RelayPagingOptions {
   first?: number;
   after?: string;
@@ -30,8 +39,17 @@ export interface RelayPagingOptions {
   before?: string;
 }
 
+/**
+ * Identity mapper used as the default `mapper` argument in
+ * `applyRelayPagination`.
+ */
 const identity = <A>(a: A): A => a;
 
+/**
+ * Parses a string cursor into a non-negative integer index.
+ *
+ * @throws Error when the cursor is present but is not a non-negative integer.
+ */
 const parseCursor = (name: 'before' | 'after', cursor: string | undefined, defaultValue: number) => {
   if (cursor == null) {
     return defaultValue;

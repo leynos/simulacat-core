@@ -4,7 +4,18 @@ import fs from 'fs';
 import {z} from 'zod';
 
 const schemaDefaults = ['schema.docs-enterprise.graphql', 'schema.docs.graphql', 'api.github.com.json'] as const;
+
+/**
+ * Union of the bundled schema filenames that `getSchema` accepts without a
+ * filesystem path.
+ */
 export type SchemaFile = (typeof schemaDefaults)[number];
+
+/**
+ * Zod validator for OpenAPI/Swagger documents.
+ *
+ * Requires either an `openapi` or a `swagger` version field alongside `paths`.
+ */
 const openApiSchema = z
   .object({
     openapi: z.string().optional(),
@@ -20,6 +31,8 @@ const openApiSchema = z
       });
     }
   });
+
+/** TypeScript type inferred from `openApiSchema`. */
 type OpenApiSchema = z.infer<typeof openApiSchema>;
 
 /**

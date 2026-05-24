@@ -17,41 +17,51 @@ export {
   repositoryStoreKey
 };
 
+/** The `owner` and `name` parts of a repository store key. */
 export type RepositoryStoreKeyParts = {
   owner: string;
   name: string;
 };
 
+/** The `owner`, `repo`, and `name` parts of a branch store key. */
 export type BranchStoreKeyParts = {
   owner: string;
   repo: string;
   name: string;
 };
 
+/** The `owner`, `repo`, and `reference` parts of a blob store key. */
 export type BlobStoreKeyParts = {
   owner: string;
   repo: string;
   reference: string;
 };
 
+/** The `owner`, `repo`, and `qualifiedName` parts of a ref store key. */
 export type RefStoreKeyParts = {
   owner: string;
   repo: string;
   qualifiedName: string;
 };
 
+/** The `owner`, `repo`, and `sha` parts of a commit store key. */
 export type CommitStoreKeyParts = {
   owner: string;
   repo: string;
   sha: string;
 };
 
+/** The `owner`, `repo`, and positive `number` parts of an issue store key. */
 export type IssueStoreKeyParts = {
   owner: string;
   repo: string;
   number: number;
 };
 
+/**
+ * The `owner`, `repo`, and positive `number` parts of a pull-request store
+ * key.
+ */
 export type PullRequestStoreKeyParts = IssueStoreKeyParts;
 
 /** Shared coordinates for any repository-scoped entity. */
@@ -162,6 +172,12 @@ export const parseBlobStoreKey = (key: string): BlobStoreKeyParts => {
   return {owner: parsed.owner, repo: parsed.name, reference: parsed.reference};
 };
 
+/**
+ * Parses a `owner/repo:reference` store key into its constituent parts.
+ *
+ * @throws Error when the key is missing a colon separator, a valid repository
+ * segment, or a non-empty reference segment.
+ */
 const parseRepositoryScopedReferenceKey = (
   key: string,
   entityName: string,
@@ -190,6 +206,12 @@ const parseRepositoryScopedReferenceKey = (
   };
 };
 
+/**
+ * Parses a `owner/repo{separator}number` store key into its constituent parts.
+ *
+ * @throws Error when the key is malformed or the number is not a positive
+ * integer.
+ */
 const parseNumberedRepositoryKey = (
   key: string,
   separatorToken: '#' | '!',
