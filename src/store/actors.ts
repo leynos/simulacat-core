@@ -219,7 +219,13 @@ const withObservationContext = (
  * as a JSON debug line.
  */
 const recordActorObservation = (observation: ActorObservation): void => {
-  const key = [observation.event, observation.actorKind, observation.outcome, observation.source, observation.reason]
+  const key = [
+    observation.event,
+    observation.actorKind,
+    observation.outcome,
+    observation.source ?? '',
+    observation.reason
+  ]
     .filter((part) => part !== undefined)
     .join('.');
   actorObservationCounters[key] = (actorObservationCounters[key] ?? 0) + 1;
@@ -235,7 +241,15 @@ const recordActorObservation = (observation: ActorObservation): void => {
  * @returns Copy of the current process-local actor observability counters.
  */
 export const getActorObservabilityCounters = (): Readonly<Record<string, number>> => {
-  return {...actorObservationCounters};
+  return Object.fromEntries(
+    Object.entries(actorObservationCounters).map(([key, value]) => {
+      const [event = '', actorKind = '', outcome = '', source = '', ...reasonParts] = key.split('.');
+      const publicKey = [event, actorKind, outcome, source || undefined, ...reasonParts]
+        .filter((part) => part !== undefined)
+        .join('.');
+      return [publicKey, value];
+    })
+  );
 };
 
 /**
@@ -262,10 +276,7 @@ export const getActorObservabilityMetrics = (): string => {
   for (const [key, value] of Object.entries(actorObservationCounters).sort(([left], [right]) =>
     left.localeCompare(right)
   )) {
-    const [event = '', actorKind = '', outcome = '', sourceOrReason = '', ...remainingParts] = key.split('.');
-    const hasSource = event.endsWith('-parse');
-    const source = hasSource ? sourceOrReason : '';
-    const reasonParts = hasSource ? remainingParts : [sourceOrReason, ...remainingParts];
+    const [event = '', actorKind = '', outcome = '', source = '', ...reasonParts] = key.split('.');
     const reason = reasonParts.join('.');
     const labels = [
       `event="${escapePrometheusLabel(event)}"`,
@@ -571,13 +582,21 @@ export const observeSelectedActor = (
   );
 };
 
+/** Outcome and optional reason returned by actor resolution classifiers. */
+type ResolutionOutcome = {
+  /** Stable resolution outcome label such as `resolved` or `unresolved`. */
+  outcome: string;
+  /** Optional bounded reason label explaining unresolved outcomes. */
+  reason?: string;
+};
+
 /**
  * Returns the resolution outcome for a `user` actor.
  *
  * Produces `resolved` when the resolved actor kind is still `user`, otherwise
  * `unresolved` with reason `unknown-user`.
  */
-const userResolutionOutcome = (resolvedActor: ResolvedRequestActor): {outcome: string; reason?: string} => {
+const userResolutionOutcome = (resolvedActor: ResolvedRequestActor): ResolutionOutcome => {
   return resolvedActor.kind === 'user' ? {outcome: 'resolved'} : {outcome: 'unresolved', reason: 'unknown-user'};
 };
 
@@ -588,7 +607,7 @@ const userResolutionOutcome = (resolvedActor: ResolvedRequestActor): {outcome: s
  * installation is attached; otherwise `unresolved` with reason
  * `unmatched-app`.
  */
-const appResolutionOutcome = (resolvedActor: ResolvedRequestActor): {outcome: string; reason?: string} => {
+const appResolutionOutcome = (resolvedActor: ResolvedRequestActor): ResolutionOutcome => {
   return resolvedActor.kind === 'app' && resolvedActor.installation !== undefined
     ? {outcome: 'resolved'}
     : {outcome: 'unresolved', reason: 'unmatched-app'};
@@ -601,7 +620,7 @@ const appResolutionOutcome = (resolvedActor: ResolvedRequestActor): {outcome: st
  * installation is attached; otherwise `unresolved` with reason
  * `unmatched-installation`.
  */
-const installationResolutionOutcome = (resolvedActor: ResolvedRequestActor): {outcome: string; reason?: string} => {
+const installationResolutionOutcome = (resolvedActor: ResolvedRequestActor): ResolutionOutcome => {
   return resolvedActor.kind === 'installation' && resolvedActor.installation !== undefined
     ? {outcome: 'resolved'}
     : {outcome: 'unresolved', reason: 'unmatched-installation'};
@@ -614,10 +633,7 @@ const installationResolutionOutcome = (resolvedActor: ResolvedRequestActor): {ou
  * @param resolvedActor Actor returned by `resolveRequestActor`.
  * @returns Stable outcome and optional reason labels for diagnostics.
  */
-const actorResolutionOutcome = (
-  actor: RequestActor,
-  resolvedActor: ResolvedRequestActor
-): {outcome: string; reason?: string} => {
+const actorResolutionOutcome = (actor: RequestActor, resolvedActor: ResolvedRequestActor): ResolutionOutcome => {
   switch (actor.kind) {
     case 'anonymous':
       return {outcome: 'anonymous'};
