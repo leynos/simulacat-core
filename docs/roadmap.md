@@ -17,23 +17,23 @@ GitHub Actions file semantics than on deep REST or GraphQL behaviour.
 
 REST and GraphQL should become parallel views over the same state, actor
 context, and domain events. The roadmap therefore keeps early foundation work
-narrow, uses consumer-shaped vertical slices, and defers broad surfaces such
-as Projects v2, code scanning, enterprise administration breadth, and webhook
+narrow, uses consumer-shaped vertical slices, and defers broad surfaces such as
+Projects v2, code scanning, enterprise administration breadth, and webhook
 breadth until the shared substrate is credible.
 
-| Phase | Primary consumer               | Delivered capability                                                    |
-| ----- | ------------------------------ | ----------------------------------------------------------------------- |
-| 1     | All consumers                  | Canonical identities, actors, mutation plumbing, and fixtures.          |
-| 2     | Ghillie, shared-actions        | Read-heavy GraphQL parity for refs, history, pull requests, and issues. |
-| 3     | Concordat, shared-actions      | Real branch-to-pull-request state transitions.                          |
-| 4     | Concordat                      | Repository administration, branch protection, and teams.                |
-| 5     | shared-actions, Concordat      | Statuses, checks, mergeability, auto-merge, and release tag lookup.     |
-| 6     | Concordat, shared-actions      | Review state and approval modelling.                                    |
-| 7     | Concordat                      | Review threads and conversation resolution.                             |
-| 8     | Reporting and triage consumers | Deeper issue collaboration and timelines.                               |
-| 9     | simulacat and test harnesses   | Capability matrix, fixture recipes, and scenario suites.                |
-| 10    | App integrations               | Webhooks and delivery inspection.                                       |
-| 11    | Concordat follow-on work       | Governance extras such as Projects v2 and code scanning.                |
+| Phase | Primary consumer               | Delivered capability                                                                 |
+| ----- | ------------------------------ | ------------------------------------------------------------------------------------ |
+| 1     | All consumers                  | Canonical identities, actors, mutation plumbing, fixtures, and client compatibility. |
+| 2     | Ghillie, shared-actions        | Read-heavy GraphQL parity for refs, history, pull requests, and issues.              |
+| 3     | Concordat, shared-actions      | Real branch-to-pull-request state transitions.                                       |
+| 4     | Concordat                      | Repository administration, branch protection, and teams.                             |
+| 5     | shared-actions, Concordat      | Statuses, checks, mergeability, auto-merge, and release tag lookup.                  |
+| 6     | Concordat, shared-actions      | Review state and approval modelling.                                                 |
+| 7     | Concordat                      | Review threads and conversation resolution.                                          |
+| 8     | Reporting and triage consumers | Deeper issue collaboration and timelines.                                            |
+| 9     | simulacat and test harnesses   | Capability matrix, fixture recipes, scenario suites, and simulator controls.         |
+| 10    | App integrations               | Webhooks and delivery inspection.                                                    |
+| 11    | Concordat follow-on work       | Governance extras such as Projects v2 and code scanning.                             |
 
 ## 1. Foundational identities, actors, and mutation spine
 
@@ -49,9 +49,9 @@ mutation, and mergeability logic unreliable.
 
 This step answers whether repository, branch, and ref data can coexist under
 GitHub-like owner namespaces. Its outcome informs every later selector and
-mutation task. See docs/architecture.md §State model,
-docs/api-reference.md §Exported fixture schemas, and
-docs/github-rest-api-audit.md §Store and Modeling Constraints.
+mutation task. See docs/architecture.md §State model, docs/api-reference.md
+§Exported fixture schemas, and docs/github-rest-api-audit.md §Store and
+Modeling Constraints.
 
 - [x] 1.1.1. Re-key repositories and refs by canonical identifiers.
   - Carries legacy task label `1.1.1`.
@@ -73,9 +73,9 @@ docs/github-rest-api-audit.md §Store and Modeling Constraints.
 This step answers whether authenticated GitHub concepts can be represented
 without fixed store shortcuts. Its outcome informs `/user`, GraphQL `viewer`,
 permissions, team administration, and protected-branch behaviour. See
-docs/api-reference.md §Capability matrix,
-docs/github-rest-api-audit.md §Store and Modeling Constraints, and
-docs/github-graphql-api-audit.md §Explicit Coverage.
+docs/api-reference.md §Capability matrix, docs/github-rest-api-audit.md §Store
+and Modeling Constraints, and docs/github-graphql-api-audit.md §Explicit
+Coverage.
 
 - [x] 1.2.1. Add request-scoped actor resolution.
   - Carries legacy task label `1.2.1`.
@@ -97,8 +97,8 @@ docs/github-graphql-api-audit.md §Explicit Coverage.
 
 This step answers whether mutations and test fixtures can share one domain
 path. Its outcome informs pull request lifecycle work, issue mutations,
-webhooks, and external scenario recipes. See docs/architecture.md
-§Extension seams, docs/development.md §Testing expectations, and
+webhooks, and external scenario recipes. See docs/architecture.md §Extension
+seams, docs/development.md §Testing expectations, and
 docs/github-rest-api-audit.md §Extension Surface.
 
 - [ ] 1.3.1. Add shared domain actions for write behaviour.
@@ -116,12 +116,85 @@ docs/github-rest-api-audit.md §Extension Surface.
   - Success: new tests can compose actor-aware repository fixtures through
     published builders.
 
+### 1.4. Make GitHub client payloads contract-tested
+
+This step answers whether common generated REST payloads can be consumed by
+real GitHub client libraries without downstream response patching. Its outcome
+informs the label workflow, simulacat adoption, and the capability matrix. See
+docs/architecture.md §GitHub client compatibility, docs/api-reference.md
+§Exported fixture schemas, and docs/github-rest-api-audit.md §Store and
+Modeling Constraints.
+
+- [ ] 1.4.1. Derive REST URLs from the inbound request host and API root.
+  - Requires 1.1.2.
+  - Replace fixed `localhost:3300` repository and related payload URLs with
+    request-aware URL generation for routed REST responses.
+  - Preserve fixture-level override fields where callers intentionally seed
+    custom URLs.
+  - Success: a simulator running on a random port returns repository, issue,
+    pull request, and label URLs that point back at that simulator instance.
+- [ ] 1.4.2. Move common github3.py payload compatibility into core.
+  - Requires 1.4.1.
+  - Cover repository lookup and listing, issue retrieval, and pull request
+    retrieval fields that simulacat currently patches for `github3.py`.
+  - Include `github3.py` 3.x and 4.x contract tests for those common calls.
+  - Success: simulacat no longer needs route-local payload patches for the
+    supported repository, issue, and pull request read workflows.
+- [ ] 1.4.3. Document and test custom API-root behaviour.
+  - Requires 1.4.1.
+  - Keep the root-mounted `github3.GitHub` plus `GitHubSession.base_url`
+    contract explicit.
+  - Classify `github3.GitHubEnterprise(..., token=...)` as unsupported unless
+    `/api/v3` compatibility is implemented and covered.
+  - Success: users can choose the supported github3.py setup deliberately
+    instead of discovering Enterprise path mismatches through failing tests.
+
+### 1.5. Add mutable repository labels as an early vertical slice
+
+This step answers whether a narrow write workflow can be implemented end to end
+for a real GitHub client before broader issue collaboration lands. Its outcome
+unblocks simulacat label-sync tests and informs later milestone, assignee, and
+timeline work. See docs/architecture.md §Repository label slice,
+docs/github-rest-api-audit.md §What Is Stubbed But Not Really Mocked,
+docs/roadmap.md §8.2, and ../simulacat/docs/simulacat-design.md §Phase 5 –
+core-backed labels and diagnostics.
+
+- [ ] 1.5.1. Add first-class repository label entities and builders.
+  - Requires 1.3.1 and 1.4.1.
+  - Model labels as repository-scoped state keyed by `owner/repo:name`.
+  - Preserve `name`, `color`, `description`, `url`, and any required GitHub
+    identity fields needed by `github3.py`.
+  - Export label schema, key helpers, selectors, and fixture builders.
+  - Success: labels can be seeded in `initialState`, selected by repository
+    and name, and serialized without raw nested dictionaries.
+- [ ] 1.5.2. Implement mutable repository label REST handlers.
+  - Requires 1.5.1.
+  - Support `GET /repos/{owner}/{repo}/labels/{name}`,
+    `POST /repos/{owner}/{repo}/labels`, and
+    `PATCH /repos/{owner}/{repo}/labels/{name}`.
+  - Create returns a created label entity, retrieve returns the label or
+    signals absence, and update modifies the label in state.
+  - Map those domain outcomes to GitHub-shaped REST responses in the adapter
+    layer.
+  - Default mutable label routes to accepting any plausible `Authorization`
+    header without token validation.
+  - Success: create, lookup, and update preserve label name, colour, and
+    description in memory.
+- [ ] 1.5.3. Add upstream github3.py label workflow contract tests.
+  - Requires 1.5.2 and 1.4.2.
+  - Exercise repository lookup, missing-label lookup, label creation,
+    subsequent lookup, and label update through a real `github3.py` client.
+  - Cover token-bearing write requests so 401 regressions are caught in core.
+  - Success: downstream projects can replace Betamax-backed label handlers
+    with a simulacat-backed integration test once simulacat adopts the new
+    core release.
+
 ## 2. GraphQL read model for repository triage
 
 Idea: if Simulacat Core can answer read-heavy GraphQL queries for refs,
 history, pull requests, and issues from shared state, Ghillie and
-shared-actions can rely on the simulator for real triage workflows before
-broad mutation coverage lands.
+shared-actions can rely on the simulator for real triage workflows before broad
+mutation coverage lands.
 
 This phase moves ahead of full issue mutation because the audits show that
 GraphQL has a large schema surface but a narrow set of meaningful resolvers.
@@ -184,10 +257,9 @@ docs/api-reference.md §GraphQL fields.
 
 ## 3. Branch-to-pull-request state machine
 
-Idea: if a test can create a branch, open a pull request, mutate its state,
-and read that state consistently through REST and GraphQL, Simulacat Core will
-have a real scriptable collaboration object instead of ornamental pull request
-JSON.
+Idea: if a test can create a branch, open a pull request, mutate its state, and
+read that state consistently through REST and GraphQL, Simulacat Core will have
+a real scriptable collaboration object instead of ornamental pull request JSON.
 
 This phase lands before rich issue collaboration because Concordat and
 shared-actions both need pull requests to be mutable, stateful objects.
@@ -384,8 +456,7 @@ docs/github-graphql-api-audit.md §Explicit Coverage.
 
 Idea: if review submissions, summaries, requested reviewers, and latest-review
 selectors plug into the phase 5 mergeability contract, protected-branch
-approval rules can become real without waiting for full review-thread
-modelling.
+approval rules can become real without waiting for full review-thread modelling.
 
 Review state lands before review threads because required approvals and
 latest-review state matter earlier than pixel-perfect conversation modelling.
@@ -495,8 +566,8 @@ Idea: if issue mutation, comments, labels, milestones, reactions, timelines,
 subscriptions, and notifications reuse the shared event model, reporting and
 triage consumers can operate through the simulator without direct store edits.
 
-Issue parity remains important, but it no longer blocks the earlier slices
-that carry more portfolio value today.
+Issue parity remains important, but it no longer blocks the earlier slices that
+carry more portfolio value today.
 
 ### 8.1. Finish issue lifecycle mutation
 
@@ -516,27 +587,29 @@ docs/api-reference.md §Capability matrix and docs/github-rest-api-audit.md
 
 This step answers whether common issue collaboration state can be scripted
 without broad timeline work. Its outcome informs the timeline and notification
-model. See docs/github-rest-api-audit.md §What Is Stubbed But Not Really
-Mocked and docs/github-graphql-api-audit.md §Public Schema vs Runtime Behavior.
+model. See docs/github-rest-api-audit.md §What Is Stubbed But Not Really Mocked
+and docs/github-graphql-api-audit.md §Public Schema vs Runtime Behavior.
 
 - [ ] 8.2.1. Add issue comments and reactions.
   - Carries part of legacy task labels `2.2.2` and `2.2.3`.
   - Requires 8.1.1.
   - Success: issue discussions and reaction state are store-backed and
     visible through supported reads.
-- [ ] 8.2.2. Add labels, milestones, and assignee management.
+- [ ] 8.2.2. Add milestones, assignee management, and label issue-linking.
   - Carries the remaining collaboration scope from legacy task labels `2.2.2`
     and `2.2.3`.
-  - Requires 8.1.1.
-  - Success: label, milestone, and assignee changes can be scripted through
-    simulator endpoints and read back consistently.
+  - Requires 1.5.2 and 8.1.1.
+  - Build on the repository label model from step 1.5 instead of introducing a
+    second label representation.
+  - Success: label assignment, milestone, and assignee changes can be scripted
+    through simulator endpoints and read back consistently.
 
 ### 8.3. Expose timelines, subscriptions, and notifications
 
 This step answers whether issue activity can be consumed as event history
-rather than as disconnected object snapshots. Its outcome informs webhooks.
-See docs/github-rest-api-audit.md §Recommended Follow-Ups and
-docs/architecture.md §High-level flow.
+rather than as disconnected object snapshots. Its outcome informs webhooks. See
+docs/github-rest-api-audit.md §Recommended Follow-Ups and docs/architecture.md
+§High-level flow.
 
 - [ ] 8.3.1. Add issue timeline views.
   - Carries legacy task label `2.3.1`.
@@ -587,20 +660,77 @@ suites. See docs/development.md §Testing expectations and docs/architecture.md
   - Success: new integration tests can start from published recipes instead of
     rebuilding the same fixture graphs.
 
-### 9.3. Exercise the vertical slices as scenarios
+### 9.3. Add simulator state, request, and fault-control APIs
 
-This step answers whether the consumer slices work together rather than only
-as isolated endpoint tests. Its outcome informs webhook confidence and release
+This step answers whether external harnesses can assert simulator side effects
+without bespoke handlers. Its outcome informs simulacat's pytest fixtures and
+future webhook delivery inspection. See docs/architecture.md §Extension seams
+and docs/development.md §Testing expectations, and
+../simulacat/docs/simulacat-design.md §Step 5.2 – diagnostics and fault
+fixtures.
+
+- [ ] 9.3.1. Add state inspection and reset endpoints.
+  - Requires 1.3.1 and 9.1.1.
+  - Provide simulator-only endpoints for reading current state and resetting
+    state between tests without reaching into process internals.
+  - Success: test harnesses can assert post-request state and reuse simulator
+    processes safely where their isolation model allows it.
+- [ ] 9.3.2. Add request log capture.
+  - Requires 9.3.1.
+  - Capture method, path, selected actor, status, and request identifiers with
+    bounded retention and redacted sensitive headers.
+  - Success: tests can assert that a POST or PATCH was issued without
+    replacing the simulator with a handwritten HTTP handler.
+- [ ] 9.3.3. Add configurable error injection.
+  - Requires 9.3.2.
+  - Allow harnesses to configure the next matching route to return a chosen
+    status and payload, including malformed-payload cases.
+  - Success: retry, error, and client-validation paths can be tested against
+    the simulator instead of against route-specific stubs.
+
+### 9.4. Exercise the vertical slices as scenarios
+
+This step answers whether the consumer slices work together rather than only as
+isolated endpoint tests. Its outcome informs webhook confidence and release
 readiness. See docs/development.md §Testing expectations,
 docs/github-rest-api-audit.md §Test Coverage Observed, and
 docs/github-graphql-api-audit.md §Test Coverage Observed.
 
-- [ ] 9.3.1. Add end-to-end scenario suites.
+- [ ] 9.4.1. Add end-to-end scenario suites.
   - Requires 9.2.1.
   - Cover the administration, read-model, pull request, mergeability, and
     review slices before webhook assertions are added.
+  - Include the github3.py label workflow from step 1.5 as the earliest
+    external-client write scenario.
   - Success: the scenario suite proves the phase 1-8 slices can be used as
     combined consumer workflows.
+
+### 9.5. Harden protocol breadth for supported surfaces
+
+This step answers whether supported routes behave like GitHub at the protocol
+edges that client libraries depend on. Its outcome informs broader adoption by
+test harnesses beyond simulacat. See docs/github-rest-api-audit.md §Recommended
+Follow-Ups.
+
+- [ ] 9.5.1. Add pagination support for supported list endpoints.
+  - Requires 9.1.1.
+  - Cover `Link` headers and page parameters for label listing, issue listing,
+    pull request listing, and repository listing as each endpoint graduates to
+    scriptable support.
+  - Success: supported list endpoints can be consumed by clients that follow
+    GitHub pagination rather than assuming single-page responses.
+- [ ] 9.5.2. Add configurable permission and token scenarios.
+  - Requires 4.3.1 and 1.5.2.
+  - Preserve accept-any-token defaults for local write tests while adding
+    optional read-only, missing-scope, and bad-token behaviours.
+  - Success: tests can opt into GitHub-shaped authorization failures without
+    making the default simulator hostile to local client writes.
+- [ ] 9.5.3. Add OpenAPI/schema conformance checks for supported payloads.
+  - Requires 1.4.2 and 9.1.1.
+  - Validate maintained payload fixtures and response builders against the
+    relevant OpenAPI shapes where the schema is usable.
+  - Success: supported client-library workflows fail in core tests when a
+    required response field is removed or malformed.
 
 ## 10. Webhooks and delivery inspection
 
@@ -629,8 +759,8 @@ docs/github-rest-api-audit.md §Recommended Follow-Ups.
 ### 10.2. Make deliveries inspectable and replayable
 
 This step answers whether tests can assert webhook delivery deterministically.
-Its outcome informs app-integration adoption. See docs/development.md
-§Testing expectations and docs/api-reference.md §Capability matrix.
+Its outcome informs app-integration adoption. See docs/development.md §Testing
+expectations and docs/api-reference.md §Capability matrix.
 
 - [ ] 10.2.1. Add delivery inspection and replay helpers.
   - Carries legacy task label `6.1.2`.
@@ -674,9 +804,8 @@ governance flows rather than broad parity. See docs/github-rest-api-audit.md
 ### 11.3. Reassess enterprise administration breadth
 
 This step answers whether additional enterprise administration surfaces belong
-in Simulacat Core or in adjacent simulators. See
-docs/github-rest-api-audit.md §Assessment and docs/architecture.md
-§Extension seams.
+in Simulacat Core or in adjacent simulators. See docs/github-rest-api-audit.md
+§Assessment and docs/architecture.md §Extension seams.
 
 - [ ] 11.3.1. Decide where further enterprise administration surfaces belong.
   - Requires 11.1.1 and 11.2.1.
@@ -690,6 +819,9 @@ Sequencing notes:
   order is governed by the GIST phases above.
 - The legacy `1.2.2` permission scope stays minimal until administration and
   branch protection require more depth.
+- The github3.py compatibility and label slices in steps 1.4 and 1.5 move
+  ahead of broad issue collaboration because simulacat has an immediate
+  client-library write workflow blocked by those gaps.
 - Review state in phase 6 must complete before review threads in phase 7.
 - Phase 5 defines the mergeability contract, while phase 6 completes the
   review-backed approval side of that contract.
