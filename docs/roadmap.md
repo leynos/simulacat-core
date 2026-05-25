@@ -172,8 +172,10 @@ core-backed labels and diagnostics.
   - Support `GET /repos/{owner}/{repo}/labels/{name}`,
     `POST /repos/{owner}/{repo}/labels`, and
     `PATCH /repos/{owner}/{repo}/labels/{name}`.
-  - Return 404 for missing repositories or labels, 201 for creates, and 200
-    for updates.
+  - Create returns a created label entity, retrieve returns the label or
+    signals absence, and update modifies the label in state.
+  - Map those domain outcomes to GitHub-shaped REST responses in the adapter
+    layer.
   - Default mutable label routes to accepting any plausible `Authorization`
     header without token validation.
   - Success: create, lookup, and update preserve label name, colour, and
