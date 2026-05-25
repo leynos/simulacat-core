@@ -8,20 +8,20 @@ const basePort = 3310;
 const host = 'http://localhost';
 const url = `${host}:${basePort}`;
 
-// biome-ignore lint/complexity/noExcessiveLinesPerFunction: legacy installation integration suite kept intact for coverage.
+/** Creates the GitHub App installation fixture state used by REST tests. */
+const createInstallationFixture = () => ({
+  users: [],
+  installations: [{id: 2000, account: 'lovely-org'}],
+  organizations: [{login: 'lovely-org'}],
+  repositories: [{owner: 'lovely-org', name: 'awesome-repo'}],
+  branches: [{owner: 'lovely-org', repo: 'awesome-repo', name: 'main'}],
+  blobs: []
+});
+
 describe('GET installation endpoints', () => {
   let server: SimulationServer;
   beforeAll(async () => {
-    const app = simulation({
-      initialState: {
-        users: [],
-        installations: [{id: 2000, account: 'lovely-org'}],
-        organizations: [{login: 'lovely-org'}],
-        repositories: [{owner: 'lovely-org', name: 'awesome-repo'}],
-        branches: [{owner: 'lovely-org', repo: 'awesome-repo', name: 'main'}],
-        blobs: []
-      }
-    });
+    const app = simulation({initialState: createInstallationFixture()});
     server = await app.listen(basePort);
   });
   afterAll(async () => {

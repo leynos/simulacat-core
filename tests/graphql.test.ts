@@ -105,7 +105,7 @@ type TeamMembersQuery = {
 };
 
 /** Shared fixture state seeded into the simulated GitHub store for all GraphQL integration tests. */
-const graphqlTestFixtureState = {
+const GRAPHQL_TEST_FIXTURE_STATE = {
   users: [
     {
       login: 'frontsidejack',
@@ -190,7 +190,7 @@ describe('graphql queries', () => {
   let server: SimulationServer;
 
   beforeAll(async () => {
-    const app = simulation({initialState: graphqlTestFixtureState});
+    const app = simulation({initialState: GRAPHQL_TEST_FIXTURE_STATE});
     server = await app.listen(basePort);
   });
 

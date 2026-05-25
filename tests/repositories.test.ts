@@ -15,6 +15,59 @@ interface ListAndGetConfig {
   assertGetResponse: (response: Record<string, unknown>) => void;
 }
 
+/** Shared fixture state for repository-oriented REST endpoint tests. */
+const REPOSITORY_TEST_FIXTURE = {
+  users: [],
+  organizations: [{login: 'lovely-org'}, {login: 'empty-org'}, {login: 'branchless-org'}],
+  repositories: [
+    {owner: 'lovely-org', name: 'awesome-repo'},
+    {owner: 'empty-org', name: 'other-repo'}
+  ],
+  branches: [
+    {owner: 'lovely-org', repo: 'awesome-repo', name: 'main'},
+    {owner: 'empty-org', repo: 'other-repo', name: 'release'}
+  ],
+  blobs: [
+    {
+      owner: 'lovely-org',
+      repo: 'awesome-repo',
+      path: 'README.md',
+      sha: 'tree-sha-123',
+      content: 'hello tree route'
+    }
+  ],
+  commits: [
+    {owner: 'lovely-org', repo: 'awesome-repo', sha: 'commit-a', commit: {message: 'Initial commit'}},
+    {owner: 'empty-org', repo: 'other-repo', sha: 'commit-b', commit: {message: 'Other commit'}}
+  ],
+  refs: [
+    {owner: 'lovely-org', repo: 'awesome-repo', qualifiedName: 'main', object: {sha: 'commit-a'}},
+    {owner: 'empty-org', repo: 'other-repo', qualifiedName: 'main', object: {sha: 'commit-b'}}
+  ],
+  issues: [
+    {owner: 'lovely-org', repo: 'awesome-repo', number: 1, title: 'Lovely issue'},
+    {owner: 'empty-org', repo: 'other-repo', number: 1, title: 'Other issue'}
+  ],
+  pullRequests: [
+    {
+      owner: 'lovely-org',
+      repo: 'awesome-repo',
+      number: 2,
+      title: 'Lovely pull request',
+      base: {ref: 'main', sha: 'commit-a'},
+      head: {ref: 'feature/entity-spine', sha: 'commit-c'}
+    },
+    {
+      owner: 'empty-org',
+      repo: 'other-repo',
+      number: 2,
+      title: 'Other pull request',
+      base: {ref: 'main', sha: 'commit-b'},
+      head: {ref: 'feature/entity-spine', sha: 'commit-d'}
+    }
+  ]
+} as const;
+
 async function assertListAndGet(baseUrl: string, config: ListAndGetConfig): Promise<void> {
   const listRequest = await fetch(`${baseUrl}${config.listPath}`);
   const listResponse = (await listRequest.json()) as unknown[];
@@ -27,63 +80,11 @@ async function assertListAndGet(baseUrl: string, config: ListAndGetConfig): Prom
   config.assertGetResponse(getResponse);
 }
 
-// biome-ignore lint/complexity/noExcessiveLinesPerFunction: legacy repository integration suite kept intact for coverage.
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: legacy repository integration suite remains over the line gate.
 describe('GET repo endpoints', () => {
   let server: SimulationServer;
   beforeAll(async () => {
-    const app = simulation({
-      initialState: {
-        users: [],
-        organizations: [{login: 'lovely-org'}, {login: 'empty-org'}, {login: 'branchless-org'}],
-        repositories: [
-          {owner: 'lovely-org', name: 'awesome-repo'},
-          {owner: 'empty-org', name: 'other-repo'}
-        ],
-        branches: [
-          {owner: 'lovely-org', repo: 'awesome-repo', name: 'main'},
-          {owner: 'empty-org', repo: 'other-repo', name: 'release'}
-        ],
-        blobs: [
-          {
-            owner: 'lovely-org',
-            repo: 'awesome-repo',
-            path: 'README.md',
-            sha: 'tree-sha-123',
-            content: 'hello tree route'
-          }
-        ],
-        commits: [
-          {owner: 'lovely-org', repo: 'awesome-repo', sha: 'commit-a', commit: {message: 'Initial commit'}},
-          {owner: 'empty-org', repo: 'other-repo', sha: 'commit-b', commit: {message: 'Other commit'}}
-        ],
-        refs: [
-          {owner: 'lovely-org', repo: 'awesome-repo', qualifiedName: 'main', object: {sha: 'commit-a'}},
-          {owner: 'empty-org', repo: 'other-repo', qualifiedName: 'main', object: {sha: 'commit-b'}}
-        ],
-        issues: [
-          {owner: 'lovely-org', repo: 'awesome-repo', number: 1, title: 'Lovely issue'},
-          {owner: 'empty-org', repo: 'other-repo', number: 1, title: 'Other issue'}
-        ],
-        pullRequests: [
-          {
-            owner: 'lovely-org',
-            repo: 'awesome-repo',
-            number: 2,
-            title: 'Lovely pull request',
-            base: {ref: 'main', sha: 'commit-a'},
-            head: {ref: 'feature/entity-spine', sha: 'commit-c'}
-          },
-          {
-            owner: 'empty-org',
-            repo: 'other-repo',
-            number: 2,
-            title: 'Other pull request',
-            base: {ref: 'main', sha: 'commit-b'},
-            head: {ref: 'feature/entity-spine', sha: 'commit-d'}
-          }
-        ]
-      }
-    });
+    const app = simulation({initialState: REPOSITORY_TEST_FIXTURE});
     server = await app.listen(basePort);
   });
   afterAll(async () => {
