@@ -104,152 +104,93 @@ type TeamMembersQuery = {
   };
 };
 
-// biome-ignore lint/complexity/noExcessiveLinesPerFunction: legacy GraphQL integration suite kept intact for coverage.
+/** Shared fixture state seeded into the simulated GitHub store for all GraphQL integration tests. */
+const graphqlTestFixtureState = {
+  users: [
+    {
+      login: 'frontsidejack',
+      email: 'frontsidejack@example.test',
+      organizations: ['lovely-org']
+    },
+    {
+      login: 'reviewer',
+      email: 'reviewer@example.test',
+      organizations: ['Acme']
+    }
+  ],
+  organizations: [{login: 'lovely-org'}, {login: 'Acme'}],
+  repositories: [
+    {owner: 'lovely-org', name: 'awesome-repo'},
+    {owner: 'Acme', name: 'Awesome-Repo'}
+  ],
+  branches: [
+    {owner: 'lovely-org', repo: 'awesome-repo', name: 'main'},
+    {owner: 'Acme', repo: 'Awesome-Repo', name: 'main'}
+  ],
+  blobs: [],
+  commits: [
+    {
+      owner: 'lovely-org',
+      repo: 'awesome-repo',
+      sha: 'commit-a',
+      commit: {message: 'Initial commit'}
+    },
+    {
+      owner: 'Acme',
+      repo: 'Awesome-Repo',
+      sha: 'commit-b',
+      commit: {message: 'Acme commit'}
+    }
+  ],
+  refs: [
+    {
+      owner: 'lovely-org',
+      repo: 'awesome-repo',
+      qualifiedName: 'main',
+      object: {sha: 'commit-a'}
+    },
+    {
+      owner: 'lovely-org',
+      repo: 'awesome-repo',
+      qualifiedName: 'feature/x',
+      object: {sha: 'commit-a'}
+    },
+    {
+      owner: 'lovely-org',
+      repo: 'awesome-repo',
+      qualifiedName: 'v1.0.0',
+      object: {type: 'tag', sha: 'commit-a'}
+    },
+    {
+      owner: 'Acme',
+      repo: 'Awesome-Repo',
+      qualifiedName: 'main',
+      object: {sha: 'commit-b'}
+    }
+  ],
+  issues: [
+    {owner: 'lovely-org', repo: 'awesome-repo', number: 1, title: 'Lovely issue'},
+    {owner: 'Acme', repo: 'Awesome-Repo', number: 1, title: 'Acme issue'}
+  ],
+  pullRequests: [
+    {
+      owner: 'lovely-org',
+      repo: 'awesome-repo',
+      number: 2,
+      title: 'Lovely pull request',
+      draft: true,
+      base: {ref: 'main', sha: 'commit-a'},
+      head: {ref: 'feature/entity-spine', sha: 'commit-c'}
+    }
+  ]
+} as const;
+
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: legacy GraphQL integration suite remains over the line gate.
 describe('graphql queries', () => {
   let server: SimulationServer;
 
-  // biome-ignore lint/complexity/noExcessiveLinesPerFunction: legacy shared fixture setup kept intact for coverage.
   beforeAll(async () => {
-    const app = simulation({
-      initialState: {
-        users: [
-          {
-            login: 'frontsidejack',
-            email: 'frontsidejack@example.test',
-            organizations: ['lovely-org']
-          },
-
-          {
-            login: 'reviewer',
-            email: 'reviewer@example.test',
-            organizations: ['Acme']
-          }
-        ],
-        organizations: [
-          {
-            login: 'lovely-org'
-          },
-          {
-            login: 'Acme'
-          }
-        ],
-        repositories: [
-          {
-            owner: 'lovely-org',
-            name: 'awesome-repo'
-          },
-
-          {
-            owner: 'Acme',
-            name: 'Awesome-Repo'
-          }
-        ],
-        branches: [
-          {
-            owner: 'lovely-org',
-            repo: 'awesome-repo',
-            name: 'main'
-          },
-
-          {
-            owner: 'Acme',
-            repo: 'Awesome-Repo',
-            name: 'main'
-          }
-        ],
-        blobs: [],
-        commits: [
-          {
-            owner: 'lovely-org',
-            repo: 'awesome-repo',
-            sha: 'commit-a',
-            commit: {
-              message: 'Initial commit'
-            }
-          },
-
-          {
-            owner: 'Acme',
-            repo: 'Awesome-Repo',
-            sha: 'commit-b',
-            commit: {
-              message: 'Acme commit'
-            }
-          }
-        ],
-        refs: [
-          {
-            owner: 'lovely-org',
-            repo: 'awesome-repo',
-            qualifiedName: 'main',
-            object: {
-              sha: 'commit-a'
-            }
-          },
-
-          {
-            owner: 'lovely-org',
-            repo: 'awesome-repo',
-            qualifiedName: 'feature/x',
-            object: {
-              sha: 'commit-a'
-            }
-          },
-
-          {
-            owner: 'lovely-org',
-            repo: 'awesome-repo',
-            qualifiedName: 'v1.0.0',
-            object: {
-              type: 'tag',
-              sha: 'commit-a'
-            }
-          },
-
-          {
-            owner: 'Acme',
-            repo: 'Awesome-Repo',
-            qualifiedName: 'main',
-            object: {
-              sha: 'commit-b'
-            }
-          }
-        ],
-        issues: [
-          {
-            owner: 'lovely-org',
-            repo: 'awesome-repo',
-            number: 1,
-            title: 'Lovely issue'
-          },
-
-          {
-            owner: 'Acme',
-            repo: 'Awesome-Repo',
-            number: 1,
-            title: 'Acme issue'
-          }
-        ],
-        pullRequests: [
-          {
-            owner: 'lovely-org',
-            repo: 'awesome-repo',
-            number: 2,
-            title: 'Lovely pull request',
-            draft: true,
-            base: {
-              ref: 'main',
-              sha: 'commit-a'
-            },
-            head: {
-              ref: 'feature/entity-spine',
-              sha: 'commit-c'
-            }
-          }
-        ]
-      }
-    });
-
+    const app = simulation({initialState: graphqlTestFixtureState});
     server = await app.listen(basePort);
   });
 
