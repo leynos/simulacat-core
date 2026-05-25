@@ -1,4 +1,5 @@
 /** @file Integration tests for authenticated-user REST endpoints. */
+// biome-ignore-all lint/complexity/noExcessiveLinesPerFunction: Baseline test suite predates the new function length gate.
 import {afterAll, beforeAll, beforeEach, describe, expect, it} from 'bun:test';
 import {simulation} from '../src/index.ts';
 import {legacySimulacatUserHeader, requestActorHeader, resetActorObservationCounters} from '../src/store/actors.ts';

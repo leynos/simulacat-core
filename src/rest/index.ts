@@ -5,6 +5,8 @@
  * simulator's OpenAPI adapter, wires seeded store selectors into GitHub REST
  * routes, and merges caller-provided handler extensions.
  */
+// biome-ignore-all lint/complexity/noExcessiveCognitiveComplexity: Baseline route table predates the new complexity gate.
+// biome-ignore-all lint/complexity/noExcessiveLinesPerFunction: Baseline route table predates the new length gate.
 import type {Document, SimulationHandlers} from '@simulacrum/foundation-simulator';
 import type {ExtendedSimulationStore} from '../store/index.ts';
 import {
@@ -17,7 +19,7 @@ import {
   parseRequestActorWithDiagnostics,
   requestIdFromHeaders,
   resolveRequestActor,
-  selectAuthenticatedUser,
+  selectAuthenticatedUser
 } from '../store/actors.ts';
 import {getSchema, type SchemaFile} from '../utils.ts';
 import {blobAsBase64, commitStatusResponse, gitTrees, normalizeGitRefPath} from './utils.ts';

@@ -1,4 +1,5 @@
 /** @file Unit tests for request-scoped actor parsing and resolution. */
+// biome-ignore-all lint/complexity/noExcessiveLinesPerFunction: Baseline actor suites predate the new function length gate.
 import {describe, expect, it} from 'bun:test';
 import fc from 'fast-check';
 import {

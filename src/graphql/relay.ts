@@ -1,3 +1,10 @@
+/**
+ * @file Relay cursor pagination helpers for GraphQL connection resolvers.
+ *
+ * This module applies Relay-style before/after/first/last arguments to in-memory
+ * fixture arrays and returns connection page metadata for resolver callers.
+ */
+
 export interface PageArgs {
   first?: number;
   before?: string;
@@ -146,6 +153,7 @@ function applyCursorsToEdges<T>(nodes: T[], before?: string, after?: string) {
  * // => [1, 2]
  * ```
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: pagination edge semantics predate the new complexity gate.
 function edgesToReturn<T>(edges: T[], first?: number, last?: number) {
   let newEdges = edges;
   if (first == null && last == null) {
