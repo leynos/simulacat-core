@@ -678,7 +678,7 @@ fixtures.
   - Capture method, path, selected actor, status, and request identifiers with
     bounded retention and redacted sensitive headers.
   - Success: tests can assert that a POST or PATCH was issued without
-    replacing the simulator with a hand-written HTTP handler.
+    replacing the simulator with a handwritten HTTP handler.
 - [ ] 9.3.3. Add configurable error injection.
   - Requires 9.3.2.
   - Allow harnesses to configure the next matching route to return a chosen
