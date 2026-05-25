@@ -1,7 +1,7 @@
 /** @file Integration tests for the simulated GraphQL API surface. */
 import {afterAll, beforeAll, beforeEach, describe, expect, it} from 'bun:test';
 
-import {simulation} from '../src/index.ts';
+import {type InitialState, simulation} from '../src/index.ts';
 
 import {graphql} from '@octokit/graphql';
 
@@ -105,7 +105,7 @@ type TeamMembersQuery = {
 };
 
 /** Shared fixture state seeded into the simulated GitHub store for all GraphQL integration tests. */
-const GRAPHQL_TEST_FIXTURE_STATE = {
+const GRAPHQL_TEST_FIXTURE_STATE: InitialState = {
   users: [
     {
       login: 'frontsidejack',
@@ -183,7 +183,7 @@ const GRAPHQL_TEST_FIXTURE_STATE = {
       head: {ref: 'feature/entity-spine', sha: 'commit-c'}
     }
   ]
-} as const;
+};
 
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: legacy GraphQL integration suite remains over the line gate.
 describe('graphql queries', () => {

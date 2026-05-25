@@ -1,6 +1,6 @@
 /** @file Integration tests for repository-oriented REST endpoints. */
 import {afterAll, beforeAll, describe, expect, it} from 'bun:test';
-import {simulation} from '../src/index.ts';
+import {type InitialState, simulation} from '../src/index.ts';
 
 type SimulationServer = Awaited<ReturnType<ReturnType<typeof simulation>['listen']>>;
 
@@ -16,7 +16,7 @@ interface ListAndGetConfig {
 }
 
 /** Shared fixture state for repository-oriented REST endpoint tests. */
-const REPOSITORY_TEST_FIXTURE = {
+const REPOSITORY_TEST_FIXTURE: InitialState = {
   users: [],
   organizations: [{login: 'lovely-org'}, {login: 'empty-org'}, {login: 'branchless-org'}],
   repositories: [
@@ -66,7 +66,7 @@ const REPOSITORY_TEST_FIXTURE = {
       head: {ref: 'feature/entity-spine', sha: 'commit-d'}
     }
   ]
-} as const;
+};
 
 async function assertListAndGet(baseUrl: string, config: ListAndGetConfig): Promise<void> {
   const listRequest = await fetch(`${baseUrl}${config.listPath}`);
