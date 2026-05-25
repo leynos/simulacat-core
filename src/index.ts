@@ -64,8 +64,7 @@ type _GitHubSelectors =
  * @throws {ZodError} When `args.initialState` is present but does not satisfy
  * the initial store schema.
  */
-// Simulation setup composes the public API, REST, GraphQL, and store adapters in one place.
-// oxlint-disable-next-line complexity
+// oxlint-disable-next-line complexity -- baseline: composed entrypoint wiring store, REST, GraphQL, and extension adapters.
 export const simulation = (args: GitHubSimulatorArgs = {}): FoundationSimulator<ExtendedSimulationStore> => {
   const parsedInitialState = !args?.initialState ? undefined : githubInitialStoreSchema.parse(args?.initialState);
   const extendStoreConfig = mergeStoreConfig(parsedInitialState, args?.extend?.extendStore);

@@ -45,17 +45,10 @@ export interface RelayPagingOptions {
   before?: string;
 }
 
-/**
- * Identity mapper used as the default `mapper` argument in
- * `applyRelayPagination`.
- */
+/** Identity mapper used as the default `mapper` argument in pagination. */
 const identity = <A>(a: A): A => a;
 
-/**
- * Parses a string cursor into a non-negative integer index.
- *
- * @throws Error when the cursor is present but is not a non-negative integer.
- */
+/** Parses a string cursor into a non-negative integer index. */
 const parseCursor = (name: 'before' | 'after', cursor: string | undefined, defaultValue: number) => {
   if (cursor == null) {
     return defaultValue;
@@ -77,6 +70,11 @@ const parseCursor = (name: 'before' | 'after', cursor: string | undefined, defau
  * const page = applyRelayPagination(['a', 'b', 'c'], {first: 2});
  * // => nodes ['a', 'b'], startCursor '0', endCursor '1'
  * ```
+ *
+ * @param nodes Source nodes to paginate.
+ * @param args Relay pagination arguments.
+ * @param mapper Optional node mapper applied after slicing.
+ * @returns Relay-compatible page containing edges, nodes, and page metadata.
  */
 export function applyRelayPagination<T, R>(
   nodes: T[],
@@ -123,15 +121,7 @@ export function applyRelayPagination<T, R>(
   };
 }
 
-/**
- * Applies the `before` and `after` cursors before size-based pagination.
- *
- * @example
- * ```ts
- * const edges = applyCursorsToEdges(['a', 'b', 'c'], undefined, '0');
- * // => edges for ['b', 'c']
- * ```
- */
+/** Applies the `before` and `after` cursors before size-based pagination. */
 function applyCursorsToEdges<T>(nodes: T[], before?: string, after?: string) {
   const afterIdx = parseCursor('after', after, -1);
   const beforeIdx = parseCursor('before', before, nodes.length);
@@ -144,15 +134,7 @@ function applyCursorsToEdges<T>(nodes: T[], before?: string, after?: string) {
   return edges;
 }
 
-/**
- * Applies `first` or `last` limits to an edge collection.
- *
- * @example
- * ```ts
- * const edges = edgesToReturn([1, 2, 3], 2);
- * // => [1, 2]
- * ```
- */
+/** Applies `first` or `last` limits to an edge collection. */
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: pagination edge semantics predate the new complexity gate.
 function edgesToReturn<T>(edges: T[], first?: number, last?: number) {
   let newEdges = edges;

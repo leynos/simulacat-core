@@ -1,5 +1,4 @@
 /** @file Unit tests for fixture schemas and state-table conversion helpers. */
-// biome-ignore-all lint/complexity/noExcessiveLinesPerFunction: Baseline test suites predate the new function length gate.
 import {beforeEach, describe, expect, it} from 'bun:test';
 import {
   githubAppInstallationSchema,
@@ -128,6 +127,7 @@ describe('githubBlobSchema', () => {
   });
 });
 
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: legacy early entity schema suite kept intact for coverage.
 describe('early entity schemas', () => {
   it('normalizes commit parents precedence and synthesizes parent URLs', () => {
     const commit = githubCommitSchema.parse({
@@ -364,6 +364,7 @@ describe('githubAppInstallationSchema', () => {
   });
 });
 
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: legacy schema transform suite kept intact for coverage.
 describe('initialState schema transforms', () => {
   beforeEach(() => {
     resetNextRepositoryId();

@@ -11,16 +11,7 @@ type MinimalRepositoryRef = {
   name: string;
 };
 
-/**
- * Converts a GitHub repository fixture into a minimal GraphQL repository ref.
- *
- * @param repository GitHub repository fixture to wrap, or `undefined`.
- * @returns A minimal repository reference, or `undefined` when `repository` is
- * undefined.
- *
- * The conversion maps `node_id` to GraphQL `id`, preserves `name`, and sets
- * `__typename` to `Repository`.
- */
+/** Converts a GitHub repository fixture into a minimal GraphQL repository ref. */
 const wrapRepository = (repository: GitHubRepository | undefined): MinimalRepositoryRef | undefined => {
   return repository
     ? {
@@ -31,17 +22,7 @@ const wrapRepository = (repository: GitHubRepository | undefined): MinimalReposi
     : undefined;
 };
 
-/**
- * Converts fixture pull request state values to GraphQL enum values.
- *
- * @param state Pull request fixture state: `open`, `closed`, or `merged`.
- * @returns The matching GraphQL `PullRequestState` value: `Open`, `Closed`, or
- * `Merged`.
- *
- * The default branch assigns `state` to `never` so TypeScript validates the
- * mapping exhaustively. It throws an `Error` if an unhandled state reaches
- * runtime.
- */
+/** Converts fixture pull request state values to GraphQL enum values. */
 const convertPullRequestStateToGraphQL = (state: 'open' | 'closed' | 'merged'): PullRequestState => {
   switch (state) {
     case 'open':
@@ -57,12 +38,7 @@ const convertPullRequestStateToGraphQL = (state: 'open' | 'closed' | 'merged'): 
   }
 };
 
-/**
- * Splits a qualified ref name into GraphQL prefix and name fields.
- *
- * @param qualifiedName Ref name supplied by the fixture.
- * @returns A prefix/name pair for the GraphQL `Ref` shape.
- */
+/** Splits a qualified ref name into GraphQL prefix and name fields. */
 const splitRefName = (qualifiedName: string) => {
   if (qualifiedName.startsWith('refs/')) {
     const namespaceEnd = qualifiedName.indexOf('/', 'refs/'.length);

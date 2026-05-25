@@ -1,5 +1,4 @@
 /** @file Integration tests for repository-oriented REST endpoints. */
-// biome-ignore-all lint/complexity/noExcessiveLinesPerFunction: Baseline test suite predates the new function length gate.
 import {afterAll, beforeAll, describe, expect, it} from 'bun:test';
 import {simulation} from '../src/index.ts';
 
@@ -28,6 +27,7 @@ async function assertListAndGet(baseUrl: string, config: ListAndGetConfig): Prom
   config.assertGetResponse(getResponse);
 }
 
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: legacy repository integration suite kept intact for coverage.
 describe('GET repo endpoints', () => {
   let server: SimulationServer;
   beforeAll(async () => {

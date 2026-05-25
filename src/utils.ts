@@ -1,5 +1,4 @@
 /** @file Filesystem helpers for loading bundled or caller-provided schemas. */
-// biome-ignore-all lint/complexity/noExcessiveCognitiveComplexity: Baseline schema loader predates the new complexity gate.
 import path from 'path';
 import fs from 'fs';
 import {z} from 'zod';
@@ -36,39 +35,28 @@ const openApiSchema = z
 /** TypeScript type inferred from `openApiSchema`. */
 type OpenApiSchema = z.infer<typeof openApiSchema>;
 
-/**
- * Loads a bundled schema file or an explicit schema path from disk.
- *
- * @example
- * ```ts
- * const restSchema = getSchema('api.github.com.json');
- * const gqlSchema = getSchema('/tmp/schema.docs-enterprise.graphql');
- * ```
- */
-export function getSchema(schemaFile: 'api.github.com.json'): OpenApiSchema;
-export function getSchema(schemaFile: 'schema.docs.graphql' | 'schema.docs-enterprise.graphql'): string;
-export function getSchema(schemaFile: `${string}.json`): OpenApiSchema;
-export function getSchema(schemaFile: string): string;
-export function getSchema(schemaFile: SchemaFile | string): string | OpenApiSchema {
+/** Resolves bundled schema names to their repository schema path. */
+const resolveSchemaPath = (schemaFile: SchemaFile | string): string => {
   const root = path.join(import.meta.dirname, '..');
-  const schemaPath = (schemaDefaults as readonly string[]).includes(schemaFile)
+  return (schemaDefaults as readonly string[]).includes(schemaFile)
     ? path.join(root, 'schema', schemaFile)
     : schemaFile;
+};
 
-  let fileString: string;
+/** Loads schema file text with a schema-specific error message. */
+const loadSchemaFile = (schemaFile: SchemaFile | string, schemaPath: string): string => {
   try {
-    fileString = fs.readFileSync(schemaPath, 'utf-8');
+    return fs.readFileSync(schemaPath, 'utf-8');
   } catch (error) {
     throw new Error(
       `Failed to load schema ${schemaFile} from ${schemaPath}: ${error instanceof Error ? error.message : String(error)}`,
       {cause: error}
     );
   }
+};
 
-  if (!schemaFile.endsWith('.json')) {
-    return fileString;
-  }
-
+/** Parses and validates JSON OpenAPI schema text. */
+const parseAndValidateSchema = (schemaPath: string, fileString: string): OpenApiSchema => {
   try {
     const parsed = JSON.parse(fileString);
     const validated = openApiSchema.safeParse(parsed);
@@ -82,4 +70,43 @@ export function getSchema(schemaFile: SchemaFile | string): string | OpenApiSche
       {cause: error}
     );
   }
+};
+
+/**
+ * Loads a bundled schema file or an explicit schema path from disk.
+ *
+ * @example
+ * ```ts
+ * const restSchema = getSchema('api.github.com.json');
+ * const gqlSchema = getSchema('/tmp/schema.docs-enterprise.graphql');
+ * ```
+ *
+ * @param schemaFile Bundled schema filename or explicit filesystem path.
+ * @returns Parsed OpenAPI schema objects for JSON files, or raw text for
+ * GraphQL schema files.
+ * @throws Error when the file cannot be read or a JSON schema cannot be parsed
+ * and validated as OpenAPI/Swagger.
+ */
+export function getSchema(schemaFile: 'api.github.com.json'): OpenApiSchema;
+export function getSchema(schemaFile: 'schema.docs.graphql' | 'schema.docs-enterprise.graphql'): string;
+export function getSchema(schemaFile: `${string}.json`): OpenApiSchema;
+export function getSchema(schemaFile: string): string;
+/**
+ * Loads a bundled schema file or an explicit schema path from disk.
+ *
+ * @param schemaFile Bundled schema filename or explicit filesystem path.
+ * @returns Parsed OpenAPI schema objects for JSON files, or raw text for
+ * GraphQL schema files.
+ * @throws Error when the file cannot be read or a JSON schema cannot be parsed
+ * and validated as OpenAPI/Swagger.
+ */
+export function getSchema(schemaFile: SchemaFile | string): string | OpenApiSchema {
+  const schemaPath = resolveSchemaPath(schemaFile);
+  const fileString = loadSchemaFile(schemaFile, schemaPath);
+
+  if (!schemaFile.endsWith('.json')) {
+    return fileString;
+  }
+
+  return parseAndValidateSchema(schemaPath, fileString);
 }

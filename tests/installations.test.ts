@@ -1,5 +1,4 @@
 /** @file Integration tests for GitHub App installation REST endpoints. */
-// biome-ignore-all lint/complexity/noExcessiveLinesPerFunction: Baseline test suite predates the new function length gate.
 import {afterAll, beforeAll, describe, expect, it} from 'bun:test';
 import {simulation} from '../src/index.ts';
 
@@ -9,6 +8,7 @@ const basePort = 3310;
 const host = 'http://localhost';
 const url = `${host}:${basePort}`;
 
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: legacy installation integration suite kept intact for coverage.
 describe('GET installation endpoints', () => {
   let server: SimulationServer;
   beforeAll(async () => {

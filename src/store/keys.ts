@@ -73,7 +73,8 @@ export type RepositoryCoords = {
 /**
  * Serialises a repository store key as a GitHub GraphQL-compatible Node ID.
  *
- * @param parts Repository owner and name.
+ * @param owner Repository owner login.
+ * @param name Repository name.
  * @returns Base64-encoded Repository node id.
  */
 export const repositoryNodeId = ({owner, name}: RepositoryStoreKeyParts): string => {
@@ -83,7 +84,9 @@ export const repositoryNodeId = ({owner, name}: RepositoryStoreKeyParts): string
 /**
  * Serialises a ref store key as a GitHub GraphQL-compatible Node ID.
  *
- * @param parts Repository coordinates and qualified ref name.
+ * @param owner Repository owner login.
+ * @param repo Repository name.
+ * @param qualifiedName Qualified ref name.
  * @returns Base64-encoded Ref node id.
  */
 export const refNodeId = ({owner, repo, qualifiedName}: RefStoreKeyParts): string => {
@@ -93,7 +96,9 @@ export const refNodeId = ({owner, repo, qualifiedName}: RefStoreKeyParts): strin
 /**
  * Serialises a commit store key as a GitHub GraphQL-compatible Node ID.
  *
- * @param parts Repository coordinates and commit SHA.
+ * @param owner Repository owner login.
+ * @param repo Repository name.
+ * @param sha Commit SHA.
  * @returns Base64-encoded Commit node id.
  */
 export const commitNodeId = ({owner, repo, sha}: CommitStoreKeyParts): string => {
@@ -103,7 +108,9 @@ export const commitNodeId = ({owner, repo, sha}: CommitStoreKeyParts): string =>
 /**
  * Serialises an issue store key as a GitHub GraphQL-compatible Node ID.
  *
- * @param parts Repository coordinates and positive issue number.
+ * @param owner Repository owner login.
+ * @param repo Repository name.
+ * @param number Positive issue number.
  * @returns Base64-encoded Issue node id.
  */
 export const issueNodeId = ({owner, repo, number}: IssueStoreKeyParts): string => {
@@ -113,7 +120,9 @@ export const issueNodeId = ({owner, repo, number}: IssueStoreKeyParts): string =
 /**
  * Serialises a pull request store key as a GitHub GraphQL-compatible Node ID.
  *
- * @param parts Repository coordinates and positive pull request number.
+ * @param owner Repository owner login.
+ * @param repo Repository name.
+ * @param number Positive pull request number.
  * @returns Base64-encoded PullRequest node id.
  */
 export const pullRequestNodeId = ({owner, repo, number}: PullRequestStoreKeyParts): string => {
@@ -172,12 +181,7 @@ export const parseBlobStoreKey = (key: string): BlobStoreKeyParts => {
   return {owner: parsed.owner, repo: parsed.name, reference: parsed.reference};
 };
 
-/**
- * Parses a `owner/repo:reference` store key into its constituent parts.
- *
- * @throws Error when the key is missing a colon separator, a valid repository
- * segment, or a non-empty reference segment.
- */
+/** Parses a `owner/repo:reference` store key into its constituent parts. */
 const parseRepositoryScopedReferenceKey = (
   key: string,
   entityName: string,
@@ -206,12 +210,7 @@ const parseRepositoryScopedReferenceKey = (
   };
 };
 
-/**
- * Parses a `owner/repo{separator}number` store key into its constituent parts.
- *
- * @throws Error when the key is malformed or the number is not a positive
- * integer.
- */
+/** Parses a `owner/repo{separator}number` store key into its constituent parts. */
 const parseNumberedRepositoryKey = (
   key: string,
   separatorToken: '#' | '!',

@@ -1,5 +1,4 @@
 /** @file Integration tests for the simulated GraphQL API surface. */
-// biome-ignore-all lint/complexity/noExcessiveLinesPerFunction: Baseline test suites predate the new function length gate.
 import {afterAll, beforeAll, beforeEach, describe, expect, it} from 'bun:test';
 
 import {simulation} from '../src/index.ts';
@@ -68,9 +67,48 @@ type UserOrganizationsQuery = {
   };
 };
 
+type OrganizationTeamQuery = {
+  organization: {
+    team: {
+      slug: string;
+      name: string;
+      members: {nodes: unknown[]; pageInfo: {hasNextPage: boolean}};
+    } | null;
+  };
+};
+
+type OrganizationRepositoriesQuery = {
+  repositoryOwner: {
+    login: string;
+    repositories: {
+      nodes: Array<{name: string; defaultBranchRef?: {name: string} | null}>;
+      pageInfo: {hasNextPage: boolean};
+    };
+  };
+};
+
+type OrganizationRepositoryQuery = {
+  repositoryOwner: {
+    repository: {
+      name: string;
+      defaultBranchRef?: {name: string} | null;
+    } | null;
+  };
+};
+
+type TeamMembersQuery = {
+  organization: {
+    team: {
+      members: {nodes: unknown[]; pageInfo: {hasNextPage: boolean}};
+    } | null;
+  };
+};
+
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: legacy GraphQL integration suite kept intact for coverage.
 describe('graphql queries', () => {
   let server: SimulationServer;
 
+  // biome-ignore lint/complexity/noExcessiveLinesPerFunction: legacy shared fixture setup kept intact for coverage.
   beforeAll(async () => {
     const app = simulation({
       initialState: {
@@ -522,6 +560,7 @@ describe('graphql queries', () => {
     }
   });
 
+  // biome-ignore lint/complexity/noExcessiveLinesPerFunction: legacy repository-state GraphQL suite kept intact for coverage.
   describe('reads first-class refs, issues, and pull requests from repository state', () => {
     const repositoryEntitiesSingularQuery = gql`
       query repositoryEntitiesSingular($owner: String!, $name: String!) {
@@ -779,8 +818,6 @@ describe('graphql queries', () => {
     it('responds successfully to graphql client', async () => {
       const request = await client<MembersWithRoleQuery>(query, variables);
 
-      expect(request).toBeDefined();
-
       expect(request.organization.membersWithRole.nodes).toEqual([]);
 
       expect(request.organization.membersWithRole.pageInfo.hasNextPage).toBe(false);
@@ -848,8 +885,6 @@ describe('graphql queries', () => {
 
     it('responds successfully to graphql client', async () => {
       const request = await client<TeamsQuery>(query, variables);
-
-      expect(request).toBeDefined();
 
       expect(request.organization.teams.nodes).toEqual([]);
 
@@ -920,8 +955,6 @@ describe('graphql queries', () => {
     it('responds successfully to graphql client', async () => {
       const request = await client<TeamsQuery>(query, variables);
 
-      expect(request).toBeDefined();
-
       expect(request.organization.teams.nodes).toEqual([]);
 
       expect(request.organization.teams.pageInfo.hasNextPage).toBe(false);
@@ -968,8 +1001,6 @@ describe('graphql queries', () => {
 
     it('responds successfully to graphql client', async () => {
       const request = await client<UserOrganizationsQuery>(query, variables);
-
-      expect(request).toBeDefined();
 
       expect(request.user.organizations.nodes.length).toBeGreaterThan(0);
 
@@ -1031,9 +1062,9 @@ describe('graphql queries', () => {
     });
 
     it('responds successfully to graphql client', async () => {
-      const request = await client(query, variables);
+      const request = await client<OrganizationTeamQuery>(query, variables);
 
-      expect(request).toBeDefined();
+      expect(request.organization.team).toBe(null);
     });
   });
 
@@ -1104,15 +1135,20 @@ describe('graphql queries', () => {
 
       expect(response.data.repositoryOwner.repositories.nodes.length).toBe(1);
 
-      expect(response.data.repositoryOwner.repositories.pageInfo).toBeDefined();
-
       expect(response.data.repositoryOwner.repositories.pageInfo.hasNextPage).toBe(false);
     });
 
     it('responds successfully to graphql client', async () => {
-      const request = await client(query, variables);
+      const request = await client<OrganizationRepositoriesQuery>(query, variables);
 
-      expect(request).toBeDefined();
+      expect(request.repositoryOwner.login).toBe('lovely-org');
+      expect(request.repositoryOwner.repositories.nodes).toEqual([
+        expect.objectContaining({
+          defaultBranchRef: expect.objectContaining({name: 'main'}),
+          name: 'awesome-repo'
+        })
+      ]);
+      expect(request.repositoryOwner.repositories.pageInfo.hasNextPage).toBe(false);
     });
   });
 
@@ -1174,9 +1210,9 @@ describe('graphql queries', () => {
     });
 
     it('responds successfully to graphql client', async () => {
-      const request = await client(query, variables);
+      const request = await client<OrganizationRepositoryQuery>(query, variables);
 
-      expect(request).toBeDefined();
+      expect(request.repositoryOwner.repository).toBe(null);
     });
   });
 
@@ -1259,9 +1295,15 @@ describe('graphql queries', () => {
     });
 
     it('responds successfully to graphql client', async () => {
-      const request = await client(query, variables);
+      const request = await client<OrganizationRepositoriesQuery>(query, variables);
 
-      expect(request).toBeDefined();
+      expect(request.repositoryOwner.repositories.nodes).toEqual([
+        expect.objectContaining({
+          defaultBranchRef: expect.objectContaining({name: 'main'}),
+          name: 'awesome-repo'
+        })
+      ]);
+      expect(request.repositoryOwner.repositories.pageInfo.hasNextPage).toBe(false);
     });
   });
 
@@ -1307,9 +1349,9 @@ describe('graphql queries', () => {
     });
 
     it('responds successfully to graphql client', async () => {
-      const request = await client(query, variables);
+      const request = await client<TeamMembersQuery>(query, variables);
 
-      expect(request).toBeDefined();
+      expect(request.organization.team).toBe(null);
     });
   });
 });

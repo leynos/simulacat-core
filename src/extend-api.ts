@@ -34,6 +34,10 @@ const notFound = {message: 'Not Found'};
  *   app.get('/hello', (_request, response) => response.json({ok: true}));
  * });
  * ```
+ *
+ * @param extend Optional caller hook that can register extra routes.
+ * @returns A foundation `extendRouter` callback that installs built-in routes
+ * before exposing the router to the caller hook.
  */
 export const extendRouter =
   (
