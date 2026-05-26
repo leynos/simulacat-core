@@ -33,7 +33,7 @@ The normal contributor gate is:
 repository's preferred order. The `lint` target runs the `biomejs` and
 `oxlint` sub-targets.
 
-The following diagram summarises the current Makefile quality-gate flow:
+The following diagram summarizes the current Makefile quality-gate flow:
 
 ```mermaid
 flowchart LR
