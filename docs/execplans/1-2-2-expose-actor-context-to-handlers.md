@@ -98,7 +98,12 @@ escalation, not workarounds.
   `src/graphql/handler.ts`, `src/graphql/resolvers.ts`,
   `src/extend-api.ts`) may translate transport details into helper input but
   must not own selection rules. This applies the `hexagonal-architecture`
-  skill as a boundary check, not as a directory transplant.
+  skill as a boundary check, not as a directory transplant. The same
+  separation is reinforced by
+  `docs/mocking-services-with-simulacrum-actors-and-stable-keyset-connections.md`
+  §4 "Model identity with actors", §8 "Separate domain rules from protocol
+  adapters", and §9 "Centralize mutations as actions". Resolve the actor at
+  the boundary, then pass an actor view down through one shared helper.
 - Do not introduce real token validation, signature verification, permission
   enforcement, scopes, rate limits, or GitHub App JWT cryptography. Those are
   later roadmap items.
@@ -372,6 +377,13 @@ escalation, not workarounds.
 
 - Prior 1.2.1 ExecPlan with the same approval and observability
   conventions: `docs/execplans/1-2-1-request-scoped-actor-resolution.md`.
+- In-repository design guidance:
+  `docs/mocking-services-with-simulacrum-actors-and-stable-keyset-connections.md`.
+  §4 "Model identity with actors" sets the actor-at-the-boundary pattern;
+  §8 "Separate domain rules from protocol adapters" prescribes the thin-REST
+  / thin-GraphQL adapter shape this plan adopts; §9 "Centralize mutations
+  as actions" frames where actor-aware write paths should live as the
+  roadmap moves past read-only surfaces.
 - GraphQL Yoga context lifecycle documentation, including server-context
   merging behaviour when mounted as Node.js/Express middleware[^1].
 - Stack Overflow confirmation that the Express `req` and `res` reach the
@@ -389,7 +401,11 @@ or authorization.
 ## Context and orientation
 
 A novice reader picking up this plan should know the following before
-making any change.
+making any change. Read
+`docs/mocking-services-with-simulacrum-actors-and-stable-keyset-connections.md`
+§4, §8, and §9 first; they describe the boundary-versus-domain split this
+plan applies and the simulator-controlled actor contract this repository
+already follows.
 
 - The simulator entry point is `src/index.ts#simulation`. It calls
   `createFoundationSimulationServer` (from
@@ -605,9 +621,13 @@ exactly one observation per HTTP request. Commit the stage. Run
   extension Express route, and GraphQL `viewer`.
 - Update `docs/architecture.md` "Request actor flow" and "Extension
   seams" sections to describe the middleware, the helpers, and the
-  agreement contract. Update `docs/development.md` to describe the
-  helper surface, the middleware ordering, the observation-counter
-  change, and the deferred GraphQL extension story. Update
+  agreement contract. Cross-link
+  `docs/mocking-services-with-simulacrum-actors-and-stable-keyset-connections.md`
+  §4 and §8 from those sections so readers can trace the actor-at-the-boundary
+  pattern. Update `docs/development.md` to describe the helper surface, the
+  middleware ordering, the observation-counter change, and the deferred
+  GraphQL extension story, with a "Further reading" pointer to the same
+  guidance document. Update
   `docs/api-reference.md` capability matrix rows for `viewer`,
   `GET /user`, and `GET /user/memberships/orgs` if the descriptive
   language needs to mention the new helper-driven behaviour (the
@@ -809,3 +829,15 @@ To be filled in after implementation. Sections to populate at completion:
 [^2]: <https://stackoverflow.com/questions/74713444/how-can-i-pass-express-request-and-response-objects-into-graphql-yoga-context-us>
 [^3]: <https://dev.to/kwabenberko/extend-express-s-request-object-with-typescript-declaration-merging-1nn5>
 [^4]: <https://nodejs.org/api/async_context.html>
+
+## Revision note
+
+2026-05-26: rebased onto `origin/main` (over commits `3a7a780`, `af29673`,
+`607399b`). No code conflicts; main's lockfile is unchanged on this branch.
+Signposted the newly-added
+`docs/mocking-services-with-simulacrum-actors-and-stable-keyset-connections.md`
+from `Constraints`, `External references and prior art`,
+`Context and orientation`, and Stage D documentation steps so the
+boundary-versus-domain pattern this plan applies is anchored to the
+in-repository guidance. No change to milestones, tolerances, or interface
+shapes.
