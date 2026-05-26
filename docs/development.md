@@ -33,6 +33,32 @@ The normal contributor gate is:
 repository's preferred order. The `lint` target runs the `biomejs` and
 `oxlint` sub-targets.
 
+The following diagram summarises the current Makefile quality-gate flow:
+
+```mermaid
+flowchart LR
+  Developer[Developer] --> make_all[make all]
+
+  make_all --> check_fmt["check-fmt (Biome format-only check)"]
+  make_all --> typecheck["typecheck (bun run check:types)"]
+  make_all --> lint[lint]
+  make_all --> test["test (bun run test)"]
+
+  lint --> biomejs["biomejs (bun run lint)"]
+  lint --> oxlint["oxlint (bunx oxlint .)"]
+
+  biomejs --> biome_rules[Biome maintainability rules]
+  oxlint --> oxlint_rules[Oxlint built-in and df12 plugin rules]
+  biome_rules --> gates[Function length, parameters, and cognitive complexity]
+  oxlint_rules --> gates
+  oxlint_rules --> jsdoc_gates[McCabe complexity, nesting depth, complex conditionals, and JSDoc gates]
+```
+
+Caption: The `make all` target runs format checking, type-checking, linting,
+and tests. Linting is delegated to the `biomejs` and `oxlint` sub-targets;
+Oxlint now owns the syntax-aware maintainability and JSDoc gates that were
+previously prototyped outside the Makefile.
+
 ## Linting rules
 
 `make all` runs Biome and Oxlint as maintainability gates. Biome enforces
