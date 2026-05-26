@@ -234,7 +234,19 @@ surfaces rather than as GitHub API endpoints.
 - `biome.json`
   Defines the Biome formatter and linter configuration: 2-space indentation,
   120-character line width, single quotes, and no trailing commas.
+- `.oxlintrc.json`
+  Defines the Oxlint maintainability gate, including McCabe complexity, nesting
+  depth, complex conditional, and local documentation rules.
+- `tools/oxlint-plugin-df12/index.js`
+  Hosts the local Oxlint rules that enforce project-specific conditional and
+  JSDoc contracts without adding a separate ESLint runner.
+- `.jsdoc-baseline.json`
+  Records existing documentation debt by symbol. New code should satisfy the
+  JSDoc rules directly rather than adding baseline entries.
 - `codegen.ts`
   Defines the GraphQL Code Generator configuration, reading
   `schema/schema.docs.graphql` and writing
   `src/__generated__/resolvers-types.ts`.
+- `.github/workflows/ci.yml`
+  Runs `make all` in continuous integration and pins `astral-sh/setup-uv` to a
+  reviewed v8.1.0 commit for reproducible `uv` setup.

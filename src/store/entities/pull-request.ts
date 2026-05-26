@@ -74,6 +74,9 @@ export const githubPullRequestSchema = z
     html_url: z.string().optional(),
     issue_url: z.string().optional()
   })
+  // Legacy schema transform keeps GitHub URL defaults colocated with validation.
+  /* oxlint-disable complexity */
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: legacy schema transform; refactor deferred.
   .transform((pullRequest) => {
     const key = pullRequestStoreKey(pullRequest);
     if (pullRequest.issue_number !== undefined && pullRequest.issue_number !== pullRequest.number) {
@@ -82,10 +85,8 @@ export const githubPullRequestSchema = z
       );
     }
     const issueNumber = pullRequest.number;
-    const closedAt =
-      pullRequest.state === 'closed' || pullRequest.state === 'merged'
-        ? (pullRequest.closed_at ?? pullRequest.updated_at)
-        : null;
+    const isClosedOrMerged = pullRequest.state === 'closed' || pullRequest.state === 'merged';
+    const closedAt = isClosedOrMerged ? (pullRequest.closed_at ?? pullRequest.updated_at) : null;
     const mergedAt = pullRequest.state === 'merged' ? (pullRequest.merged_at ?? pullRequest.updated_at) : null;
 
     return {
@@ -119,5 +120,6 @@ export const githubPullRequestSchema = z
         `https://api.github.com/repos/${pullRequest.owner}/${pullRequest.repo}/issues/${issueNumber}`
     };
   });
+/* oxlint-enable complexity */
 
 export type GitHubPullRequest = z.infer<typeof githubPullRequestSchema>;

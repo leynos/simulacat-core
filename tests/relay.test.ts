@@ -1,4 +1,6 @@
 /** @file Unit tests for Relay-style pagination helpers and invariants. */
+// biome-ignore-all lint/complexity/noExcessiveCognitiveComplexity: Baseline property test predates the new complexity gate.
+// biome-ignore-all lint/complexity/noExcessiveLinesPerFunction: Baseline test suite predates the new function length gate.
 
 import {describe, expect, it} from 'bun:test';
 import fc from 'fast-check';

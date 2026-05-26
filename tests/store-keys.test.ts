@@ -57,6 +57,7 @@ const numberedParts = fc.record({
   number: fc.integer({min: 1, max: 10_000})
 });
 
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: long property-test fixture suite; refactor deferred.
 describe('canonical store keys', () => {
   it('keys repositories by owner and name', () => {
     expect(repositoryStoreKey({owner: 'acme', name: 'awesome-repo'})).toBe('acme/awesome-repo');

@@ -1,4 +1,5 @@
 /** @file Unit tests for REST helper payload builders used by OpenAPI handlers. */
+// biome-ignore-all lint/complexity/noExcessiveLinesPerFunction: Baseline test suite predates the new function length gate.
 
 import {describe, expect, it} from 'bun:test';
 import {blobAsBase64, commitStatusResponse, gitTrees} from '../src/rest/utils.ts';

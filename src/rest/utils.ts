@@ -28,14 +28,14 @@ export const blobAsBase64 = ({
   kind?: 'contents' | 'git-blob';
 }) => {
   const effectiveSha = blob.sha ?? blob.path ?? blobStoreKey(blob);
+  const shouldUseGitBlobUrl = kind === 'git-blob' && effectiveSha;
 
   return {
     content: blob.encoding === 'base64' ? blob.content : Buffer.from(blob.content).toString('base64'),
     encoding: 'base64',
-    url:
-      kind === 'git-blob' && effectiveSha
-        ? `${host}/repos/${owner}/${repo}/git/blobs/${effectiveSha}`
-        : `${host}/repos/${owner}/${repo}/contents/${ref}`,
+    url: shouldUseGitBlobUrl
+      ? `${host}/repos/${owner}/${repo}/git/blobs/${effectiveSha}`
+      : `${host}/repos/${owner}/${repo}/contents/${ref}`,
     sha: effectiveSha,
     size: blob.encoding === 'base64' ? Buffer.from(blob.content, 'base64').byteLength : Buffer.byteLength(blob.content),
     node_id: Buffer.from(`Blob:${blobStoreKey(blob)}`).toString('base64')

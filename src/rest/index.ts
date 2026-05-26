@@ -5,6 +5,8 @@
  * simulator's OpenAPI adapter, wires seeded store selectors into GitHub REST
  * routes, and merges caller-provided handler extensions.
  */
+// biome-ignore-all lint/complexity/noExcessiveCognitiveComplexity: Baseline route table predates the new complexity gate.
+// biome-ignore-all lint/complexity/noExcessiveLinesPerFunction: Baseline route table predates the new length gate.
 import type {Document, SimulationHandlers} from '@simulacrum/foundation-simulator';
 import type {ExtendedSimulationStore} from '../store/index.ts';
 import {
@@ -309,6 +311,8 @@ const handlers =
             }
           },
           // GET /repos/{owner}/{repo}/git/trees/{tree_sha}
+          // OpenAPI handler normalizes route params and response fallbacks inline.
+          // oxlint-disable-next-line complexity
           'git/get-tree': async (context: Ctx, request: Req, response: Res) => {
             const ownerParam = context.request.params.owner;
             const repoParam = context.request.params.repo;
@@ -316,12 +320,13 @@ const handlers =
             const owner = Array.isArray(ownerParam) ? ownerParam[0] : ownerParam;
             const repo = Array.isArray(repoParam) ? repoParam[0] : repoParam;
             const treeSha = Array.isArray(treeShaParam) ? treeShaParam[0] : treeShaParam;
-            const repository =
-              owner && repo
-                ? simulationStore.selectors.getRepository(simulationStore.store.getState(), owner, repo)
-                : undefined;
+            let repository;
+            if (owner && repo) {
+              repository = simulationStore.selectors.getRepository(simulationStore.store.getState(), owner, repo);
+            }
             const blobs = simulationStore.selectors.getBlobAtOwnerRepo(simulationStore.store.getState(), owner, repo);
-            if (!owner || !repo || !treeSha || !repository) {
+            const missingTreeFixture = !owner || !repo || !treeSha || !repository;
+            if (missingTreeFixture) {
               response.status(404).send('fixture does not exist');
             } else {
               const tree = gitTrees({

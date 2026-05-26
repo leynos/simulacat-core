@@ -609,6 +609,11 @@ const userResolutionOutcome = (resolvedActor: ResolvedRequestActor): ResolutionO
   return resolvedActor.kind === 'user' ? {outcome: 'resolved'} : {outcome: 'unresolved', reason: 'unknown-user'};
 };
 
+/** Reports whether an app actor resolved to a seeded installation. */
+const hasResolvedAppInstallation = (resolvedActor: ResolvedRequestActor): boolean => {
+  return resolvedActor.kind === 'app' && resolvedActor.installation !== undefined;
+};
+
 /**
  * Returns the resolution outcome for an `app` actor.
  *
@@ -617,9 +622,14 @@ const userResolutionOutcome = (resolvedActor: ResolvedRequestActor): ResolutionO
  * `unmatched-app`.
  */
 const appResolutionOutcome = (resolvedActor: ResolvedRequestActor): ResolutionOutcome => {
-  return resolvedActor.kind === 'app' && resolvedActor.installation !== undefined
+  return hasResolvedAppInstallation(resolvedActor)
     ? {outcome: 'resolved'}
     : {outcome: 'unresolved', reason: 'unmatched-app'};
+};
+
+/** Reports whether an installation actor resolved to a seeded installation. */
+const hasResolvedInstallation = (resolvedActor: ResolvedRequestActor): boolean => {
+  return resolvedActor.kind === 'installation' && resolvedActor.installation !== undefined;
 };
 
 /**
@@ -630,7 +640,7 @@ const appResolutionOutcome = (resolvedActor: ResolvedRequestActor): ResolutionOu
  * `unmatched-installation`.
  */
 const installationResolutionOutcome = (resolvedActor: ResolvedRequestActor): ResolutionOutcome => {
-  return resolvedActor.kind === 'installation' && resolvedActor.installation !== undefined
+  return hasResolvedInstallation(resolvedActor)
     ? {outcome: 'resolved'}
     : {outcome: 'unresolved', reason: 'unmatched-installation'};
 };

@@ -58,6 +58,9 @@ export const githubOrganizationSchema = z
     members_url: z.string().optional(),
     public_members_url: z.string().optional()
   })
+  // Legacy schema transform keeps GitHub URL defaults colocated with validation.
+  /* oxlint-disable complexity */
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: legacy schema transform; refactor deferred.
   .transform((org) => {
     const name = org.name ?? org.login;
     const email =
@@ -92,5 +95,6 @@ export const githubOrganizationSchema = z
       node_id: org.node_id ?? Buffer.from(`Organization:${org.login}`).toString('base64')
     };
   });
+/* oxlint-enable complexity */
 
 export type GitHubOrganization = z.infer<typeof githubOrganizationSchema>;

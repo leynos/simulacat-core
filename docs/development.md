@@ -30,7 +30,135 @@ The normal contributor gate is:
 4. `bun test`
 
 `make all` runs `check-fmt`, `typecheck`, `lint`, and `test` in the
-repository's preferred order.
+repository's preferred order. The `lint` target runs the `biomejs` and
+`oxlint` sub-targets.
+
+The following diagram summarizes the current Makefile quality-gate flow:
+
+```mermaid
+flowchart LR
+  Developer[Developer] --> make_all[make all]
+
+  make_all --> check_fmt["check-fmt (Biome format-only check)"]
+  make_all --> typecheck["typecheck (bun run check:types)"]
+  make_all --> lint[lint]
+  make_all --> test["test (bun run test)"]
+
+  lint --> biomejs["biomejs (bun run lint)"]
+  lint --> oxlint["oxlint (bunx oxlint .)"]
+
+  biomejs --> biome_rules[Biome maintainability rules]
+  oxlint --> oxlint_rules[Oxlint built-in and df12 plugin rules]
+  biome_rules --> gates[Function length, parameters, and cognitive complexity]
+  oxlint_rules --> gates
+  oxlint_rules --> jsdoc_gates[McCabe complexity, nesting depth, complex conditionals, and JSDoc gates]
+```
+
+Caption: The `make all` target runs format checking, type-checking, linting,
+and tests. Linting is delegated to the `biomejs` and `oxlint` sub-targets;
+Oxlint now owns the syntax-aware maintainability and JSDoc gates that were
+previously prototyped outside the Makefile.
+
+## Linting rules
+
+`make all` runs Biome and Oxlint as maintainability gates. Biome enforces
+exact rules where it has native support:
+
+- `complexity.noExcessiveLinesPerFunction`: functions may not exceed 70 lines,
+  counting blank lines.
+- `complexity.useMaxParams`: functions may not take more than 4 parameters.
+- `complexity.noExcessiveCognitiveComplexity`: functions may not exceed
+  cognitive complexity 8. This is an additional readability guard, not a
+  substitute for McCabe/C90 complexity.
+
+Oxlint covers the complexity contracts that require syntax-aware analysis:
+
+- `complexity`: functions may not exceed McCabe/C90 cyclomatic complexity 8.
+  The rule uses `{ "max": 8, "variant": "classic" }`, where `classic` is
+  Oxlint's McCabe variant.
+- `max-depth`: blocks may not nest deeper than 3 levels.
+- `df12/complex-conditional`: branch predicates may not contain more than 1
+  logical operator. The local rule counts `&&` and `||`, includes ternary
+  predicates, and excludes `??` by default.
+
+The local `tools/oxlint-plugin-df12` plugin also splits JavaScript
+documentation (JSDoc) enforcement into separate Oxlint rules:
+
+- `df12/require-public-jsdoc`: exported functions need a usage-oriented
+  description, `@param` entries for named parameters, `@returns` where a value
+  is returned, and `@throws` or `@rejects` when errors can escape.
+- `df12/require-private-jsdoc`: private/internal top-level functions need a
+  concise one-line JSDoc summary.
+- `df12/require-module-jsdoc`: JS/TS files must start with a module-level
+  JSDoc block containing `@file`.
+
+Existing documentation debt is isolated in `.jsdoc-baseline.json` as
+per-symbol entries. Do not add new entries for new code; remove baseline
+entries as those functions receive complete JSDoc.
+
+The local plugin keeps the maintainability contract in the same Oxlint process
+as the complexity rules. `eslint-plugin-jsdoc` is a broader ESLint ecosystem
+dependency, but this repository does not run ESLint; the local rules enforce the
+project-specific public/private/module split without adding another parser,
+runner, or suppression syntax.
+
+Non-compliant examples:
+
+```ts
+export function convert(owner: string, repo: string, ref: string, sha: string, mode: string) {
+  if (owner) {
+    if (repo) {
+      if (ref) {
+        if (sha) {
+          return mode;
+        }
+      }
+    }
+  }
+}
+```
+
+Compliant examples:
+
+```ts
+/**
+ * Converts a repository ref into a stable display label.
+ *
+ * @param input Repository ref details.
+ * @returns A label suitable for REST and GraphQL responses.
+ */
+export function convert(input: RepositoryRefInput): string {
+  if (!isCompleteRef(input)) {
+    return input.mode;
+  }
+
+  return formatRefLabel(input);
+}
+```
+
+### Suppressing lint violations
+
+Prefer refactoring to suppression. When a suppression is unavoidable, include
+a short reason that explains why the exception is narrower than changing the
+rule.
+
+Biome inline suppression:
+
+```ts
+// biome-ignore complexity.useMaxParams: Adapter signature mirrors upstream API.
+```
+
+Oxlint inline suppression:
+
+```ts
+// oxlint-disable-next-line complexity
+```
+
+JSDoc checker suppression:
+
+```ts
+// oxlint-disable-next-line df12/require-public-jsdoc -- Legacy adapter is documented at the call site.
+```
 
 The package publishes an ESM library surface, but the build intentionally keeps
 `dist/index.cjs` because `bin/start.cjs` requires that artifact to start the

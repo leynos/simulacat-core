@@ -5,6 +5,7 @@
  * `fs/promises`, `path`, and `fetch` to download and persist the bundled REST
  * description.
  */
+// biome-ignore-all lint/complexity/noExcessiveCognitiveComplexity: Baseline sync task predates the new complexity gate.
 import {main, type Operation, until} from 'effection';
 import fs from 'fs/promises';
 import path from 'path';
@@ -28,7 +29,10 @@ function* syncSchemaRest(): Operation<void> {
     'https://raw.githubusercontent.com/github/rest-api-description/main/descriptions/api.github.com/api.github.com.json';
   const {SIMULACAT_SYNC_TIMEOUT_MS} = process.env;
   const parsedTimeoutMs = Number(SIMULACAT_SYNC_TIMEOUT_MS ?? '15000');
-  const timeoutMs = Number.isFinite(parsedTimeoutMs) && parsedTimeoutMs > 0 ? parsedTimeoutMs : 15000;
+  let timeoutMs = 15000;
+  if (Number.isFinite(parsedTimeoutMs) && parsedTimeoutMs > 0) {
+    timeoutMs = parsedTimeoutMs;
+  }
   console.log('[syncSchemaRest] fetching schema from', url);
 
   const controller = new AbortController();

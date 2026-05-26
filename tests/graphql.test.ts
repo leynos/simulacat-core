@@ -1,27 +1,35 @@
 /** @file Integration tests for the simulated GraphQL API surface. */
 import {afterAll, beforeAll, beforeEach, describe, expect, it} from 'bun:test';
-import {simulation} from '../src/index.ts';
+
+import {type InitialState, simulation} from '../src/index.ts';
+
 import {graphql} from '@octokit/graphql';
+
 import {requestActorHeader, resetActorObservationCounters} from '../src/store/actors.ts';
 
 type SimulationServer = Awaited<ReturnType<ReturnType<typeof simulation>['listen']>>;
 
 const basePort = 3400;
+
 const host = 'http://localhost';
+
 const url = `${host}:${basePort}`;
 
 // for syntax highlighting
 const gql = String.raw;
+
 const headers = {
   authorization: 'Bearer [REDACTED]',
   'Content-Type': 'application/json'
 };
+
 const client = graphql.defaults({
   baseUrl: url
 });
 
 type ActorAgreementCase = {
   header?: string;
+
   login?: string;
 };
 
@@ -29,6 +37,7 @@ type MembersWithRoleQuery = {
   organization: {
     membersWithRole: {
       nodes: unknown[];
+
       pageInfo: {
         hasNextPage: boolean;
       };
@@ -40,6 +49,7 @@ type TeamsQuery = {
   organization: {
     teams: {
       nodes: unknown[];
+
       pageInfo: {
         hasNextPage: boolean;
       };
@@ -57,59 +67,133 @@ type UserOrganizationsQuery = {
   };
 };
 
+type OrganizationTeamQuery = {
+  organization: {
+    team: {
+      slug: string;
+      name: string;
+      members: {nodes: unknown[]; pageInfo: {hasNextPage: boolean}};
+    } | null;
+  };
+};
+
+type OrganizationRepositoriesQuery = {
+  repositoryOwner: {
+    login: string;
+    repositories: {
+      nodes: Array<{name: string; defaultBranchRef?: {name: string} | null}>;
+      pageInfo: {hasNextPage: boolean};
+    };
+  };
+};
+
+type OrganizationRepositoryQuery = {
+  repositoryOwner: {
+    repository: {
+      name: string;
+      defaultBranchRef?: {name: string} | null;
+    } | null;
+  };
+};
+
+type TeamMembersQuery = {
+  organization: {
+    team: {
+      members: {nodes: unknown[]; pageInfo: {hasNextPage: boolean}};
+    } | null;
+  };
+};
+
+/** Shared fixture state seeded into the simulated GitHub store for all GraphQL integration tests. */
+const graphqlTestFixtureState: InitialState = {
+  users: [
+    {
+      login: 'frontsidejack',
+      email: 'frontsidejack@example.test',
+      organizations: ['lovely-org']
+    },
+    {
+      login: 'reviewer',
+      email: 'reviewer@example.test',
+      organizations: ['Acme']
+    }
+  ],
+  organizations: [{login: 'lovely-org'}, {login: 'Acme'}],
+  repositories: [
+    {owner: 'lovely-org', name: 'awesome-repo'},
+    {owner: 'Acme', name: 'Awesome-Repo'}
+  ],
+  branches: [
+    {owner: 'lovely-org', repo: 'awesome-repo', name: 'main'},
+    {owner: 'Acme', repo: 'Awesome-Repo', name: 'main'}
+  ],
+  blobs: [],
+  commits: [
+    {
+      owner: 'lovely-org',
+      repo: 'awesome-repo',
+      sha: 'commit-a',
+      commit: {message: 'Initial commit'}
+    },
+    {
+      owner: 'Acme',
+      repo: 'Awesome-Repo',
+      sha: 'commit-b',
+      commit: {message: 'Acme commit'}
+    }
+  ],
+  refs: [
+    {
+      owner: 'lovely-org',
+      repo: 'awesome-repo',
+      qualifiedName: 'main',
+      object: {sha: 'commit-a'}
+    },
+    {
+      owner: 'lovely-org',
+      repo: 'awesome-repo',
+      qualifiedName: 'feature/x',
+      object: {sha: 'commit-a'}
+    },
+    {
+      owner: 'lovely-org',
+      repo: 'awesome-repo',
+      qualifiedName: 'v1.0.0',
+      object: {type: 'tag', sha: 'commit-a'}
+    },
+    {
+      owner: 'Acme',
+      repo: 'Awesome-Repo',
+      qualifiedName: 'main',
+      object: {sha: 'commit-b'}
+    }
+  ],
+  issues: [
+    {owner: 'lovely-org', repo: 'awesome-repo', number: 1, title: 'Lovely issue'},
+    {owner: 'Acme', repo: 'Awesome-Repo', number: 1, title: 'Acme issue'}
+  ],
+  pullRequests: [
+    {
+      owner: 'lovely-org',
+      repo: 'awesome-repo',
+      number: 2,
+      title: 'Lovely pull request',
+      draft: true,
+      base: {ref: 'main', sha: 'commit-a'},
+      head: {ref: 'feature/entity-spine', sha: 'commit-c'}
+    }
+  ]
+};
+
+// biome-ignore lint/complexity/noExcessiveLinesPerFunction: legacy GraphQL integration suite remains over the line gate.
 describe('graphql queries', () => {
   let server: SimulationServer;
+
   beforeAll(async () => {
-    const app = simulation({
-      initialState: {
-        users: [
-          {login: 'frontsidejack', email: 'frontsidejack@example.test', organizations: ['lovely-org']},
-          {login: 'reviewer', email: 'reviewer@example.test', organizations: ['Acme']}
-        ],
-        organizations: [{login: 'lovely-org'}, {login: 'Acme'}],
-        repositories: [
-          {owner: 'lovely-org', name: 'awesome-repo'},
-          {owner: 'Acme', name: 'Awesome-Repo'}
-        ],
-        branches: [
-          {owner: 'lovely-org', repo: 'awesome-repo', name: 'main'},
-          {owner: 'Acme', repo: 'Awesome-Repo', name: 'main'}
-        ],
-        blobs: [],
-        commits: [
-          {owner: 'lovely-org', repo: 'awesome-repo', sha: 'commit-a', commit: {message: 'Initial commit'}},
-          {owner: 'Acme', repo: 'Awesome-Repo', sha: 'commit-b', commit: {message: 'Acme commit'}}
-        ],
-        refs: [
-          {owner: 'lovely-org', repo: 'awesome-repo', qualifiedName: 'main', object: {sha: 'commit-a'}},
-          {owner: 'lovely-org', repo: 'awesome-repo', qualifiedName: 'feature/x', object: {sha: 'commit-a'}},
-          {
-            owner: 'lovely-org',
-            repo: 'awesome-repo',
-            qualifiedName: 'v1.0.0',
-            object: {type: 'tag', sha: 'commit-a'}
-          },
-          {owner: 'Acme', repo: 'Awesome-Repo', qualifiedName: 'main', object: {sha: 'commit-b'}}
-        ],
-        issues: [
-          {owner: 'lovely-org', repo: 'awesome-repo', number: 1, title: 'Lovely issue'},
-          {owner: 'Acme', repo: 'Awesome-Repo', number: 1, title: 'Acme issue'}
-        ],
-        pullRequests: [
-          {
-            owner: 'lovely-org',
-            repo: 'awesome-repo',
-            number: 2,
-            title: 'Lovely pull request',
-            draft: true,
-            base: {ref: 'main', sha: 'commit-a'},
-            head: {ref: 'feature/entity-spine', sha: 'commit-c'}
-          }
-        ]
-      }
-    });
+    const app = simulation({initialState: graphqlTestFixtureState});
     server = await app.listen(basePort);
   });
+
   afterAll(async () => {
     await server.ensureClose();
   });
@@ -122,13 +206,20 @@ describe('graphql queries', () => {
     const request = await fetch(`${url}/graphql`, {
       method: 'POST',
       headers,
-      body: JSON.stringify({query: '{ __typename }'})
+      body: JSON.stringify({
+        query: '{ __typename }'
+      })
     });
+
     const response = await request.json();
 
     expect(request.status).toEqual(200);
+
     expect(response.errors).toBe(undefined);
-    expect(response.data).toEqual({__typename: 'Query'});
+
+    expect(response.data).toEqual({
+      __typename: 'Query'
+    });
   });
 
   it('validates with 200 response', async () => {
@@ -150,16 +241,25 @@ describe('graphql queries', () => {
             }
           }
         `,
-        variables: {org: 'lovely-org'}
+        variables: {
+          org: 'lovely-org'
+        }
       })
     });
+
     const response = await request.json();
+
     expect(request.status).toEqual(200);
+
     expect(response.errors).toBe(undefined);
+
     expect(response.data.repositoryOwner.login).toBe('lovely-org');
+
     expect(response.data.repositoryOwner.repositories.edges).toEqual([
       expect.objectContaining({
-        node: expect.objectContaining({name: 'awesome-repo'})
+        node: expect.objectContaining({
+          name: 'awesome-repo'
+        })
       })
     ]);
   });
@@ -177,13 +277,19 @@ describe('graphql queries', () => {
             }
           }
         `,
-        variables: {owner: 'acme', name: 'awesome-repo'}
+        variables: {
+          owner: 'acme',
+          name: 'awesome-repo'
+        }
       })
     });
+
     const response = await request.json();
 
     expect(request.status).toEqual(200);
+
     expect(response.errors).toBe(undefined);
+
     expect(response.data.repository).toEqual({
       name: 'Awesome-Repo',
       nameWithOwner: 'Acme/Awesome-Repo'
@@ -208,16 +314,25 @@ describe('graphql queries', () => {
         `
       })
     });
+
     const response = await request.json();
 
     expect(request.status).toEqual(200);
+
     expect(response.errors).toBe(undefined);
+
     expect(response.data.viewer.login).toBe('reviewer');
   });
 
   it('fails viewer for anonymous, unknown, app, and installation actors', async () => {
     for (const actor of [undefined, 'user:missing', 'app:1', 'installation:1']) {
-      const requestHeaders = actor ? {...headers, [requestActorHeader]: actor} : headers;
+      const requestHeaders = actor
+        ? {
+            ...headers,
+            [requestActorHeader]: actor
+          }
+        : headers;
+
       const request = await fetch(`${url}/graphql`, {
         method: 'POST',
         headers: requestHeaders,
@@ -231,10 +346,13 @@ describe('graphql queries', () => {
           `
         })
       });
+
       const response = await request.json();
 
       expect(request.status).toEqual(200);
+
       expect(response.errors?.[0]?.message).toBe('Authentication required');
+
       expect(response.data).toBeNull();
     }
   });
@@ -242,10 +360,16 @@ describe('graphql queries', () => {
   it('returns a stable error shape when no actor header is present', async () => {
     const res = await fetch(`${url}/graphql`, {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({query: '{ viewer { login } }'})
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        query: '{ viewer { login } }'
+      })
     });
+
     const body = await res.json();
+
     expect(body).toMatchSnapshot();
   });
 
@@ -253,10 +377,13 @@ describe('graphql queries', () => {
     const actorHeaders = {
       [requestActorHeader]: 'user:frontsidejack'
     };
+
     const restRequest = await fetch(`${url}/user`, {
       headers: actorHeaders
     });
+
     const restUser = await restRequest.json();
+
     const graphqlRequest = await fetch(`${url}/graphql`, {
       method: 'POST',
       headers: {
@@ -274,53 +401,107 @@ describe('graphql queries', () => {
         `
       })
     });
+
     const graphqlResponse = await graphqlRequest.json();
 
     expect(restRequest.status).toEqual(200);
+
     expect(graphqlResponse.errors).toBe(undefined);
+
     expect(graphqlResponse.data.viewer.login).toBe(restUser.login);
+
     expect(graphqlResponse.data.viewer.id).toBe(restUser.id.toString());
   });
 
   it('preserves REST and GraphQL viewer agreement across actor inputs', async () => {
     const cases: ActorAgreementCase[] = [
-      {header: 'user:frontsidejack', login: 'frontsidejack'},
-      {header: 'user:reviewer', login: 'reviewer'},
-      {header: 'user:missing'},
-      {header: 'app:1'},
-      {header: 'installation:1'},
-      {header: 'anonymous'},
+      {
+        header: 'user:frontsidejack',
+        login: 'frontsidejack'
+      },
+
+      {
+        header: 'user:reviewer',
+        login: 'reviewer'
+      },
+
+      {
+        header: 'user:missing'
+      },
+
+      {
+        header: 'app:1'
+      },
+
+      {
+        header: 'installation:1'
+      },
+
+      {
+        header: 'anonymous'
+      },
+
       {}
     ];
 
     for (const {header, login} of cases) {
-      const requestHeaders: Record<string, string> = header === undefined ? {} : {[requestActorHeader]: header};
-      const restResponse = await fetch(`${url}/user`, {headers: requestHeaders});
+      const requestHeaders: Record<string, string> =
+        header === undefined
+          ? {}
+          : {
+              [requestActorHeader]: header
+            };
+
+      const restResponse = await fetch(`${url}/user`, {
+        headers: requestHeaders
+      });
+
       const graphqlResponse = await fetch(`${url}/graphql`, {
         method: 'POST',
-        headers: {'Content-Type': 'application/json', ...requestHeaders},
-        body: JSON.stringify({query: '{ viewer { login } }'})
+        headers: {
+          'Content-Type': 'application/json',
+          ...requestHeaders
+        },
+        body: JSON.stringify({
+          query: '{ viewer { login } }'
+        })
       });
+
       const graphqlBody = (await graphqlResponse.json()) as {
-        data?: {viewer?: {login?: string} | null} | null;
+        data?: {
+          viewer?: {
+            login?: string;
+          } | null;
+        } | null;
+
         errors?: unknown[];
       };
 
       if (login === undefined) {
         expect(restResponse.status).toBe(401);
+
         expect('errors' in graphqlBody).toBe(true);
+
         expect(Array.isArray(graphqlBody.errors)).toBe(true);
+
         expect(graphqlBody.data).toBeNull();
+
         continue;
       }
 
-      const restBody = (await restResponse.json()) as {login?: string};
+      const restBody = (await restResponse.json()) as {
+        login?: string;
+      };
+
       expect(restResponse.status).toBe(200);
+
       expect(restBody.login).toBe(login);
+
       expect(graphqlBody.data?.viewer?.login).toBe(login);
     }
   });
 
+  // biome-ignore lint/complexity/noExcessiveLinesPerFunction: legacy repository-state GraphQL suite kept intact for coverage.
   describe('reads first-class refs, issues, and pull requests from repository state', () => {
     const repositoryEntitiesSingularQuery = gql`
       query repositoryEntitiesSingular($owner: String!, $name: String!) {
@@ -395,7 +576,9 @@ describe('graphql queries', () => {
         }
       }
     `;
+
     let response: any;
+
     let singularResponse: any;
 
     beforeAll(async () => {
@@ -404,12 +587,17 @@ describe('graphql queries', () => {
         headers,
         body: JSON.stringify({
           query: repositoryEntitiesQuery,
-          variables: {owner: 'lovely-org', name: 'awesome-repo'}
+          variables: {
+            owner: 'lovely-org',
+            name: 'awesome-repo'
+          }
         })
       });
+
       response = await request.json();
 
       expect(request.status).toEqual(200);
+
       expect(response.errors).toBe(undefined);
 
       const singularRequest = await fetch(`${url}/graphql`, {
@@ -417,12 +605,17 @@ describe('graphql queries', () => {
         headers,
         body: JSON.stringify({
           query: repositoryEntitiesSingularQuery,
-          variables: {owner: 'lovely-org', name: 'awesome-repo'}
+          variables: {
+            owner: 'lovely-org',
+            name: 'awesome-repo'
+          }
         })
       });
+
       singularResponse = await singularRequest.json();
 
       expect(singularRequest.status).toEqual(200);
+
       expect(singularResponse.errors).toBe(undefined);
     });
 
@@ -431,24 +624,43 @@ describe('graphql queries', () => {
         expect.objectContaining({
           name: 'main',
           prefix: 'refs/heads/',
-          target: expect.objectContaining({oid: 'commit-a', messageHeadline: 'Initial commit'})
+          target: expect.objectContaining({
+            oid: 'commit-a',
+            messageHeadline: 'Initial commit'
+          })
         })
       );
     });
 
     it('returns the named ref with its commit target', () => {
-      expect(response.data.repository.ref).toEqual(expect.objectContaining({name: 'main', prefix: 'refs/heads/'}));
+      expect(response.data.repository.ref).toEqual(
+        expect.objectContaining({
+          name: 'main',
+          prefix: 'refs/heads/'
+        })
+      );
+
       expect(response.data.repository.ref.target.oid).toBe('commit-a');
     });
 
     it('returns the named tag ref with its commit target', () => {
-      expect(response.data.repository.tagRef).toEqual(expect.objectContaining({name: 'v1.0.0', prefix: 'refs/tags/'}));
+      expect(response.data.repository.tagRef).toEqual(
+        expect.objectContaining({
+          name: 'v1.0.0',
+          prefix: 'refs/tags/'
+        })
+      );
+
       expect(response.data.repository.tagRef.target.oid).toBe('commit-a');
     });
 
     it('returns issues with number, title, and state', () => {
       expect(response.data.repository.issues.nodes).toEqual([
-        expect.objectContaining({number: 1, title: 'Lovely issue', state: 'OPEN'})
+        expect.objectContaining({
+          number: 1,
+          title: 'Lovely issue',
+          state: 'OPEN'
+        })
       ]);
     });
 
@@ -468,22 +680,34 @@ describe('graphql queries', () => {
       const issueFromConnection = response.data.repository.issues.nodes.find(
         (node: {number: number}) => node.number === 1
       );
+
       const pullRequestFromConnection = response.data.repository.pullRequests.nodes.find(
         (node: {number: number}) => node.number === 2
       );
-      const refs = singularResponse.data.repository.refs.nodes as Array<{name: string; prefix: string}>;
+
+      const refs = singularResponse.data.repository.refs.nodes as Array<{
+        name: string;
+        prefix: string;
+      }>;
 
       expect(singularResponse.data.repository.issue).toEqual(
-        expect.objectContaining({id: issueFromConnection.id, number: issueFromConnection.number})
+        expect.objectContaining({
+          id: issueFromConnection.id,
+          number: issueFromConnection.number
+        })
       );
+
       expect(singularResponse.data.repository.pullRequest).toEqual(
         expect.objectContaining({
           id: pullRequestFromConnection.id,
           number: pullRequestFromConnection.number
         })
       );
+
       expect(refs.every((ref) => ref.prefix === 'refs/heads/')).toBe(true);
+
       expect(refs.some((ref) => ref.name === 'main')).toBe(true);
+
       expect(refs.some((ref) => ref.name === 'feature/x')).toBe(true);
     });
   });
@@ -509,7 +733,12 @@ describe('graphql queries', () => {
         }
       }
     `;
-    const variables = {org: 'lovely-org', email: true};
+
+    const variables = {
+      org: 'lovely-org',
+      email: true
+    };
+
     it('responds successfully to fetch', async () => {
       const request = await fetch(`${url}/graphql`, {
         method: 'POST',
@@ -519,14 +748,19 @@ describe('graphql queries', () => {
           variables
         })
       });
+
       const response = await request.json();
+
       expect(request.status).toEqual(200);
+
       expect(response.errors).toBe(undefined);
     });
+
     it('responds successfully to graphql client', async () => {
       const request = await client<MembersWithRoleQuery>(query, variables);
-      expect(request).toBeDefined();
+
       expect(request.organization.membersWithRole.nodes).toEqual([]);
+
       expect(request.organization.membersWithRole.pageInfo.hasNextPage).toBe(false);
     });
   });
@@ -568,7 +802,11 @@ describe('graphql queries', () => {
         }
       }
     `;
-    const variables = {org: 'lovely-org'};
+
+    const variables = {
+      org: 'lovely-org'
+    };
+
     it('responds successfully to fetch', async () => {
       const request = await fetch(`${url}/graphql`, {
         method: 'POST',
@@ -578,14 +816,19 @@ describe('graphql queries', () => {
           variables
         })
       });
+
       const response = await request.json();
+
       expect(request.status).toEqual(200);
+
       expect(response.errors).toBe(undefined);
     });
+
     it('responds successfully to graphql client', async () => {
       const request = await client<TeamsQuery>(query, variables);
-      expect(request).toBeDefined();
+
       expect(request.organization.teams.nodes).toEqual([]);
+
       expect(request.organization.teams.pageInfo.hasNextPage).toBe(false);
     });
   });
@@ -627,7 +870,12 @@ describe('graphql queries', () => {
         }
       }
     `;
-    const variables = {org: 'lovely-org', userLogins: ['frontsidejack']};
+
+    const variables = {
+      org: 'lovely-org',
+      userLogins: ['frontsidejack']
+    };
+
     it('responds successfully to fetch', async () => {
       const request = await fetch(`${url}/graphql`, {
         method: 'POST',
@@ -637,14 +885,19 @@ describe('graphql queries', () => {
           variables
         })
       });
+
       const response = await request.json();
+
       expect(request.status).toEqual(200);
+
       expect(response.errors).toBe(undefined);
     });
+
     it('responds successfully to graphql client', async () => {
       const request = await client<TeamsQuery>(query, variables);
-      expect(request).toBeDefined();
+
       expect(request.organization.teams.nodes).toEqual([]);
+
       expect(request.organization.teams.pageInfo.hasNextPage).toBe(false);
     });
   });
@@ -665,7 +918,11 @@ describe('graphql queries', () => {
         }
       }
     `;
-    const variables = {user: 'frontsidejack'};
+
+    const variables = {
+      user: 'frontsidejack'
+    };
+
     it('responds successfully to fetch', async () => {
       const request = await fetch(`${url}/graphql`, {
         method: 'POST',
@@ -675,15 +932,24 @@ describe('graphql queries', () => {
           variables
         })
       });
+
       const response = await request.json();
+
       expect(request.status).toEqual(200);
+
       expect(response.errors).toBe(undefined);
     });
+
     it('responds successfully to graphql client', async () => {
       const request = await client<UserOrganizationsQuery>(query, variables);
-      expect(request).toBeDefined();
+
       expect(request.user.organizations.nodes.length).toBeGreaterThan(0);
-      expect(request.user.organizations.nodes).toEqual([expect.objectContaining({login: 'lovely-org'})]);
+
+      expect(request.user.organizations.nodes).toEqual([
+        expect.objectContaining({
+          login: 'lovely-org'
+        })
+      ]);
     });
   });
 
@@ -713,7 +979,12 @@ describe('graphql queries', () => {
         }
       }
     `;
-    const variables = {org: 'lovely-org', teamSlug: 'boop'};
+
+    const variables = {
+      org: 'lovely-org',
+      teamSlug: 'boop'
+    };
+
     it('responds successfully to fetch', async () => {
       const request = await fetch(`${url}/graphql`, {
         method: 'POST',
@@ -723,13 +994,18 @@ describe('graphql queries', () => {
           variables
         })
       });
+
       const response = await request.json();
+
       expect(request.status).toEqual(200);
+
       expect(response.errors).toBe(undefined);
     });
+
     it('responds successfully to graphql client', async () => {
-      const request = await client(query, variables);
-      expect(request).toBeDefined();
+      const request = await client<OrganizationTeamQuery>(query, variables);
+
+      expect(request.organization.team).toBe(null);
     });
   });
 
@@ -773,11 +1049,13 @@ describe('graphql queries', () => {
         }
       }
     `;
+
     const variables = {
       org: 'lovely-org',
       catalogPathRef: 'HEAD:catalog-info.yaml',
       cursor: undefined
     };
+
     it('responds successfully to fetch', async () => {
       const request = await fetch(`${url}/graphql`, {
         method: 'POST',
@@ -787,17 +1065,31 @@ describe('graphql queries', () => {
           variables
         })
       });
+
       const response = await request.json();
+
       expect(request.status).toEqual(200);
+
       expect(response.errors).toBe(undefined);
+
       expect(response.data.repositoryOwner.login).toBe('lovely-org');
+
       expect(response.data.repositoryOwner.repositories.nodes.length).toBe(1);
-      expect(response.data.repositoryOwner.repositories.pageInfo).toBeDefined();
+
       expect(response.data.repositoryOwner.repositories.pageInfo.hasNextPage).toBe(false);
     });
+
     it('responds successfully to graphql client', async () => {
-      const request = await client(query, variables);
-      expect(request).toBeDefined();
+      const request = await client<OrganizationRepositoriesQuery>(query, variables);
+
+      expect(request.repositoryOwner.login).toBe('lovely-org');
+      expect(request.repositoryOwner.repositories.nodes).toEqual([
+        expect.objectContaining({
+          defaultBranchRef: expect.objectContaining({name: 'main'}),
+          name: 'awesome-repo'
+        })
+      ]);
+      expect(request.repositoryOwner.repositories.pageInfo.hasNextPage).toBe(false);
     });
   });
 
@@ -834,11 +1126,13 @@ describe('graphql queries', () => {
         }
       }
     `;
+
     const variables = {
       org: 'lovely-org',
       repoName: 'awesome-repo',
       catalogPathRef: './catalog-info.yaml'
     };
+
     it('responds successfully to fetch', async () => {
       const request = await fetch(`${url}/graphql`, {
         method: 'POST',
@@ -848,13 +1142,18 @@ describe('graphql queries', () => {
           variables
         })
       });
+
       const response = await request.json();
+
       expect(request.status).toEqual(200);
+
       expect(response.errors).toBe(undefined);
     });
+
     it('responds successfully to graphql client', async () => {
-      const request = await client(query, variables);
-      expect(request).toBeDefined();
+      const request = await client<OrganizationRepositoryQuery>(query, variables);
+
+      expect(request.repositoryOwner.repository).toBe(null);
     });
   });
 
@@ -914,9 +1213,11 @@ describe('graphql queries', () => {
         }
       }
     `;
+
     const variables = {
       org: 'lovely-org'
     };
+
     it('responds successfully to fetch', async () => {
       const request = await fetch(`${url}/graphql`, {
         method: 'POST',
@@ -926,13 +1227,24 @@ describe('graphql queries', () => {
           variables
         })
       });
+
       const response = await request.json();
+
       expect(request.status).toEqual(200);
+
       expect(response.errors).toBe(undefined);
     });
+
     it('responds successfully to graphql client', async () => {
-      const request = await client(query, variables);
-      expect(request).toBeDefined();
+      const request = await client<OrganizationRepositoriesQuery>(query, variables);
+
+      expect(request.repositoryOwner.repositories.nodes).toEqual([
+        expect.objectContaining({
+          defaultBranchRef: expect.objectContaining({name: 'main'}),
+          name: 'awesome-repo'
+        })
+      ]);
+      expect(request.repositoryOwner.repositories.pageInfo.hasNextPage).toBe(false);
     });
   });
 
@@ -954,10 +1266,12 @@ describe('graphql queries', () => {
         }
       }
     `;
+
     const variables = {
       org: 'lovely-org',
       teamSlug: 'boop'
     };
+
     it('responds successfully to fetch', async () => {
       const request = await fetch(`${url}/graphql`, {
         method: 'POST',
@@ -967,13 +1281,18 @@ describe('graphql queries', () => {
           variables
         })
       });
+
       const response = await request.json();
+
       expect(request.status).toEqual(200);
+
       expect(response.errors).toBe(undefined);
     });
+
     it('responds successfully to graphql client', async () => {
-      const request = await client(query, variables);
-      expect(request).toBeDefined();
+      const request = await client<TeamMembersQuery>(query, variables);
+
+      expect(request.organization.team).toBe(null);
     });
   });
 });

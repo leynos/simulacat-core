@@ -24,6 +24,9 @@ import {OrganizationMemberRole, RepositoryPermission} from '../__generated__/res
  * `PageInfo` shape.
  *
  * Cursor fields remain omitted when the source page does not provide them.
+ *
+ * @param pageInfo Relay page metadata to convert.
+ * @returns Generated GraphQL page-info metadata.
  */
 export const toConnectionPageInfo = (pageInfo: Page<unknown>['pageInfo']): GraphqlPageInfo => {
   const connectionPageInfo: GraphqlPageInfo = {
@@ -47,6 +50,8 @@ export const toConnectionPageInfo = (pageInfo: Page<unknown>['pageInfo']): Graph
  *
  * The returned shape always has empty edges and nodes, zero total count, and
  * page info with both pagination flags set to `false`.
+ *
+ * @returns Empty stargazer connection placeholder.
  */
 export const emptyStargazerConnection = () => ({
   edges: [],
@@ -62,6 +67,9 @@ export const emptyStargazerConnection = () => ({
  * Converts a page of organization nodes into an organization connection.
  *
  * Edge cursors are preserved exactly as supplied by the relay page.
+ *
+ * @param page Relay page of GraphQL organization nodes.
+ * @returns Generated organization connection shape.
  */
 export const convertOrganizationConnection = (
   page: Page<GraphQLData['Organization']>
@@ -79,6 +87,9 @@ export const convertOrganizationConnection = (
  * Converts a page of team nodes into the generated team connection shape.
  *
  * The helper is a structural adapter only; it does not alter nodes or cursors.
+ *
+ * @param page Relay page of GraphQL team nodes.
+ * @returns Generated team connection shape.
  */
 export const convertTeamConnection = (page: Page<Team>): TeamConnectionShape => ({
   edges: page.edges.map((edge) => ({
@@ -95,6 +106,9 @@ export const convertTeamConnection = (page: Page<Team>): TeamConnectionShape => 
  *
  * Every returned edge uses the fixed placeholder role
  * `OrganizationMemberRole.Member` until role-aware membership data is added.
+ *
+ * @param page Relay page of GraphQL user nodes.
+ * @returns Generated organization-member connection shape.
  */
 export const convertOrganizationMemberConnection = (page: Page<User>): OrganizationMemberConnectionShape => ({
   edges: page.edges.map((edge) => ({
@@ -113,6 +127,9 @@ export const convertOrganizationMemberConnection = (page: Page<User>): Organizat
  * The current simulator uses placeholder collaborator metadata for every edge:
  * `permission` is always `RepositoryPermission.Read` and
  * `permissionSources` is always an empty array.
+ *
+ * @param page Relay page of GraphQL user nodes.
+ * @returns Generated repository-collaborator connection shape.
  */
 export const convertRepositoryCollaboratorConnection = (page: Page<User>): RepositoryCollaboratorConnectionShape => ({
   edges: page.edges.map((edge) => ({
@@ -131,6 +148,10 @@ export const convertRepositoryCollaboratorConnection = (page: Page<User>): Repos
  *
  * `totalSize` must be supplied from the full unwindowed language collection so
  * Relay slicing does not shrink the aggregate size reported by the connection.
+ *
+ * @param page Relay page of language entries.
+ * @param totalSize Total byte size for the full language collection.
+ * @returns Generated language connection shape.
  */
 export const convertLanguageConnection = (
   page: Page<{id: string; name: string; size: number}>,
@@ -157,6 +178,8 @@ export const convertLanguageConnection = (
  * Returns the fixed empty repository connection used by topic placeholders.
  *
  * `totalDiskUsage` is currently a fixed placeholder value of `0`.
+ *
+ * @returns Empty repository connection placeholder.
  */
 export const emptyRepositoryConnection = (): RepositoryConnectionShape => ({
   edges: [],
@@ -174,6 +197,9 @@ export const emptyRepositoryConnection = (): RepositoryConnectionShape => ({
  * connection shape.
  *
  * Topic nodes and cursors are preserved exactly as supplied by the relay page.
+ *
+ * @param page Relay page of repository-topic nodes.
+ * @returns Generated repository-topic connection shape.
  */
 export const convertRepositoryTopicConnection = (page: Page<RepositoryTopicShape>): RepositoryTopicConnectionShape => ({
   edges: page.edges.map((edge) => ({
@@ -190,6 +216,9 @@ export const convertRepositoryTopicConnection = (page: Page<RepositoryTopicShape
  *
  * `totalDiskUsage` is currently a fixed placeholder value of `0` until the
  * simulator exposes per-repository disk usage accounting.
+ *
+ * @param page Relay page of GraphQL repository nodes.
+ * @returns Generated repository connection shape.
  */
 export const convertRepositoryConnection = (page: Page<GraphQLData['Repository']>): RepositoryConnectionShape => ({
   edges: page.edges.map((edge) => ({
