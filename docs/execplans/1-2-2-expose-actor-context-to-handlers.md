@@ -5,7 +5,7 @@ This ExecPlan (execution plan) is a living document. The sections
 `Decision Log`, and `Outcomes & Retrospective` must be kept up to date as work
 proceeds.
 
-Status: DRAFT
+Status: IN PROGRESS
 
 Roadmap reference: `docs/roadmap.md` task `1.2.2` (legacy label `1.2.3`) under
 section 1.2 "Make request actors visible to REST and GraphQL". Depends on
@@ -173,7 +173,7 @@ escalation, not workarounds.
   metric instead.
 - Dependency: if a new runtime dependency is needed, stop. If a new
   development dependency is needed, stop unless the user approves it.
-- Authorization: if a route cannot be made actor-aware without implementing
+- Authorisation: if a route cannot be made actor-aware without implementing
   permission enforcement, leave that enforcement deferred and document the
   limitation. Do not expand the task into full auth.
 - Tests: if the same quality gate still fails after three focused
@@ -276,11 +276,24 @@ escalation, not workarounds.
   Express request augmentation under `verbatimModuleSyntax`, the GraphQL
   Yoga context lifecycle, and the openapi-backend handler signature.
 - [x] (2026-05-24T14:32:00+01:00) Drafted this ExecPlan for review.
-- [ ] Await explicit approval to implement the planned functionality.
+- [x] (2026-06-01T00:00:00+02:00) Received explicit implementation
+  instruction from the user and moved this ExecPlan to IN PROGRESS.
+- [x] (2026-06-01T00:00:00+02:00) Confirmed the current branch is already
+  `1-2-2-expose-actor-context-to-handlers`, not a default branch.
+- [x] (2026-06-01T00:00:00+02:00) Confirmed the leta workspace already exists
+  for this worktree.
 - [ ] Rename branch to `1-2-2-expose-actor-context-to-handlers` and set
   upstream tracking.
-- [ ] Implement milestone 1 (shared actor-context port and middleware).
-- [ ] Run `coderabbit review --agent` for milestone 1; clear all findings.
+- [x] (2026-06-01T00:00:00+02:00) Implemented milestone 1 (shared
+  actor-context helper surface, Express request augmentation, request actor
+  middleware, and focused helper/middleware tests).
+- [x] (2026-06-01T00:00:00+02:00) Ran `coderabbit review --agent` for
+  milestone 1 after disabling the global `diff.external=difft` setting with a
+  temporary empty Git config. Fixed the valid active-plan spelling finding.
+  Verified the two actor-context export findings were stale because
+  `buildActorContext` and `SimulacatRequestActor` are exported and
+  `bun check:types` passes. Skipped the remaining baseline findings as outside
+  Stage B scope.
 - [ ] Implement milestone 2 (rewire built-in REST handlers and add an
   extension OpenAPI route fixture under `tests/`).
 - [ ] Run `coderabbit review --agent` for milestone 2; clear all findings.
@@ -321,6 +334,18 @@ escalation, not workarounds.
 - `docs/developers-guide.md` does not exist. The actual developer-facing
   guide is `docs/development.md`. The 1.2.1 ExecPlan applied the same
   substitution; this plan follows that precedent.
+- The implementation branch already contains planning commits on top of the
+  1.2.1 baseline. `git log --oneline -5` now shows `4d0ea99` and `9961510`
+  plan/documentation commits above `29afb26 Plan exposing actor context to REST
+  and GraphQL handlers`; the old Stage A expectation that `b9093ce` would be
+  the most recent commit is stale.
+- Stage B typecheck originally exposed that `tee` pipelines can mask
+  `tsc --noEmit` failures unless `set -o pipefail` is enabled. Subsequent
+  gates use `set -o pipefail` before piping output into `/tmp` logs.
+- CodeRabbit inherited the user-level Git config `diff.external=difft`, and
+  `difft` panicked while CodeRabbit gathered a branch-wide diff for an older
+  file. Running CodeRabbit with `GIT_CONFIG_GLOBAL` pointing at a temporary
+  empty config allowed the review to proceed.
 
 ## Decision Log
 
@@ -396,7 +421,7 @@ escalation, not workarounds.
 
 These references are signposts. Simulacat Core remains explicit that this
 slice provides simulator actor selection, not full GitHub authentication
-or authorization.
+or authorisation.
 
 ## Context and orientation
 
@@ -752,6 +777,19 @@ Capture relevant evidence inline as work progresses. Examples to include:
 - `coderabbit review --agent` summaries.
 - A short snippet from `tests/extension-handlers.test.ts` showing the
   four-surface agreement assertion.
+
+Stage B evidence captured on 2026-06-01:
+
+- `bun test tests/middleware-request-actor.test.ts tests/actors-helpers.test.ts`
+  passed: 12 tests, 31 assertions.
+- `bun check:types` passed after `graphql-codegen` regenerated
+  `src/__generated__/resolvers-types.ts`.
+- `make check-fmt` passed: 71 files checked, no fixes applied.
+- `make lint` passed: Biome and Oxlint reported no findings.
+- `coderabbit review --agent` completed with 35 branch-wide findings. Stage B
+  handled the one valid finding in this ExecPlan; the actor-context export
+  findings were stale against the typechecked working tree, and the remaining
+  findings targeted pre-existing files outside the Stage B diff.
 
 ## Interfaces and dependencies
 
