@@ -8,6 +8,7 @@
 import type {createFoundationSimulationServer} from '@simulacrum/foundation-simulator';
 import {stringify} from 'querystring';
 import {createHandler} from './graphql/handler.ts';
+import {requestActorMiddleware} from './middleware/request-actor.ts';
 import {normalizeGitRefPath} from './rest/utils.ts';
 import {getActorObservabilityMetrics} from './store/actors.ts';
 import type {ExtendedSimulationStore} from './store/index.ts';
@@ -46,6 +47,9 @@ export const extendRouter =
       | undefined
   ) =>
   (router: Parameters<FoundationExtendRouter>[0], simulationStore: ExtendedSimulationStore) => {
+    // Why: extension routes and built-in OpenAPI handlers must see the same request-scoped actor context.
+    router.use(requestActorMiddleware());
+
     if (extend) {
       extend(router, simulationStore);
     }

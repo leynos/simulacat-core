@@ -16,24 +16,30 @@ import {toGraphql, deriveOwner} from './to-graphql.ts';
 import {assert} from 'assert-ts';
 import type {ExtendedSimulationStore} from '../store/index.ts';
 import {
-  observeAuthenticationFailure,
-  observeParsedRequestActor,
-  observeResolvedRequestActor,
-  observeSelectedActor,
-  type ActorObservationContext,
+  requireUserActor,
   type RequestActorParseResult,
-  resolveRequestActor,
-  selectAuthenticatedUser,
-  type RequestActor
+  type RequestActor,
+  type SimulacatRequestActor
 } from '../store/actors.ts';
 
 /**
  * GraphQL resolver context populated by the Yoga context function.
  *
- * Carries the parsed `RequestActor` before resolvers run.
+ * `createHandler` builds this object before any resolver runs. Resolvers use
+ * `requestActor` for the parsed actor, `requestActorContext` for parse
+ * diagnostics and request-id observation context, `requestActorParseResult` for
+ * backwards-compatible parse diagnostics, and `requestId` when a resolver needs
+ * request correlation.
+ *
+ * @example
+ * ```ts
+ * const login = ctx.requestActor.kind === 'user' ? ctx.requestActor.login : undefined;
+ * const requestId = ctx.requestId;
+ * ```
  */
 export type GraphQLContext = {
   requestActor: RequestActor;
+  requestActorContext: SimulacatRequestActor;
   requestActorParseResult: RequestActorParseResult;
   requestId?: string;
 };
@@ -42,39 +48,24 @@ export type GraphQLContext = {
  * Error thrown when a GraphQL field requires an authenticated user actor.
  *
  * Extends `Error` with `name = 'AuthenticationError'` so callers can classify
- * authentication failures from `Query.viewer`.
+ * authentication failures from `Query.viewer`. Callers that execute resolvers
+ * directly can catch this subclass; transport clients usually see Yoga's
+ * serialised GraphQL error response.
+ *
+ * @example
+ * ```ts
+ * try {
+ *   await resolveViewer();
+ * } catch (error) {
+ *   if (error instanceof AuthenticationError) {
+ *     // Handle unauthenticated viewer access.
+ *   }
+ * }
+ * ```
  */
 export class AuthenticationError extends Error {
   override name = 'AuthenticationError';
 }
-
-/**
- * Selects the viewer user for the current GraphQL context.
- *
- * Resolves the context actor against the store's users and installations
- * tables, and returns both the resolved actor and matching `GitHubUser`, or
- * undefined when the actor is anonymous or unknown. Observation is performed
- * explicitly by resolver handlers after this query helper returns.
- */
-const selectViewer = (simulationStore: ExtendedSimulationStore, context: GraphQLContext) => {
-  const state = simulationStore.store.getState();
-  const resolvedActor = resolveRequestActor(context.requestActor, {
-    users: simulationStore.schema.users.selectTableAsList(state),
-    installations: simulationStore.schema.installations.selectTableAsList(state)
-  });
-
-  return {resolvedActor, user: selectAuthenticatedUser(resolvedActor)};
-};
-
-/**
- * Builds GraphQL actor observation context from resolver context.
- *
- * @param context Resolver context that may carry a request identifier.
- * @returns Optional observation context with request correlation details.
- */
-const actorObservationContext = (context: GraphQLContext): ActorObservationContext | undefined => {
-  return context.requestId === undefined ? undefined : {requestId: context.requestId};
-};
 
 /**
  * Creates the root resolver map for the simulated GitHub GraphQL API.
@@ -88,16 +79,11 @@ export function createResolvers(simulationStore: ExtendedSimulationStore): Resol
   return {
     Query: {
       viewer(_root: unknown, _args: unknown, context: GraphQLContext) {
-        const observationContext = actorObservationContext(context);
-        observeParsedRequestActor('graphql', context.requestActorParseResult, observationContext);
-        const {resolvedActor, user} = selectViewer(simulationStore, context);
-        observeResolvedRequestActor('graphql', context.requestActor, resolvedActor, observationContext);
-        observeSelectedActor('graphql', resolvedActor, observationContext);
-        if (!user) {
-          observeAuthenticationFailure('graphql', resolvedActor, 'Query.viewer', observationContext);
+        const result = requireUserActor({transport: 'graphql', context, surface: 'Query.viewer'}, simulationStore);
+        if ('failure' in result) {
           throw new AuthenticationError('Authentication required');
         }
-        return toGraphql(simulationStore, 'User', user);
+        return toGraphql(simulationStore, 'User', result.user);
       },
       user(_: unknown, {login}: {login: string}) {
         const user = simulationStore.schema.users

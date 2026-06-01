@@ -9,7 +9,7 @@
 import {createSchema, createYoga, processRegularResult} from 'graphql-yoga';
 import {isAsyncIterable} from '@graphql-tools/utils';
 import {createResolvers, type GraphQLContext} from './resolvers.ts';
-import {parseRequestActorWithDiagnostics, requestIdFromHeaders} from '../store/actors.ts';
+import {buildActorContext} from '../store/actors.ts';
 import {getSchema} from '../utils.ts';
 import type {ExtendedSimulationStore} from '../store/index.ts';
 
@@ -18,8 +18,11 @@ import type {Plugin} from 'graphql-yoga';
 /**
  * Yoga resolver context carrying the parsed simulator request actor.
  *
- * Built by the `context` function before any resolver runs and consumed by
- * `Query.viewer` to derive the authenticated user.
+ * `GraphQLUserContext` is a semantic alias of `GraphQLContext`: use the alias
+ * at Yoga handler boundaries where the context object is constructed, and use
+ * `GraphQLContext` in resolver signatures where fields are consumed. The alias
+ * has no runtime effect; both names describe the same request-scoped actor
+ * fields.
  */
 export type GraphQLUserContext = GraphQLContext;
 
@@ -56,11 +59,15 @@ export function createHandler(simulationStore: ExtendedSimulationStore) {
     }),
     context({request}) {
       const headers = {get: (name: string) => request.headers.get(name)};
-      const requestId = requestIdFromHeaders(headers);
-      const parseResult = parseRequestActorWithDiagnostics(headers);
-      return requestId === undefined
-        ? {requestActor: parseResult.actor, requestActorParseResult: parseResult}
-        : {requestActor: parseResult.actor, requestActorParseResult: parseResult, requestId};
+      const requestActorContext = buildActorContext(headers);
+      return {
+        requestActor: requestActorContext.actor,
+        requestActorContext,
+        requestActorParseResult: requestActorContext.parseResult,
+        ...(requestActorContext.observationContext?.requestId
+          ? {requestId: requestActorContext.observationContext.requestId}
+          : {})
+      };
     },
     plugins: [customMediaTypeParser]
   });

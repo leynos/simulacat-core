@@ -10,12 +10,17 @@ import {buildActorContext, observeParsedRequestActor} from '../store/actors.ts';
 /**
  * Builds middleware that attaches `req.simulacatActor` once per request.
  *
+ * The returned Express `RequestHandler` mutates `request.simulacatActor` with
+ * the context from `buildActorContext`, records one REST parse observation via
+ * `observeParsedRequestActor`, and then calls `next()`.
+ *
  * @example
  * ```ts
  * router.use(requestActorMiddleware());
  * ```
  *
- * @returns Express middleware that decorates the request and calls `next()`.
+ * @returns Express middleware that decorates `request.simulacatActor`,
+ * observes the parse result, and calls `next()`.
  */
 export const requestActorMiddleware = (): RequestHandler => {
   return (request, _response, next) => {

@@ -294,6 +294,12 @@ const withObservationContext = (
 /**
  * Records an actor selection observation and optionally logs it.
  *
+ * `actorObservationCounters` stores dot-separated keys in the order
+ * event.actorKind.outcome.source.reason. Undefined parts are omitted, while an
+ * empty source is preserved as a positional placeholder so aggregation can
+ * distinguish missing source from shifted fields. `isActorObservationEnabled`
+ * gates structured debug logging; callers should keep reason labels dot-free.
+ *
  * @param observation Structured observation to count and, when enabled, emit
  * as a JSON debug line.
  */
@@ -316,6 +322,11 @@ const recordActorObservation = (observation: ActorObservation): void => {
 
 /**
  * Returns a snapshot of actor selection counters.
+ *
+ * `getActorObservabilityCounters` reassembles keys from the internal
+ * `actorObservationCounters` map so public keys drop placeholder empty
+ * segments for absent source or reason values. Internal keys are expected to
+ * follow event.actorKind.outcome.source.reasonParts order.
  *
  * @returns Copy of the current process-local actor observability counters.
  */
@@ -404,6 +415,7 @@ const parsePositiveInteger = (input: string): number | undefined => {
 const parseAppActor = (rawIdentifier: string): RequestActor | undefined => {
   const appId = parsePositiveInteger(rawIdentifier);
   if (appId !== undefined) return {kind: 'app', appId};
+  // Integer-shaped identifiers such as 007, 0, and -1 are invalid app ids, not slugs.
   return integerPattern.test(rawIdentifier) ? undefined : {kind: 'app', slug: rawIdentifier};
 };
 
@@ -639,13 +651,20 @@ export const resolveRequestActor = (
 /**
  * Builds request-scoped actor context from inbound headers.
  *
+ * `buildActorContext` derives `parseResult` with
+ * `parseRequestActorWithDiagnostics`, copies `parseResult.actor` into the
+ * top-level `actor` field for convenient access, and includes
+ * `observationContext.requestId` when `requestIdFromHeaders` finds a
+ * correlation header.
+ *
  * @example
  * ```ts
  * const context = buildActorContext({get: (name) => request.get(name)});
  * ```
  *
  * @param headers Transport-neutral header reader.
- * @returns Parsed actor context plus optional request correlation details.
+ * @returns `SimulacatRequestActor` with parsed actor diagnostics and optional
+ * request correlation details.
  */
 export const buildActorContext = (headers: HeaderReader): SimulacatRequestActor => {
   const parseResult = parseRequestActorWithDiagnostics(headers);
@@ -707,18 +726,26 @@ const actorContextFromSource = (source: RequireUserActorSource): SimulacatReques
     return source.context.requestActorContext;
   }
 
-  const observationContext = source.context.requestId === undefined ? undefined : {requestId: source.context.requestId};
-  return observationContext === undefined
-    ? {actor: source.context.requestActor, parseResult: source.context.requestActorParseResult}
-    : {actor: source.context.requestActor, parseResult: source.context.requestActorParseResult, observationContext};
+  return {
+    actor: source.context.requestActor,
+    parseResult: source.context.requestActorParseResult,
+    ...(source.context.requestId !== undefined ? {observationContext: {requestId: source.context.requestId}} : {})
+  };
 };
 
 /**
  * Selects a required authenticated user for REST or GraphQL handlers.
  *
+ * The helper resolves the request actor against seeded users and
+ * installations, emits resolution and selected-actor observations, and emits
+ * an authentication-failure observation when the actor is not a resolved user.
+ * Callers receive a discriminated union: success includes `{resolvedActor,
+ * user}`, while failure includes `{failure: 'unauthenticated', resolvedActor}`.
+ *
  * @example
  * ```ts
  * const result = requireUserActor({transport: 'rest', request, surface: 'GET /user'}, store);
+ * if ('failure' in result) return response.status(401).json({message: 'Authentication required'});
  * ```
  *
  * @param source Transport-specific request or resolver context.

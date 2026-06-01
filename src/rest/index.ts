@@ -9,18 +9,7 @@
 // biome-ignore-all lint/complexity/noExcessiveLinesPerFunction: Baseline route table predates the new length gate.
 import type {Document, SimulationHandlers} from '@simulacrum/foundation-simulator';
 import type {ExtendedSimulationStore} from '../store/index.ts';
-import {
-  type ActorObservationContext,
-  observeAuthenticationFailure,
-  observeParsedRequestActor,
-  observeResolvedRequestActor,
-  observeSelectedActor,
-  type RequestActorParseResult,
-  parseRequestActorWithDiagnostics,
-  requestIdFromHeaders,
-  resolveRequestActor,
-  selectAuthenticatedUser
-} from '../store/actors.ts';
+import {requireUserActor} from '../store/actors.ts';
 import {getSchema, type SchemaFile} from '../utils.ts';
 import {blobAsBase64, commitStatusResponse, gitTrees, normalizeGitRefPath} from './utils.ts';
 
@@ -38,56 +27,6 @@ type Res = Parameters<SimulationHandler>[2];
 
 /** Shared 404 JSON payload used by REST repository and item guards. */
 const notFound = {message: 'Not Found'};
-
-/**
- * Selects the authenticated user for a parsed REST request actor.
- *
- * Resolves the parsed actor against the store's users and installations
- * tables, and returns both the resolved actor and authenticated `GitHubUser`,
- * or undefined when the actor cannot authenticate as a user. Observation is
- * performed explicitly by REST handlers after this query helper returns.
- */
-const selectUserForRequest = (simulationStore: ExtendedSimulationStore, parseResult: RequestActorParseResult) => {
-  const state = simulationStore.store.getState();
-  const resolvedActor = resolveRequestActor(parseResult.actor, {
-    users: simulationStore.schema.users.selectTableAsList(state),
-    installations: simulationStore.schema.installations.selectTableAsList(state)
-  });
-
-  return {resolvedActor, user: selectAuthenticatedUser(resolvedActor)};
-};
-
-/**
- * Parses REST actor headers and builds observation context.
- *
- * @param request Incoming REST request adapter.
- * @returns Parsed actor diagnostics plus optional request correlation context.
- */
-const parseActorRequest = (
-  request: Req
-): {parseResult: RequestActorParseResult; observationContext?: ActorObservationContext} => {
-  const headers = {get: (name: string) => request.get(name)};
-  const requestId = requestIdFromHeaders(headers);
-  const parseResult = parseRequestActorWithDiagnostics(headers);
-  return requestId === undefined ? {parseResult} : {parseResult, observationContext: {requestId}};
-};
-
-/**
- * Observes a REST actor parse, resolution, and final selection.
- *
- * @param parseResult Parsed actor diagnostics selected from request headers.
- * @param resolvedActor Actor after fixture-backed resolution.
- * @param observationContext Optional request correlation context.
- */
-const observeRestActorSelection = (
-  parseResult: RequestActorParseResult,
-  resolvedActor: ReturnType<typeof selectUserForRequest>['resolvedActor'],
-  observationContext?: ActorObservationContext
-): void => {
-  observeParsedRequestActor('rest', parseResult, observationContext);
-  observeResolvedRequestActor('rest', parseResult.actor, resolvedActor, observationContext);
-  observeSelectedActor('rest', resolvedActor, observationContext);
-};
 
 /**
  * Builds default REST handlers and merges caller-provided extensions.
@@ -372,41 +311,38 @@ const handlers =
 
           // GET /user
           'users/get-authenticated': async (_context: Ctx, request: Req, response: Res) => {
-            const {parseResult, observationContext} = parseActorRequest(request);
-            const {resolvedActor, user} = selectUserForRequest(simulationStore, parseResult);
-            observeRestActorSelection(parseResult, resolvedActor, observationContext);
-            if (!user) {
-              observeAuthenticationFailure('rest', resolvedActor, 'GET /user', observationContext);
+            const result = requireUserActor({transport: 'rest', request, surface: 'GET /user'}, simulationStore);
+            if ('failure' in result) {
               return response.status(401).json({message: 'Authentication required'});
             }
             const data = {
-              id: parseInt(user.id.toString(), 10) as number,
-              login: user.login,
-              email: user.email,
-              name: user.name
+              id: parseInt(result.user.id.toString(), 10) as number,
+              login: result.user.login,
+              email: result.user.email,
+              name: result.user.name
             };
             response.status(200).json(data);
           },
 
           // GET /user/memberships/orgs
           'orgs/list-memberships-for-authenticated-user': async (_context: Ctx, request: Req, response: Res) => {
-            const {parseResult, observationContext} = parseActorRequest(request);
-            const {resolvedActor, user} = selectUserForRequest(simulationStore, parseResult);
-            observeRestActorSelection(parseResult, resolvedActor, observationContext);
-            if (!user) {
-              observeAuthenticationFailure('rest', resolvedActor, 'GET /user/memberships/orgs', observationContext);
+            const result = requireUserActor(
+              {transport: 'rest', request, surface: 'GET /user/memberships/orgs'},
+              simulationStore
+            );
+            if ('failure' in result) {
               return response.status(401).json({message: 'Authentication required'});
             }
             const organizations = simulationStore.selectors.allGithubOrganizations(getState());
             const memberships = organizations
-              .filter((organization) => user.organizations.includes(organization.login))
+              .filter((organization) => result.user.organizations.includes(organization.login))
               .map((organization) => ({
-                url: `${organization.url}/memberships/${user.login}`,
+                url: `${organization.url}/memberships/${result.user.login}`,
                 state: 'active',
                 organization,
                 role: 'member',
                 organization_url: organization.url,
-                user
+                user: result.user
               }));
             return response.status(200).json(memberships);
           }

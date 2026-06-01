@@ -294,12 +294,19 @@ escalation, not workarounds.
   `buildActorContext` and `SimulacatRequestActor` are exported and
   `bun check:types` passes. Skipped the remaining baseline findings as outside
   Stage B scope.
-- [ ] Implement milestone 2 (rewire built-in REST handlers and add an
-  extension OpenAPI route fixture under `tests/`).
-- [ ] Run `coderabbit review --agent` for milestone 2; clear all findings.
-- [ ] Implement milestone 3 (rewire built-in GraphQL handler/resolvers
-  through the shared helper).
-- [ ] Run `coderabbit review --agent` for milestone 3; clear all findings.
+- [x] (2026-06-01T00:00:00+02:00) Implemented built-in REST and GraphQL
+  rewiring: `extendRouter` installs request actor middleware before caller
+  extensions, `/user` and `/user/memberships/orgs` call `requireUserActor`,
+  and GraphQL `viewer` uses the same helper via Yoga context.
+- [x] (2026-06-01T00:00:00+02:00) Ran `coderabbit review --agent` for the
+  built-in REST/GraphQL rewiring. Addressed valid findings in changed actor,
+  middleware, and GraphQL files by expanding JSDoc, clarifying observability
+  key comments, and simplifying the GraphQL context fallback construction.
+  Skipped branch-wide baseline documentation, CI, and test-maintenance
+  findings outside the Stage C diff.
+- [ ] Implement extension OpenAPI route fixture under `tests/`.
+- [ ] Run `coderabbit review --agent` for the extension OpenAPI fixture; clear
+  all findings.
 - [ ] Implement milestone 4 (extension router route fixture, agreement test,
   documentation updates, roadmap completion).
 - [ ] Run `bun fmt`, `bunx markdownlint-cli2 "**/*.md"`, `make check-fmt`,
@@ -346,6 +353,11 @@ escalation, not workarounds.
   `difft` panicked while CodeRabbit gathered a branch-wide diff for an older
   file. Running CodeRabbit with `GIT_CONFIG_GLOBAL` pointing at a temporary
   empty config allowed the review to proceed.
+- Installing actor middleware before `/metrics` means the metrics request
+  itself now records a `rest-parse` observation. The stable metrics snapshot
+  changed from one to two anonymous default `rest-parse` observations after a
+  test that requests `/user` and then `/metrics`. This matches the intended
+  once-per-HTTP-request parse semantics.
 
 ## Decision Log
 
@@ -790,6 +802,23 @@ Stage B evidence captured on 2026-06-01:
   handled the one valid finding in this ExecPlan; the actor-context export
   findings were stale against the typechecked working tree, and the remaining
   findings targeted pre-existing files outside the Stage B diff.
+
+Stage C built-in rewiring evidence captured on 2026-06-01:
+
+- `bun test tests/user.test.ts` passed: 10 tests.
+- `bun test tests/graphql.test.ts` passed: 32 tests.
+- `bun check:types` passed after `graphql-codegen`.
+- `make check-fmt` passed: 71 files checked, no fixes applied.
+- `make lint` passed: Biome and Oxlint reported no findings.
+- `make test` passed after updating the `/metrics` snapshot: 256 tests, 4
+  snapshots, 5584 assertions.
+- `coderabbit review --agent` completed with 23 branch-wide findings. Stage C
+  addressed the valid findings in changed actor-context files; remaining
+  findings targeted pre-existing documentation, CI, and test-maintenance work
+  outside this milestone.
+- After review-driven edits, `make lint`, `bun check:types`, and `make test`
+  passed again; the final test run reported 256 tests, 4 snapshots, and 5584
+  assertions.
 
 ## Interfaces and dependencies
 
