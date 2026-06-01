@@ -59,7 +59,7 @@ export const extendRouter =
     });
 
     router.get('/metrics', (_, response) => {
-      response.type('text/plain; version=0.0.4').send(getActorObservabilityMetrics());
+      response.type('text/plain; version=0.0.4; charset=utf-8').send(getActorObservabilityMetrics());
     });
 
     router.use('/graphql', createHandler(simulationStore));

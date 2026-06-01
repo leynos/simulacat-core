@@ -304,9 +304,19 @@ escalation, not workarounds.
   key comments, and simplifying the GraphQL context fallback construction.
   Skipped branch-wide baseline documentation, CI, and test-maintenance
   findings outside the Stage C diff.
-- [ ] Implement extension OpenAPI route fixture under `tests/`.
-- [ ] Run `coderabbit review --agent` for the extension OpenAPI fixture; clear
-  all findings.
+- [x] (2026-06-01T00:00:00+02:00) Implemented the extension agreement
+  fixture under `tests/extension-handlers.test.ts`. The fixture overrides the
+  existing `users/get-by-username` OpenAPI operation and registers
+  `GET /labs/whoami` through `extend.extendRouter`, so the same seeded actor
+  is selected through built-in REST, extension OpenAPI, extension router, and
+  GraphQL surfaces.
+- [x] (2026-06-01T00:00:00+02:00) Ran `coderabbit review --agent` for the
+  extension fixture after the deterministic gates passed. Fixed the valid
+  findings in changed route code by adding the Prometheus metrics charset and
+  removing the redundant `/user` id parse roundtrip. Skipped the suggested
+  GraphQL parse observation because it would violate the planned
+  one-parse-observation-per-HTTP-request semantics; skipped the remaining
+  branch-wide baseline refactors as outside this milestone.
 - [ ] Implement milestone 4 (extension router route fixture, agreement test,
   documentation updates, roadmap completion).
 - [ ] Run `bun fmt`, `bunx markdownlint-cli2 "**/*.md"`, `make check-fmt`,
@@ -358,6 +368,15 @@ escalation, not workarounds.
   changed from one to two anonymous default `rest-parse` observations after a
   test that requests `/user` and then `/metrics`. This matches the intended
   once-per-HTTP-request parse semantics.
+- The extension agreement test does not need a custom OpenAPI schema entry.
+  Overriding the existing `users/get-by-username` operation exercises the same
+  caller-provided OpenAPI handler pathway while keeping request validation and
+  path routing inside the bundled GitHub schema.
+- CodeRabbit suggested adding a second `graphql` parse observation in the
+  GraphQL context builder. That is intentionally not applied in this slice:
+  the middleware now records exactly one parse observation for the inbound
+  `/graphql` HTTP request, and a second parse event inside Yoga would undo the
+  once-per-HTTP-request metric semantics accepted by this plan.
 
 ## Decision Log
 
@@ -409,6 +428,12 @@ escalation, not workarounds.
   precedent.
   Rationale: the user explicitly stated that the plan must be approved
   before implementation. The plan itself may be pushed for review.
+
+- Decision: use `users/get-by-username` as the extension OpenAPI fixture route
+  instead of inventing a test-only OpenAPI path.
+  Rationale: the operation already exists in the bundled GitHub schema, so it
+  validates the caller override path through `extend.openapiHandlers` without
+  adding schema maintenance or broadening the public API contract.
 
 ## External references and prior art
 
@@ -819,6 +844,24 @@ Stage C built-in rewiring evidence captured on 2026-06-01:
 - After review-driven edits, `make lint`, `bun check:types`, and `make test`
   passed again; the final test run reported 256 tests, 4 snapshots, and 5584
   assertions.
+
+Stage D extension fixture evidence captured on 2026-06-01:
+
+- `bun test tests/extension-handlers.test.ts` passed: 3 tests, 6 assertions.
+- `make check-fmt` passed: 72 files checked, no fixes applied.
+- `make lint` passed after extracting test helpers out of the oversized
+  `describe` callback flagged by Biome and Oxlint.
+- `bun check:types` passed after `graphql-codegen`.
+- `make test` passed: 259 tests, 4 snapshots, 5590 assertions.
+- `coderabbit review --agent` completed with 16 branch-wide findings after one
+  rate-limit backoff. The review produced two valid cleanups in touched route
+  code, one intentionally rejected GraphQL metric suggestion, and baseline
+  findings in older documentation, tests, utilities, package overrides, and the
+  large pre-existing actor module.
+- After review-driven edits, `bunx markdownlint-cli2
+  docs/execplans/1-2-2-expose-actor-context-to-handlers.md`, `make check-fmt`,
+  `make lint`, `bun check:types`, and `make test` passed again. The final test
+  run still reported 259 tests, 4 snapshots, and 5590 assertions.
 
 ## Interfaces and dependencies
 

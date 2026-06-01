@@ -316,7 +316,7 @@ const handlers =
               return response.status(401).json({message: 'Authentication required'});
             }
             const data = {
-              id: parseInt(result.user.id.toString(), 10) as number,
+              id: result.user.id,
               login: result.user.login,
               email: result.user.email,
               name: result.user.name
