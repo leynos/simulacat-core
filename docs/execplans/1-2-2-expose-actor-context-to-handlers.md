@@ -317,11 +317,23 @@ escalation, not workarounds.
   GraphQL parse observation because it would violate the planned
   one-parse-observation-per-HTTP-request semantics; skipped the remaining
   branch-wide baseline refactors as outside this milestone.
-- [ ] Implement milestone 4 (extension router route fixture, agreement test,
-  documentation updates, roadmap completion).
-- [ ] Run `bun fmt`, `bunx markdownlint-cli2 "**/*.md"`, `make check-fmt`,
-  `make lint`, and `make test` sequentially with `tee` logs.
-- [ ] Run final `coderabbit review --agent`; clear all findings.
+- [x] (2026-06-01T00:00:00+02:00) Implemented the documentation and roadmap
+  portion of milestone 4. Updated architecture, development, API reference,
+  REST audit, and GraphQL audit docs for middleware-backed request actor
+  context, helper usage, extension ordering, and the deferred GraphQL
+  extension API. Left `docs/users-guide.md` unchanged because the public header
+  contract and failure modes did not change. Marked roadmap item `1.2.2`
+  complete.
+- [x] (2026-06-01T00:00:00+02:00) Ran `bun fmt`, `bunx markdownlint-cli2
+  "**/*.md"`, `make check-fmt`, `make lint`, `bun check:types`, and
+  `make test` sequentially with `tee` logs after documentation and final-review
+  cleanup.
+- [x] (2026-06-01T00:00:00+02:00) Ran final `coderabbit review --agent`
+  after deterministic gates passed and one required rate-limit backoff. Fixed
+  the small valid documentation, suppression, JSDoc, baseline-warning, and
+  local-helper findings. Deferred the `tools/oxlint-plugin-df12/index.js`
+  module-splitting recommendation because it is a broad pre-existing refactor
+  outside this actor-context plan and should land as a separate cleanup.
 - [ ] Push the renamed branch and update the draft PR.
 
 ## Surprises & Discoveries
@@ -862,6 +874,28 @@ Stage D extension fixture evidence captured on 2026-06-01:
   docs/execplans/1-2-2-expose-actor-context-to-handlers.md`, `make check-fmt`,
   `make lint`, `bun check:types`, and `make test` passed again. The final test
   run still reported 259 tests, 4 snapshots, and 5590 assertions.
+
+Stage D documentation and final-review evidence captured on 2026-06-01:
+
+- `bun fmt` reported 72 files formatted, with no fixes applied.
+- `bunx markdownlint-cli2 "**/*.md"` passed after shortening two REST-audit
+  table cells to satisfy the aligned-table rule.
+- `make check-fmt`, `make lint`, and `bun check:types` passed.
+- `make test` passed: 259 tests, 4 snapshots, 5590 assertions.
+- Final `coderabbit review --agent` completed with 9 branch-wide findings
+  after one rate-limit backoff. Small valid findings were fixed in
+  documentation, JSDoc, suppressions, node-id examples, and the local Oxlint
+  test helper. The large `tools/oxlint-plugin-df12/index.js` module-split
+  finding remains deferred as a separate baseline refactor.
+- Two CodeRabbit cleanup suggestions were not applied exactly as requested
+  because deterministic lint gates rejected them: `tests/actors.test.ts` has
+  no `lint/complexity/noExcessiveLinesPerFile` Biome rule in this toolchain,
+  and `src/graphql/converters/repository.ts` needs file-level Biome
+  suppressions because Oxlint also requires the immediate pre-function
+  suppression slot.
+- After final-review cleanups, `bun fmt`, `bunx markdownlint-cli2 "**/*.md"`,
+  `make check-fmt`, `make lint`, `bun check:types`, and `make test` passed.
+  The final test run reported 259 tests, 4 snapshots, and 5590 assertions.
 
 ## Interfaces and dependencies
 

@@ -215,22 +215,35 @@ without updating the relevant roadmap item and design documentation.
 ### Request actors
 
 Request actor parsing lives in `src/store/actors.ts`, not in individual REST
-or GraphQL routes. REST handlers pass request headers into the shared parser.
-GraphQL Yoga builds a small context object with the parsed actor, and
-`Query.viewer` resolves the selected user from that context.
+or GraphQL routes. `requestActorMiddleware()` runs before caller router
+extensions, built-in OpenAPI handlers, and GraphQL, then attaches
+`req.simulacatActor` with the parsed actor, diagnostics, request-id context,
+and lazy store resolution pathway. GraphQL Yoga builds the same context shape
+from Fetch headers, and `Query.viewer` resolves the selected user from that
+context.
+
+Extension handlers should use the shared helper surface rather than parsing
+headers again. `getActorContext(request)` reads the middleware-attached
+context when raw actor details are needed. `requireUserActor({transport:
+"rest", request, surface}, simulationStore)` selects the authenticated user
+and emits the same resolution, selection, and authentication-failure
+observability as built-in `/user` handlers.
 
 New actor-aware behaviour should add focused unit tests for parser or resolver
 invariants and route-level tests for observable REST or GraphQL contracts. Use
 `fast-check` when a parser or key format must hold across a range of generated
 values. Do not add real credential validation, permission checks, or GitHub
 App cryptography under the request actor helper; those are separate
-authorization slices.
+authorization slices. A first-class GraphQL schema or resolver extension hook
+does not exist yet, so GraphQL extension should remain future roadmap work
+rather than being hidden inside the request actor helpers.
 
 Actor observability uses process-local counters in `src/store/actors.ts`.
-REST and GraphQL adapters record parse outcomes, store-resolution outcomes,
-resolved actor selections, and authentication failures at their transport
-boundaries. The parser and resolver helpers remain pure and do not log
-directly.
+The request actor middleware records one parse outcome per inbound HTTP
+request. REST and GraphQL handlers record store-resolution outcomes, resolved
+actor selections, and authentication failures at their transport boundaries
+when they opt into actor-aware behaviour. The parser and resolver helpers
+remain pure and do not log directly.
 
 The built-in `GET /metrics` route exports those counters in Prometheus text
 format as `simulacat_actor_observations_total`. Metric labels are bounded to
@@ -250,6 +263,11 @@ surface where applicable, a non-sensitive actor label, and the inbound
 `x-request-id` or `x-correlation-id` value when present. Tests that inspect the
 counters should call `resetActorObservationCounters()` before each case to
 avoid cross-test leakage.
+
+Further reading: the actor-at-the-boundary and protocol-adapter guidance lives
+in
+`docs/mocking-services-with-simulacrum-actors-and-stable-keyset-connections.md`
+§4 and §8.
 
 ### Gherkin feature scenarios
 

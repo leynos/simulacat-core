@@ -231,9 +231,9 @@ are present.
 
 - **Biome**: Use Biome for formatting and linting through `bun fmt` and
   `bun lint`.
-- **Maintainability rules**: See `docs/development.md#linting-rules` for the
-  function size, parameter count, complexity, nesting, JSDoc, and suppression
-  policy enforced by Biome, Oxlint, and the JSDoc checker.
+- **Maintainability rules**: See `docs/development.md#linting-rules` for
+  the function size, parameter count, complexity, nesting, JSDoc, and
+  suppression policy enforced by Biome, Oxlint, and the JSDoc checker.
 - **Type-checking**: Use `bun check:types` to surface TypeScript issues early.
 - **Import hygiene**: Keep imports sorted and remove unused or extraneous
   dependencies.

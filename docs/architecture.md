@@ -12,8 +12,9 @@ state store, then exposes that state through REST and GraphQL surfaces.
    store tables and registers selectors used by the handlers.
 3. `openapi()` in `src/rest/index.ts` mounts REST handlers against the chosen
    OpenAPI schema.
-4. `extendRouter()` in `src/extend-api.ts` applies caller-provided routes
-   first, then mounts the built-in GraphQL, health, and OAuth helper routes.
+4. `extendRouter()` in `src/extend-api.ts` installs request actor middleware,
+   applies caller-provided routes, then mounts the built-in GraphQL, health,
+   and OAuth helper routes.
 5. `createHandler()` and `createResolvers()` expose the same store state through
    GraphQL Yoga. GraphQL Yoga also builds request context from simulator actor
    headers before resolvers run.
@@ -62,8 +63,9 @@ state store, then exposes that state through REST and GraphQL surfaces.
   requests. REST and GraphQL adapters consume these selectors instead of
   deriving keys locally.
 - `src/store/actors.ts`
-  Defines simulator request actor parsing and resolution for anonymous, user,
-  app, and installation actors. REST and GraphQL adapters use these helpers
+  Defines simulator request actor parsing, middleware context construction,
+  resolution, selection, and observability for anonymous, user, app, and
+  installation actors. REST, GraphQL, and caller extensions use these helpers
   instead of selecting a user locally.
 - `src/store/entities/shared.ts`
   Defines `githubEntityPermissionSchema`.
@@ -138,12 +140,23 @@ are `anonymous`, `user:<login>`, `app:<id-or-slug>`, and `installation:<id>`.
 `x-simulacat-user` and `x-github-user` remain compatibility aliases for user
 actors.
 
-REST authenticated-user handlers parse the request headers through
-`parseRequestActor()`, resolve seeded users and installations through
-`resolveRequestActor()`, and return user-shaped data only when the actor is a
-known user. GraphQL Yoga performs the same parsing in `createHandler()` and
-passes the actor into `createResolvers()` through resolver context, so
-`viewer` and REST `/user` agree for equivalent user actor input.
+`src/extend-api.ts` installs `requestActorMiddleware()` before caller routes,
+built-in OpenAPI handlers, and GraphQL. The middleware builds one
+request-scoped actor context from inbound headers, attaches it to
+`req.simulacatActor`, and records one parse observation for the HTTP request.
+`requireUserActor()` then resolves seeded users and installations through the
+shared store helpers and returns user-shaped data only when the actor is a
+known user. GraphQL Yoga builds the same context from Fetch headers and passes
+it into `createResolvers()`, so `viewer`, REST `/user`, caller OpenAPI
+handlers, and caller Express routes agree for equivalent user actor input.
+
+For extension code, `getActorContext(request)` reads the middleware-attached
+context and `requireUserActor({transport: "rest", request, surface},
+simulationStore)` applies the same authenticated-user selection and
+observability path used by built-in handlers. This follows the actor-at-the-boundary
+guidance in
+`docs/mocking-services-with-simulacrum-actors-and-stable-keyset-connections.md`
+§4 and §8.
 
 This is actor representation, not authentication. The simulator does not
 validate OAuth tokens, personal access tokens, GitHub App JWTs, or installation
@@ -156,9 +169,11 @@ The package is designed to be extended rather than forked.
 - `extendStore`
   Provides schema slices, actions, and selectors.
 - `openapiHandlers`
-  Registers or overrides REST operations while reusing the same store.
+  Registers or overrides REST operations while reusing the same store and
+  request actor context.
 - `extendRouter`
-  Adds plain Express routes for harness-specific behaviour.
+  Adds plain Express routes for harness-specific behaviour. These routes run
+  after request actor middleware, so `req.simulacatActor` is already available.
 
 This keeps the core package small whilst still letting higher-level tools such
 as Simulacat or Rentaneko layer in product-specific fixtures and endpoints.

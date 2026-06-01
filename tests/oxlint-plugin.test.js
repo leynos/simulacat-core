@@ -85,23 +85,8 @@ function normalizeDiagnostics(output, directory) {
   return output.replaceAll(directory, '<workspace>');
 }
 
-/**
- * Creates a temporary fixture workspace, writes an Oxlint config and one
- * TypeScript source file, runs Oxlint, cleans up, and returns the result with
- * workspace-local absolute paths replaced by the stable token `<workspace>`.
- *
- * @param options - Fixture options.
- * @param options.rules - Oxlint rules object passed to `writeConfig`.
- * @param options.name - Fixture filename (e.g. `'foo.ts'`).
- * @param options.source - TypeScript source text to lint.
- * @param options.cwd - Working directory for the Oxlint process.
- * @param rules - Oxlint rules object passed to `writeConfig`.
- * @param name - Fixture filename (e.g. `'foo.ts'`).
- * @param source - TypeScript source text to lint.
- * @param cwd - Working directory for the Oxlint process.
- * @returns The normalised Oxlint process result.
- */
-export function runFixture({rules, name, source, cwd}) {
+/** Runs Oxlint against a temporary fixture workspace. */
+function runFixture({rules, name, source, cwd}) {
   const workspace = createWorkspace();
   try {
     const configPath = writeConfig({directory: workspace.directory, rules});

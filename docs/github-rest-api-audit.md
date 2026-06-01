@@ -139,8 +139,8 @@ The explicit OpenAPI handler map lives in
 | `repos/get-content`                            | `GET`  | `/repos/{owner}/{repo}/contents/{path}`              | Stateful/scriptable                | Looks up a blob by owner/repo/path and returns base64 content.                                                                                                                                                        |
 | `git/get-blob`                                 | `GET`  | `/repos/{owner}/{repo}/git/blobs/{file_sha}`         | Stateful/scriptable                | Looks up a blob by owner/repo/sha and returns base64 content.                                                                                                                                                         |
 | `git/get-tree`                                 | `GET`  | `/repos/{owner}/{repo}/git/trees/{tree_sha}`         | Partially scriptable               | The handler now reads `tree_sha`, but it still ignores real tree-sha semantics and simply maps all blobs for the repo.                                                                                                |
-| `users/get-authenticated`                      | `GET`  | `/user`                                              | Partially scriptable               | Resolves the selected `user:<login>` simulator actor and returns 401 when no user actor resolves.                                                                                                                     |
-| `orgs/list-memberships-for-authenticated-user` | `GET`  | `/user/memberships/orgs`                             | Partially scriptable               | Resolves the selected user actor and returns only that user's active organization memberships. Legacy user headers remain aliases.                                                                                    |
+| `users/get-authenticated`                      | `GET`  | `/user`                                              | Partially scriptable               | Uses shared request actor helpers to resolve the selected `user:<login>` simulator actor and returns 401 when no user actor resolves.                                                                                 |
+| `orgs/list-memberships-for-authenticated-user` | `GET`  | `/user/memberships/orgs`                             | Partially scriptable               | Uses shared request actor helpers to return only the selected user actor's active organization memberships. Legacy user headers remain aliases.                                                                       |
 
 ## What Is Stubbed But Not Really Mocked
 
@@ -182,8 +182,8 @@ Consumers can extend it in three ways:
 
 | Extension point          | Where                                    | What it enables                                                                       |
 | ------------------------ | ---------------------------------------- | ------------------------------------------------------------------------------------- |
-| `extend.openapiHandlers` | `packages/github-api/src/index.ts`       | Add or replace OpenAPI operation handlers with access to the GitHub simulation store. |
-| `extend.extendRouter`    | `packages/github-api/src/extend-api.ts`  | Add arbitrary Express routes or middleware outside the OpenAPI surface.               |
+| `extend.openapiHandlers` | `packages/github-api/src/index.ts`       | Add or replace OpenAPI operation handlers with store and actor-helper access.         |
+| `extend.extendRouter`    | `packages/github-api/src/extend-api.ts`  | Add Express routes or middleware after actor middleware runs.                         |
 | `extend.extendStore`     | `packages/github-api/src/store/index.ts` | Add schema slices, actions, and selectors to support richer scripted behavior.        |
 
 Current limitations of that extension model:
@@ -191,6 +191,11 @@ Current limitations of that extension model:
 - There is no built-in package API to replace the GraphQL handler directly.
 - Base GitHub actions are empty, so mutating REST behavior must be added by
   consumers.
+
+Actor-aware extension handlers should call `requireUserActor()` or
+`getActorContext(request)` from `src/store/actors.ts` rather than reparsing
+headers. Built-in REST handlers, caller OpenAPI overrides, and caller Express
+routes all see the same middleware-attached request actor context.
 
 ## Store and Modeling Constraints
 
