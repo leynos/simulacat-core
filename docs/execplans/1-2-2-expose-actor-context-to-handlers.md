@@ -5,7 +5,7 @@ This ExecPlan (execution plan) is a living document. The sections
 `Decision Log`, and `Outcomes & Retrospective` must be kept up to date as work
 proceeds.
 
-Status: IN PROGRESS
+Status: COMPLETE
 
 Roadmap reference: `docs/roadmap.md` task `1.2.2` (legacy label `1.2.3`) under
 section 1.2 "Make request actors visible to REST and GraphQL". Depends on
@@ -334,7 +334,10 @@ escalation, not workarounds.
   local-helper findings. Deferred the `tools/oxlint-plugin-df12/index.js`
   module-splitting recommendation because it is a broad pre-existing refactor
   outside this actor-context plan and should land as a separate cleanup.
-- [ ] Push the renamed branch and update the draft PR.
+- [x] (2026-06-01T00:00:00+02:00) Pushed
+  `1-2-2-expose-actor-context-to-handlers` to origin and updated draft PR
+  #15 with the implemented scope, review walkthrough, validation evidence, and
+  known deferred baseline refactor.
 
 ## Surprises & Discoveries
 
@@ -962,12 +965,48 @@ No other public type or runtime export changes.
 
 ## Outcomes & Retrospective
 
-To be filled in after implementation. Sections to populate at completion:
-
-- Final helper surface, with code citations.
-- Validation evidence (test counts, CodeRabbit pass).
-- Branch, draft PR URL, and Lody session URL.
-- Lessons learned, including any deviations from this plan.
+- Final helper surface:
+  - `src/store/actors.ts` now exports `buildActorContext`,
+    `resolveActorContext`, `getActorContext`, and `requireUserActor` alongside
+    the existing parser, resolver, and observability helpers.
+  - `src/middleware/request-actor.ts` attaches `req.simulacatActor` and records
+    one REST parse observation per inbound HTTP request.
+  - `src/extend-api.ts` installs the middleware before caller router
+    extensions, built-in GraphQL, and OpenAPI handlers.
+- Built-in adoption:
+  - `src/rest/index.ts` routes `/user` and `/user/memberships/orgs` through
+    `requireUserActor`.
+  - `src/graphql/handler.ts` carries actor context through Yoga context, and
+    `src/graphql/resolvers.ts` resolves `viewer` through the same helper.
+- Acceptance evidence:
+  - `tests/extension-handlers.test.ts` proves built-in REST, extension OpenAPI,
+    extension router, and GraphQL agree on the selected user for the same
+    actor header and fail consistently without one.
+  - Final `make test` passed with 259 tests, 4 snapshots, and 5590 assertions.
+  - Final deterministic gates passed: `bun fmt`, `bunx markdownlint-cli2
+    "**/*.md"`, `make check-fmt`, `make lint`, `bun check:types`, and
+    `make test`.
+- CodeRabbit:
+  - Milestone reviews and the final review completed after required rate-limit
+    backoffs.
+  - Valid findings were addressed. The broad
+    `tools/oxlint-plugin-df12/index.js` module-split finding remains deferred
+    as an unrelated baseline refactor. Two suggestions were left in
+    lint-compatible form where the deterministic Biome/Oxlint gates rejected
+    CodeRabbit's suggested syntax.
+- Branch and PR:
+  - Branch: `1-2-2-expose-actor-context-to-handlers`
+  - Draft PR: <https://github.com/leynos/simulacat-core/pull/15>
+- Lessons learned:
+  - CodeRabbit inherits global Git configuration unless isolated; using a
+    temporary empty `GIT_CONFIG_GLOBAL` avoided the user-level
+    `diff.external=difft` failure.
+  - Middleware-level parsing changes `rest-parse` from handler-invocation
+    semantics to HTTP-request semantics. The metrics snapshot now records the
+    `/metrics` request itself, matching the chosen model.
+  - Some CodeRabbit baseline cleanup suggestions conflict with repository-local
+    lint rules. Deterministic gates remain authoritative for exact suppression
+    syntax.
 
 [^1]: <https://the-guild.dev/graphql/yoga-server/docs/features/context>
 [^2]: <https://stackoverflow.com/questions/74713444/how-can-i-pass-express-request-and-response-objects-into-graphql-yoga-context-us>
