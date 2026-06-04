@@ -45,6 +45,23 @@ const fetchViewer = async (baseUrl: string, headers: Record<string, string> = {}
   return {status: response.status, body: (await response.json()) as GraphQLViewerResponse};
 };
 
+type RestRequireUserActorSource = Extract<Parameters<typeof requireUserActor>[0], {transport: 'rest'}>;
+
+/** Resolves the request actor for a REST surface. Writes a 401 response and returns null when authentication fails. */
+const resolveUserActorOrReject = (
+  surface: string,
+  store: Parameters<typeof requireUserActor>[1],
+  request: RestRequireUserActorSource['request'],
+  response: {status: (statusCode: number) => {json: (body: unknown) => unknown}}
+) => {
+  const result = requireUserActor({transport: 'rest', request, surface}, store);
+  if ('failure' in result) {
+    response.status(401).json({message: 'Authentication required'});
+    return null;
+  }
+  return result.user;
+};
+
 /** Builds the simulator fixture that exposes actor-aware extension handlers. */
 const createAgreementSimulation = () =>
   simulation({
@@ -52,23 +69,16 @@ const createAgreementSimulation = () =>
     extend: {
       openapiHandlers: (simulationStore) => ({
         'users/get-by-username': (_context, request, response) => {
-          const result = requireUserActor(
-            {transport: 'rest', request, surface: 'GET /users/{username}'},
-            simulationStore
-          );
-          if ('failure' in result) {
-            return response.status(401).json({message: 'Authentication required'});
-          }
-          return response.status(200).json(result.user);
+          const user = resolveUserActorOrReject('GET /users/{username}', simulationStore, request, response);
+          if (user === null) return;
+          return response.status(200).json(user);
         }
       }),
       extendRouter: (router, simulationStore) => {
         router.get('/labs/whoami', (request, response) => {
-          const result = requireUserActor({transport: 'rest', request, surface: 'GET /labs/whoami'}, simulationStore);
-          if ('failure' in result) {
-            return response.status(401).json({message: 'Authentication required'});
-          }
-          return response.status(200).json({login: result.user.login});
+          const user = resolveUserActorOrReject('GET /labs/whoami', simulationStore, request, response);
+          if (user === null) return;
+          return response.status(200).json({login: user.login});
         });
       }
     }
