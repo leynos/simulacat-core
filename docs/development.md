@@ -224,10 +224,10 @@ context.
 
 Extension handlers should use the shared helper surface rather than parsing
 headers again. `getActorContext(request)` reads the middleware-attached
-context when raw actor details are needed. `requireUserActor({transport:
-"rest", request, surface}, simulationStore)` selects the authenticated user
-and emits the same resolution, selection, and authentication-failure
-observability as built-in `/user` handlers.
+context when raw actor details are needed. REST handlers can call
+`requireRestUserActor(request, simulationStore, surface)` to select the
+authenticated user and emit the same resolution, selection, and
+authentication-failure observability as built-in `/user` handlers.
 
 New actor-aware behaviour should add focused unit tests for parser or resolver
 invariants and route-level tests for observable REST or GraphQL contracts. Use

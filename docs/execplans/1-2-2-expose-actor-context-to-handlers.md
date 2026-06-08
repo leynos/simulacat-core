@@ -338,6 +338,17 @@ escalation, not workarounds.
   `1-2-2-expose-actor-context-to-handlers` to origin and updated draft PR
   #15 with the implemented scope, review walkthrough, validation evidence, and
   known deferred baseline refactor.
+- [x] (2026-06-08T00:00:00+02:00) Addressed follow-up review comments on PR
+  #15. Normalized `requireUserActor` around transport-neutral actor context,
+  added REST and GraphQL adapter helpers, covered REST header fallback and
+  preferred-header precedence tests, clarified the JSDoc baseline warning and
+  pull request node-id example, and removed first- and second-person pronouns
+  from the actor/keyset guide. Ran `bun fmt`, `bunx markdownlint-cli2
+  "**/*.md"`, `make check-fmt`, `make lint`, `bun check:types`, and
+  `make test` sequentially with `/tmp` tee logs.
+- [x] (2026-06-08T00:00:00+02:00) Ran `coderabbit review --agent` for the
+  follow-up review-comment pass after deterministic gates passed. CodeRabbit
+  completed with zero findings.
 
 ## Surprises & Discoveries
 
@@ -392,6 +403,11 @@ escalation, not workarounds.
   the middleware now records exactly one parse observation for the inbound
   `/graphql` HTTP request, and a second parse event inside Yoga would undo the
   once-per-HTTP-request metric semantics accepted by this plan.
+- Follow-up review exposed that the shared store actor helper had drifted
+  toward adapter knowledge by accepting REST and GraphQL source unions. The
+  review pass moved transport-specific request adaptation into REST and
+  GraphQL adapter helpers while keeping store resolution and observation
+  transport-neutral.
 
 ## Decision Log
 

@@ -1,7 +1,8 @@
 /** @file Integration tests for actor context in caller extension handlers. */
 import {afterAll, beforeAll, beforeEach, describe, expect, it} from 'bun:test';
 import {type InitialState, simulation} from '../src/index.ts';
-import {requestActorHeader, requireUserActor, resetActorObservationCounters} from '../src/store/actors.ts';
+import {requireRestUserActor} from '../src/rest/actor-context.ts';
+import {requestActorHeader, resetActorObservationCounters} from '../src/store/actors.ts';
 
 type SimulationServer = Awaited<ReturnType<ReturnType<typeof simulation>['listen']>>;
 
@@ -45,16 +46,14 @@ const fetchViewer = async (baseUrl: string, headers: Record<string, string> = {}
   return {status: response.status, body: (await response.json()) as GraphQLViewerResponse};
 };
 
-type RestRequireUserActorSource = Extract<Parameters<typeof requireUserActor>[0], {transport: 'rest'}>;
-
 /** Resolves the request actor for a REST surface. Writes a 401 response and returns null when authentication fails. */
 const resolveUserActorOrReject = (
   surface: string,
-  store: Parameters<typeof requireUserActor>[1],
-  request: RestRequireUserActorSource['request'],
+  store: Parameters<typeof requireRestUserActor>[1],
+  request: Parameters<typeof requireRestUserActor>[0],
   response: {status: (statusCode: number) => {json: (body: unknown) => unknown}}
 ) => {
-  const result = requireUserActor({transport: 'rest', request, surface}, store);
+  const result = requireRestUserActor(request, store, surface);
   if ('failure' in result) {
     response.status(401).json({message: 'Authentication required'});
     return null;

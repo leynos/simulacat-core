@@ -31,8 +31,8 @@ state, REST handlers, GraphQL resolvers, and a few convenience routes.
 - `extend.openapiHandlers`
   Adds or overrides OpenAPI handlers. The callback receives the shared
   simulation store, so custom operations can read seeded entities. Operation
-  handlers can call `requireUserActor()` with the Express request to use the
-  same request actor selection path as built-in authenticated-user routes.
+  handlers can call `requireRestUserActor()` with the Express request to use
+  the same request actor selection path as built-in authenticated-user routes.
 - `extend.extendRouter`
   Adds plain Express routes before the built-in health, OAuth, and GraphQL
   routes are wired in. Request actor middleware runs before these routes, so
@@ -47,10 +47,15 @@ state, REST handlers, GraphQL resolvers, and a few convenience routes.
   Builds the parsed request actor context from an abstract header reader.
 - `getActorContext(request)`
   Reads the actor context attached to an Express request by middleware.
-- `requireUserActor(source, simulationStore)`
-  Resolves the request actor against the seeded store and returns either the
-  selected user or an unauthenticated failure result while recording the same
-  actor observability as built-in handlers.
+- `requireUserActor(input, simulationStore)`
+  Resolves a normalized actor context against the seeded store and returns
+  either the selected user or an unauthenticated failure result while recording
+  the same actor observability as built-in handlers.
+
+`src/rest/actor-context.ts` exports `requireRestUserActor(request,
+simulationStore, surface)` for REST and extension handlers that should read
+middleware-attached context or fall back to request headers when middleware did
+not run.
 
 ## Exported fixture schemas
 

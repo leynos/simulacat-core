@@ -15,12 +15,8 @@ import type {Resolvers} from '../__generated__/resolvers-types.ts';
 import {toGraphql, deriveOwner} from './to-graphql.ts';
 import {assert} from 'assert-ts';
 import type {ExtendedSimulationStore} from '../store/index.ts';
-import {
-  requireUserActor,
-  type RequestActorParseResult,
-  type RequestActor,
-  type SimulacatRequestActor
-} from '../store/actors.ts';
+import type {RequestActorParseResult, RequestActor, SimulacatRequestActor} from '../store/actors.ts';
+import {requireGraphQLUserActor} from './actor-context.ts';
 
 /**
  * GraphQL resolver context populated by the Yoga context function.
@@ -79,7 +75,7 @@ export function createResolvers(simulationStore: ExtendedSimulationStore): Resol
   return {
     Query: {
       viewer(_root: unknown, _args: unknown, context: GraphQLContext) {
-        const result = requireUserActor({transport: 'graphql', context, surface: 'Query.viewer'}, simulationStore);
+        const result = requireGraphQLUserActor(context, simulationStore, 'Query.viewer');
         if ('failure' in result) {
           throw new AuthenticationError('Authentication required');
         }

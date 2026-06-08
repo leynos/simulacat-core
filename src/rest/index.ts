@@ -9,8 +9,8 @@
 // biome-ignore-all lint/complexity/noExcessiveLinesPerFunction: Baseline route table predates the new length gate.
 import type {Document, SimulationHandlers} from '@simulacrum/foundation-simulator';
 import type {ExtendedSimulationStore} from '../store/index.ts';
-import {requireUserActor} from '../store/actors.ts';
 import {getSchema, type SchemaFile} from '../utils.ts';
+import {requireRestUserActor} from './actor-context.ts';
 import {blobAsBase64, commitStatusResponse, gitTrees, normalizeGitRefPath} from './utils.ts';
 
 /** REST handler callback shape supplied by the foundation simulator. */
@@ -311,7 +311,7 @@ const handlers =
 
           // GET /user
           'users/get-authenticated': async (_context: Ctx, request: Req, response: Res) => {
-            const result = requireUserActor({transport: 'rest', request, surface: 'GET /user'}, simulationStore);
+            const result = requireRestUserActor(request, simulationStore, 'GET /user');
             if ('failure' in result) {
               return response.status(401).json({message: 'Authentication required'});
             }
@@ -326,10 +326,7 @@ const handlers =
 
           // GET /user/memberships/orgs
           'orgs/list-memberships-for-authenticated-user': async (_context: Ctx, request: Req, response: Res) => {
-            const result = requireUserActor(
-              {transport: 'rest', request, surface: 'GET /user/memberships/orgs'},
-              simulationStore
-            );
+            const result = requireRestUserActor(request, simulationStore, 'GET /user/memberships/orgs');
             if ('failure' in result) {
               return response.status(401).json({message: 'Authentication required'});
             }

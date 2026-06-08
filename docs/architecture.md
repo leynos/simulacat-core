@@ -144,17 +144,17 @@ actors.
 built-in OpenAPI handlers, and GraphQL. The middleware builds one
 request-scoped actor context from inbound headers, attaches it to
 `req.simulacatActor`, and records one parse observation for the HTTP request.
-`requireUserActor()` then resolves seeded users and installations through the
-shared store helpers and returns user-shaped data only when the actor is a
+The REST and GraphQL adapters then pass that normalized context into
+`requireUserActor()`, which resolves seeded users and installations through
+the shared store helpers and returns user-shaped data only when the actor is a
 known user. GraphQL Yoga builds the same context from Fetch headers and passes
 it into `createResolvers()`, so `viewer`, REST `/user`, caller OpenAPI
 handlers, and caller Express routes agree for equivalent user actor input.
 
 For extension code, `getActorContext(request)` reads the middleware-attached
-context and `requireUserActor({transport: "rest", request, surface},
-simulationStore)` applies the same authenticated-user selection and
-observability path used by built-in handlers. This follows the actor-at-the-boundary
-guidance in
+context and `requireRestUserActor(request, simulationStore, surface)` applies
+the same authenticated-user selection and observability path used by built-in
+handlers. This follows the actor-at-the-boundary guidance in
 `docs/mocking-services-with-simulacrum-actors-and-stable-keyset-connections.md`
 §4 and §8.
 

@@ -147,6 +147,7 @@ export const issueNodeId = ({owner, repo, number}: IssueStoreKeyParts): string =
  * @example
  * ```ts
  * pullRequestNodeId({owner: 'acme', repo: 'widgets', number: 3});
+ * // encodes 'PullRequest:acme/widgets!3'
  * // 'UHVsbFJlcXVlc3Q6YWNtZS93aWRnZXRzITM='
  * ```
  *

@@ -20,24 +20,24 @@ fixtures
 The most important design constraint is that REST handlers, GraphQL resolvers,
 scenario routes, webhook emitters, and inspection tools must all read from and
 write to the same canonical state. If each route carries its own miniature
-reality, your tests will eventually discover that one endpoint lives in
+reality, tests will eventually discover that one endpoint lives in
 springtime while another endpoint reports a snowstorm.
 
 ## 1. Treat Simulacrum as a simulator substrate
 
-Simulacrum gives you the bones of a service simulator: an Express-based server,
+Simulacrum provides the bones of a service simulator: an Express-based server,
 OpenAPI-backed handlers, static JSON route support, store extension, route
-extension, request logging, optional response delay, and a simulation inspection
-surface.
+extension, request logging, optional response delay, and a simulation
+inspection surface.
 
-Start with Simulacrum when you need any of these:
+Start with Simulacrum when any of these are needed:
 
-A fake HTTP service that your production client can call through a configurable
+A fake HTTP service that a production client can call through a configurable
 base URL.
 
 A mock that can move beyond static fixtures into stateful behaviour.
 
-An OpenAPI description that can provide shallow default behaviour while you
+An OpenAPI description that can provide shallow default behaviour while teams
 progressively replace important endpoints with scripted handlers.
 
 A local development service that behaves closely enough to exercise UI states,
@@ -172,7 +172,7 @@ the simulated service’s behaviour.
 
 ## 2. Use static JSON only as the first rung
 
-Static JSON routes help when you need fast scaffolding:
+Static JSON routes help when fast scaffolding is needed:
 
 ```text
 GET /account -> account.json
@@ -181,7 +181,7 @@ GET /plans -> plans.json
 ```
 
 That works for early UI wiring, contract exploration, and smoke tests. It fails
-as soon as your application needs to perform a write, list a changed entity,
+as soon as an application needs to perform a write, list a changed entity,
 enforce visibility, paginate consistently, retry a transient failure, or observe
 a webhook.
 
@@ -283,7 +283,7 @@ test changes coordinates, not code paths.
 
 The actor model gives every request a principal. The actor can be anonymous, a
 user, a machine token, a service account, an installation, a tenant
-administrator, or any other identity your simulated service needs.
+administrator, or any other identity the simulated service needs.
 
 Do not sprinkle token parsing across handlers. Resolve the actor once and pass
 it down.
@@ -405,7 +405,7 @@ export const resolveActorFromExpressRequest = (
 ```
 
 A simulator does not need to validate real cryptographic credentials unless the
-credential protocol itself forms part of what you test. Fake tokens work
+credential protocol itself forms part of the test target. Fake tokens work
 beautifully when the simulator models the consequences of identity: visibility,
 scopes, expiry, ownership, rate limits, and permissions.
 
@@ -416,7 +416,7 @@ The boundary may be fake. The rules inside should be crisp.
 Stateful mocks rot fastest when entities lack stable identity. Define canonical
 keys for every entity type before writing REST handlers or GraphQL resolvers.
 
-For a generic multi-tenant service, you might use:
+For a generic multi-tenant service, this could be:
 
 ```typescript
 type TenantKey = string;
@@ -452,7 +452,7 @@ It can participate in sort keys and cursor payloads.
 
 It does not depend on array position.
 
-Canonical keys also give you better diagnostics:
+Canonical keys also provide better diagnostics:
 
 ```typescript
 throw new Error(`duplicate ticket key in seed data: ${ticketKey(ticket)}`);
@@ -860,7 +860,7 @@ type Connection<Node> = {
 
 A connection does four useful things in simulations:
 
-It forces you to define stable ordering.
+It forces stable ordering to be defined.
 
 It makes pagination behaviour explicit and testable.
 
@@ -877,8 +877,8 @@ Even if a REST endpoint returns this shape:
 }
 ```
 
-you can still build it internally from a generic connection helper. Adapt the
-final wire shape at the edge.
+the simulator can still build it internally from a generic connection helper.
+Adapt the final wire shape at the edge.
 
 ## 11. Use stable keyset cursors inside simulations
 
@@ -912,11 +912,11 @@ type CursorPayload = {
 
 The cursor should encode:
 
-A version, so you can change cursor format later.
+A version, so cursor format can change later.
 
 A connection scope, so callers cannot reuse a cursor from another collection.
 
-A direction, if your API distinguishes forward and backward traversal.
+A direction, if the API distinguishes forward and backward traversal.
 
 A stable sort key, not an array index.
 
@@ -1067,7 +1067,7 @@ class CursorError extends Error {
 }
 ```
 
-If your simulator handles sensitive test data, sign cursor payloads with an
+If a simulator handles sensitive test data, sign cursor payloads with an
 HMAC. For most local and CI simulation, scope validation and opaque encoding
 suffice.
 
@@ -1130,7 +1130,7 @@ const compareRows = <Row>(sort: SortSpec<Row>, left: Row, right: Row): number =>
 ```
 
 Always include a unique tie-breaker at the end of the key. The tie-breaker
-should follow the same direction as the rest of the key unless your target
+should follow the same direction as the rest of the key unless the target
 service defines otherwise.
 
 ```typescript
@@ -1418,7 +1418,7 @@ visibility.
 
 Stable keyset cursors give simulations sane behaviour when data changes between
 page requests, but they do not make changing data magically static. Decide which
-semantics you want.
+semantics are wanted.
 
 Most simulated services should use live keyset semantics:
 
@@ -1454,8 +1454,8 @@ page will not include it. That matches many real keyset-paginated APIs. The
 cursor means “continue after this key in the current ordered view”, not
 “continue from a frozen snapshot”.
 
-If you need snapshot semantics, include a snapshot identifier in scope and store
-the snapshot membership:
+If snapshot semantics are required, include a snapshot identifier in scope and
+store the snapshot membership:
 
 ```typescript
 type Snapshot = {
@@ -1471,8 +1471,8 @@ type SnapshotCursorPayload = CursorPayload & {
 };
 ```
 
-Snapshot pagination costs more memory and state management. Use it only when
-your application or target protocol requires frozen list traversal. Live keyset
+Snapshot pagination costs more memory and state management. Use it only when an
+application or target protocol requires frozen list traversal. Live keyset
 semantics usually offer the best balance for simulations because they match the
 behaviour of many operational systems and keep the simulator lean.
 
@@ -1702,7 +1702,7 @@ shoes. They get far.
 
 ## 21. Use OpenAPI as scaffolding
 
-OpenAPI-backed mocks let you stand up a broad surface quickly. Keep that broad
+OpenAPI-backed mocks stand up a broad surface quickly. Keep that broad
 surface honest by promoting important operations into store-backed handlers.
 
 A healthy progression:
@@ -1719,12 +1719,12 @@ Operation exists in schema
 ```
 
 For operations that remain schema-stubbed, document that fact. Example responses
-work well for shallow integration tests, but they do not prove that your
+work well for shallow integration tests, but they do not prove that the
 simulator models service behaviour.
 
 ## 22. Model errors as carefully as successes
 
-Error semantics deserve first-class treatment. The simulator should help your
+Error semantics deserve first-class treatment. The simulator should help
 client code practise failure.
 
 Use these defaults:
@@ -1745,7 +1745,7 @@ Unknown resource: `404`.
 Conflict with current state, such as closing an already closed item when the
 real service rejects it: `409`.
 
-Unsupported operation: `501` or a documented stub response, depending on your
+Unsupported operation: `501` or a documented stub response, depending on the
 simulator contract.
 
 Impossible simulator invariant: throw loudly or return `500`.
@@ -1759,7 +1759,7 @@ const toCursorErrorResponse = (error: CursorError): { message: string } => ({
 ```
 
 Avoid returning the decoded cursor payload to clients unless the route belongs
-to your simulator inspection namespace.
+to the simulator inspection namespace.
 
 ## 23. Add scenario routes for orchestration
 
@@ -1996,7 +1996,7 @@ router.get('/__simulator__/events', (request, response) => {
 });
 ```
 
-Deliver webhooks through a controlled queue if your application consumes them:
+Deliver webhooks through a controlled queue if an application consumes them:
 
 ```typescript
 type WebhookDelivery = {
@@ -2010,7 +2010,7 @@ type WebhookDelivery = {
 ```
 
 For most test suites, polling `/__simulator__/events` gives more deterministic
-assertions than real outbound HTTP delivery. Use full webhook delivery when your
+assertions than real outbound HTTP delivery. Use full webhook delivery when the
 product’s webhook receiver forms part of the behaviour under test.
 
 ## 27. Test the simulator itself
@@ -2024,7 +2024,7 @@ Actor resolution:
 
 ```text
 missing token -> anonymous
-unknown token -> anonymous or 401, according to your contract
+unknown token -> anonymous or 401, according to the contract
 expired token -> anonymous or 401
 user token -> user actor
 service token -> service actor
@@ -2130,7 +2130,7 @@ by event type
 by external id
 ```
 
-For connection-heavy fixtures, you can cache sorted lists per scope:
+For connection-heavy fixtures, sorted lists can be cached per scope:
 
 ```typescript
 type SortedConnectionCache<Row> = ReadonlyMap<string, readonly Row[]>;
@@ -2144,7 +2144,7 @@ const sortTicketsForConnection = (
 
 Only cache sorted lists when profiling says it helps. Sorting a few hundred rows
 per request often costs less than maintaining elaborate cache invalidation
-machinery. The dragon you do not build cannot breathe fire.
+machinery. Avoid building machinery that does not need to exist.
 
 ## 29. Keep concurrency realistic but bounded
 
@@ -2204,7 +2204,7 @@ router.post('/dangerous-operation', async (request, response) => {
 });
 ```
 
-This gives you precise tests for cancellation, retry storms, duplicate
+This gives precise tests for cancellation, retry storms, duplicate
 submission, and out-of-order completion.
 
 ## 30. Organize the simulator package by responsibility
@@ -2248,12 +2248,12 @@ src/
 ```
 
 That structure keeps the service model independent from protocol machinery. It
-also helps you notice when a REST handler starts hoarding business logic like a
+also helps expose when a REST handler starts hoarding business logic like a
 raccoon with a jewellery box.
 
 ## 31. Use TypeScript to make invalid states inconvenient
 
-TypeScript cannot prove your simulator correct, but it can make sloppy states
+TypeScript cannot prove a simulator correct, but it can make sloppy states
 annoying.
 
 Brand canonical keys:
@@ -2317,7 +2317,7 @@ const listVisibleTickets = (
   tickets.filter(ticket => canReadTicket(actor, ticket));
 ```
 
-Avoid `any` in simulator domain code. If you need `unknown` at the boundary,
+Avoid `any` in simulator domain code. If `unknown` is needed at the boundary,
 parse it immediately.
 
 ## 32. Design for reset and isolation
@@ -2436,7 +2436,7 @@ sensitive data.
 
 ## 34. Decide how realistic the simulator should be
 
-Realism costs. Spend it where your product makes decisions.
+Realism costs. Spend it where the product makes decisions.
 
 High-value realism:
 
@@ -2446,7 +2446,7 @@ read-after-write state
 pagination and ordering
 error codes
 rate limits, if client handles them
-webhook events, if product consumes them
+webhook events, if the product consumes them
 latency and retry scenarios
 ```
 
@@ -2460,9 +2460,9 @@ random production-like timing
 undocumented provider quirks
 ```
 
-The simulator should model the slice of service behaviour your application
-depends on. Do not build an empire when you need a border checkpoint, but make
-that checkpoint extremely convincing.
+The simulator should model the slice of service behaviour an application
+depends on. Avoid building an empire when a border checkpoint is enough, but
+make that checkpoint extremely convincing.
 
 ## 35. A practical build sequence
 
@@ -2561,12 +2561,12 @@ That list is where pagination bugs go to lose their tiny hats.
 Make the simulator boringly truthful.
 
 A strong Simulacrum-based simulator does not need to mirror an entire external
-service. It needs to model the behaviour your application actually relies on,
+service. It needs to model the behaviour a client application actually relies on,
 with stable identity, actor-aware visibility, deterministic state transitions,
 honest capability boundaries, fast selectors, scenario control, and stable
 keyset cursors.
 
 The reward is a test harness that does not merely return expected JSON. It hosts
-a small pocket universe with laws. Your application can poke it, anger it, page
-through it, mutate it, authenticate to it, retry against it, and still receive
-answers that make sense.
+a small pocket universe with laws. Client applications can poke it, page through
+it, mutate it, authenticate to it, retry against it, and still receive answers
+that make sense.

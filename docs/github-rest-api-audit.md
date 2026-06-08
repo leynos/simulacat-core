@@ -192,8 +192,9 @@ Current limitations of that extension model:
 - Base GitHub actions are empty, so mutating REST behavior must be added by
   consumers.
 
-Actor-aware extension handlers should call `requireUserActor()` or
-`getActorContext(request)` from `src/store/actors.ts` rather than reparsing
+Actor-aware extension handlers should call `requireRestUserActor()` from
+`src/rest/actor-context.ts`, or `getActorContext(request)` from
+`src/store/actors.ts` when raw actor context is needed, rather than reparsing
 headers. Built-in REST handlers, caller OpenAPI overrides, and caller Express
 routes all see the same middleware-attached request actor context.
 

@@ -5,7 +5,6 @@
  * Adapters provide headers; selectors provide fixture rows; this module owns
  * the shared interpretation.
  */
-import type {Request} from 'express';
 import type {GitHubAppInstallation, GitHubUser} from './entities.ts';
 import type {ExtendedSimulationStore} from './index.ts';
 
@@ -173,44 +172,38 @@ export type SimulacatRequestActor = {
   observationContext?: ActorObservationContext;
 };
 
-/** Resolved request actor context after consulting the simulation store. */
-export type ResolvedActorContext = {
-  /** Actor after fixture-backed resolution. */
-  resolvedActor: ResolvedRequestActor;
-  /** Authenticated GitHub user, when the resolved actor is a known user. */
-  user: GitHubUser | undefined;
+/** Request-like object that may carry middleware-attached actor context. */
+export type ActorContextCarrier = {
+  /** Actor context attached at the transport boundary when middleware ran. */
+  simulacatActor?: SimulacatRequestActor;
 };
 
-/** Minimal GraphQL context shape accepted by actor-selection helpers. */
-type GraphQLActorContext = {
-  /** Middleware-independent context built by the GraphQL Yoga adapter. */
-  requestActorContext?: SimulacatRequestActor;
-  /** Legacy parsed actor field kept for compatibility during rewiring. */
-  requestActor: RequestActor;
-  /** Legacy parse diagnostics field kept for compatibility during rewiring. */
-  requestActorParseResult: RequestActorParseResult;
-  /** Optional request identifier copied by the GraphQL Yoga adapter. */
-  requestId?: string;
-};
-
-/** Input accepted by `requireUserActor` across REST and GraphQL adapters. */
-export type RequireUserActorSource =
+/** Resolved request actor after consulting the simulation store. */
+export type ResolvedActorResult =
   | {
-      /** Transport that owns the incoming request object. */
-      transport: 'rest';
-      /** Express request, optionally decorated by actor middleware. */
-      request: Request;
-      /** Route name used in authentication-failure observations. */
-      surface: string;
+      /** Stable success discriminator for authenticated user actors. */
+      kind: 'authenticated';
+      /** Actor after fixture-backed resolution. */
+      resolvedActor: ResolvedRequestActor;
+      /** Authenticated GitHub user selected by the resolved actor. */
+      user: GitHubUser;
     }
   | {
-      /** Transport that owns the resolver context. */
-      transport: 'graphql';
-      /** GraphQL resolver context carrying parsed request actor data. */
-      context: GraphQLActorContext;
-      /** Field name used in authentication-failure observations. */
-      surface: string;
+      /** Stable failure discriminator for non-user actors. */
+      kind: 'unauthenticated';
+      /** Actor after fixture-backed resolution. */
+      resolvedActor: ResolvedRequestActor;
     };
+
+/** Input accepted by `requireUserActor` after adapter normalization. */
+export type RequireUserActorInput = {
+  /** Transport that owns the actor-aware surface. */
+  transport: 'graphql' | 'rest';
+  /** Route or field name used in authentication-failure observations. */
+  surface: string;
+  /** Request actor context built at the transport boundary. */
+  context: SimulacatRequestActor;
+};
 
 /** Successful authenticated-user actor selection. */
 export type RequiredUserActor = {
@@ -679,24 +672,25 @@ export const buildActorContext = (headers: HeaderReader): SimulacatRequestActor 
  *
  * @example
  * ```ts
- * const {user} = resolveActorContext(simulationStore, request.simulacatActor);
+ * const result = resolveActorContext(simulationStore, request.simulacatActor);
  * ```
  *
  * @param simulationStore Store containing seeded users and installations.
  * @param context Request actor context built from inbound headers.
- * @returns Resolved actor and authenticated user when one is selected.
+ * @returns Authenticated or unauthenticated actor resolution result.
  */
 export const resolveActorContext = (
   simulationStore: ExtendedSimulationStore,
   context: SimulacatRequestActor
-): ResolvedActorContext => {
+): ResolvedActorResult => {
   const state = simulationStore.store.getState();
   const resolvedActor = resolveRequestActor(context.actor, {
     users: simulationStore.schema.users.selectTableAsList(state),
     installations: simulationStore.schema.installations.selectTableAsList(state)
   });
+  const user = selectAuthenticatedUser(resolvedActor);
 
-  return {resolvedActor, user: selectAuthenticatedUser(resolvedActor)};
+  return user === undefined ? {kind: 'unauthenticated', resolvedActor} : {kind: 'authenticated', resolvedActor, user};
 };
 
 /**
@@ -710,27 +704,8 @@ export const resolveActorContext = (
  * @param request Express request that may have passed through middleware.
  * @returns Middleware-attached actor context, or undefined before middleware.
  */
-export const getActorContext = (request: Request): SimulacatRequestActor | undefined => {
+export const getActorContext = (request: ActorContextCarrier): SimulacatRequestActor | undefined => {
   return request.simulacatActor;
-};
-
-/**
- * Normalizes REST requests and GraphQL resolver contexts into one actor view.
- */
-const actorContextFromSource = (source: RequireUserActorSource): SimulacatRequestActor => {
-  if (source.transport === 'rest') {
-    return source.request.simulacatActor ?? buildActorContext({get: (name) => source.request.get(name)});
-  }
-
-  if (source.context.requestActorContext !== undefined) {
-    return source.context.requestActorContext;
-  }
-
-  return {
-    actor: source.context.requestActor,
-    parseResult: source.context.requestActorParseResult,
-    ...(source.context.requestId !== undefined ? {observationContext: {requestId: source.context.requestId}} : {})
-  };
 };
 
 /**
@@ -744,29 +719,29 @@ const actorContextFromSource = (source: RequireUserActorSource): SimulacatReques
  *
  * @example
  * ```ts
- * const result = requireUserActor({transport: 'rest', request, surface: 'GET /user'}, store);
+ * const result = requireUserActor({transport: 'rest', surface: 'GET /user', context}, store);
  * if ('failure' in result) return response.status(401).json({message: 'Authentication required'});
  * ```
  *
- * @param source Transport-specific request or resolver context.
+ * @param input Transport, surface, and normalized request actor context.
  * @param simulationStore Store containing seeded users and installations.
  * @returns Authenticated user selection or an unauthenticated failure result.
  */
 export const requireUserActor = (
-  source: RequireUserActorSource,
+  input: RequireUserActorInput,
   simulationStore: ExtendedSimulationStore
 ): RequireUserActorResult => {
-  const context = actorContextFromSource(source);
-  const {resolvedActor, user} = resolveActorContext(simulationStore, context);
-  observeResolvedRequestActor(source.transport, context.actor, resolvedActor, context.observationContext);
-  observeSelectedActor(source.transport, resolvedActor, context.observationContext);
+  const {context, surface, transport} = input;
+  const result = resolveActorContext(simulationStore, context);
+  observeResolvedRequestActor(transport, context.actor, result.resolvedActor, context.observationContext);
+  observeSelectedActor(transport, result.resolvedActor, context.observationContext);
 
-  if (user !== undefined) {
-    return {resolvedActor, user};
+  if (result.kind === 'authenticated') {
+    return {resolvedActor: result.resolvedActor, user: result.user};
   }
 
-  observeAuthenticationFailure(source.transport, resolvedActor, source.surface, context.observationContext);
-  return {failure: 'unauthenticated', resolvedActor};
+  observeAuthenticationFailure(transport, result.resolvedActor, surface, context.observationContext);
+  return {failure: 'unauthenticated', resolvedActor: result.resolvedActor};
 };
 
 /**

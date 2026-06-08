@@ -30,7 +30,7 @@ function loadBaseline() {
     return baselineCache;
   } catch (error) {
     console.warn(
-      `Malformed JSDoc baseline JSON at ${baselinePath}; ignoring baseline entries: ${
+      `Failed to load JSDoc baseline JSON at ${baselinePath}; ignoring baseline entries: ${
         error instanceof Error ? error.message : String(error)
       }`
     );

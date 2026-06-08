@@ -32,89 +32,116 @@ const runMiddleware = (request: Request): void => {
   expect(didCallNext).toBe(true);
 };
 
+/** Registers tests for actor selection from preferred and legacy headers. */
+const describeMiddlewareActorSelection = () => {
+  describe('actor selection', () => {
+    it('attaches an anonymous actor when no actor headers are present', () => {
+      const request = requestWithHeaders({});
+
+      runMiddleware(request);
+
+      expect(request.simulacatActor?.actor).toEqual({kind: 'anonymous'});
+      expect(getActorObservabilityCounters()).toMatchObject({
+        'rest-parse.anonymous.default.default': 1
+      });
+    });
+
+    it('attaches a user actor from the preferred actor header', () => {
+      const request = requestWithHeaders({[requestActorHeader]: 'user:dev'});
+
+      runMiddleware(request);
+
+      expect(request.simulacatActor?.actor).toEqual({kind: 'user', login: 'dev'});
+      expect(getActorObservabilityCounters()).toMatchObject({
+        'rest-parse.user.parsed.preferred': 1
+      });
+    });
+
+    it('attaches user actors from legacy compatibility headers', () => {
+      const simulacatRequest = requestWithHeaders({[legacySimulacatUserHeader]: 'dev'});
+      const githubRequest = requestWithHeaders({[legacyGitHubUserHeader]: 'reviewer'});
+
+      runMiddleware(simulacatRequest);
+      runMiddleware(githubRequest);
+
+      expect(simulacatRequest.simulacatActor?.actor).toEqual({kind: 'user', login: 'dev'});
+      expect(githubRequest.simulacatActor?.actor).toEqual({kind: 'user', login: 'reviewer'});
+      expect(getActorObservabilityCounters()).toMatchObject({
+        'rest-parse.user.parsed.legacy-simulacat-user': 1,
+        'rest-parse.user.parsed.legacy-github-user': 1
+      });
+    });
+
+    it('prefers the preferred actor header over legacy headers when both are present', () => {
+      const request = requestWithHeaders({
+        [legacySimulacatUserHeader]: 'legacy-user',
+        [requestActorHeader]: 'user:preferred-user'
+      });
+
+      runMiddleware(request);
+
+      expect(request.simulacatActor?.actor).toEqual({kind: 'user', login: 'preferred-user'});
+      expect(getActorObservabilityCounters()).toMatchObject({
+        'rest-parse.user.parsed.preferred': 1
+      });
+    });
+  });
+};
+
+/** Registers tests for malformed headers, request isolation, and metadata. */
+const describeMiddlewareFallbacks = () => {
+  describe('fallbacks and metadata', () => {
+    it('falls back to anonymous for malformed preferred actor headers', () => {
+      const request = requestWithHeaders({[requestActorHeader]: 'definitely invalid'});
+
+      runMiddleware(request);
+
+      expect(request.simulacatActor).toMatchObject({
+        actor: {kind: 'anonymous'},
+        parseResult: {
+          outcome: 'fallback',
+          reason: 'invalid-preferred-header',
+          source: 'preferred'
+        }
+      });
+      expect(getActorObservabilityCounters()).toMatchObject({
+        'rest-parse.anonymous.fallback.preferred.invalid-preferred-header': 1
+      });
+    });
+
+    it('does not leak state between sequential requests', () => {
+      const first = requestWithHeaders({[requestActorHeader]: 'user:dev'});
+      const second = requestWithHeaders({});
+
+      runMiddleware(first);
+      runMiddleware(second);
+
+      expect(first.simulacatActor?.actor).toEqual({kind: 'user', login: 'dev'});
+      expect(second.simulacatActor?.actor).toEqual({kind: 'anonymous'});
+      expect(getActorObservabilityCounters()).toMatchObject({
+        'rest-parse.user.parsed.preferred': 1,
+        'rest-parse.anonymous.default.default': 1
+      });
+    });
+
+    it('preserves request id observation context', () => {
+      const request = requestWithHeaders({
+        [correlationIdHeader]: 'request-123',
+        [requestActorHeader]: 'user:dev'
+      });
+
+      runMiddleware(request);
+
+      expect(request.simulacatActor?.observationContext).toEqual({requestId: 'request-123'});
+    });
+  });
+};
+
 describe('requestActorMiddleware', () => {
   beforeEach(() => {
     resetActorObservationCounters();
   });
 
-  it('attaches an anonymous actor when no actor headers are present', () => {
-    const request = requestWithHeaders({});
-
-    runMiddleware(request);
-
-    expect(request.simulacatActor?.actor).toEqual({kind: 'anonymous'});
-    expect(getActorObservabilityCounters()).toMatchObject({
-      'rest-parse.anonymous.default.default': 1
-    });
-  });
-
-  it('attaches a user actor from the preferred actor header', () => {
-    const request = requestWithHeaders({[requestActorHeader]: 'user:dev'});
-
-    runMiddleware(request);
-
-    expect(request.simulacatActor?.actor).toEqual({kind: 'user', login: 'dev'});
-    expect(getActorObservabilityCounters()).toMatchObject({
-      'rest-parse.user.parsed.preferred': 1
-    });
-  });
-
-  it('attaches user actors from legacy compatibility headers', () => {
-    const simulacatRequest = requestWithHeaders({[legacySimulacatUserHeader]: 'dev'});
-    const githubRequest = requestWithHeaders({[legacyGitHubUserHeader]: 'reviewer'});
-
-    runMiddleware(simulacatRequest);
-    runMiddleware(githubRequest);
-
-    expect(simulacatRequest.simulacatActor?.actor).toEqual({kind: 'user', login: 'dev'});
-    expect(githubRequest.simulacatActor?.actor).toEqual({kind: 'user', login: 'reviewer'});
-    expect(getActorObservabilityCounters()).toMatchObject({
-      'rest-parse.user.parsed.legacy-simulacat-user': 1,
-      'rest-parse.user.parsed.legacy-github-user': 1
-    });
-  });
-
-  it('falls back to anonymous for malformed preferred actor headers', () => {
-    const request = requestWithHeaders({[requestActorHeader]: 'definitely invalid'});
-
-    runMiddleware(request);
-
-    expect(request.simulacatActor).toMatchObject({
-      actor: {kind: 'anonymous'},
-      parseResult: {
-        outcome: 'fallback',
-        reason: 'invalid-preferred-header',
-        source: 'preferred'
-      }
-    });
-    expect(getActorObservabilityCounters()).toMatchObject({
-      'rest-parse.anonymous.fallback.preferred.invalid-preferred-header': 1
-    });
-  });
-
-  it('does not leak state between sequential requests', () => {
-    const first = requestWithHeaders({[requestActorHeader]: 'user:dev'});
-    const second = requestWithHeaders({});
-
-    runMiddleware(first);
-    runMiddleware(second);
-
-    expect(first.simulacatActor?.actor).toEqual({kind: 'user', login: 'dev'});
-    expect(second.simulacatActor?.actor).toEqual({kind: 'anonymous'});
-    expect(getActorObservabilityCounters()).toMatchObject({
-      'rest-parse.user.parsed.preferred': 1,
-      'rest-parse.anonymous.default.default': 1
-    });
-  });
-
-  it('preserves request id observation context', () => {
-    const request = requestWithHeaders({
-      [correlationIdHeader]: 'request-123',
-      [requestActorHeader]: 'user:dev'
-    });
-
-    runMiddleware(request);
-
-    expect(request.simulacatActor?.observationContext).toEqual({requestId: 'request-123'});
-  });
+  describeMiddlewareActorSelection();
+  describeMiddlewareFallbacks();
 });

@@ -251,8 +251,8 @@ What exists:
   `extend.openapiHandlers`
 - routes can be added with `extend.extendRouter`
 - REST extensions can use `getActorContext(request)` and
-  `requireUserActor(...)` to share the same request actor selection path as
-  built-in `/user` and GraphQL `viewer`
+  `requireRestUserActor(...)` to share the same request actor selection path
+  as built-in `/user` and GraphQL `viewer`
 
 What does not exist:
 
