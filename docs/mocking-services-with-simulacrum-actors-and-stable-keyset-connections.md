@@ -2570,7 +2570,8 @@ That list is where pagination bugs go to lose their tiny hats.
 Make the simulator boringly truthful.
 
 A strong Simulacrum-based simulator does not need to mirror an entire external
-service. It needs to model the behaviour a client application actually relies on,
+service. It needs to model the behaviour a client application actually relies
+on,
 with stable identity, actor-aware visibility, deterministic state transitions,
 honest capability boundaries, fast selectors, scenario control, and stable
 keyset cursors.
