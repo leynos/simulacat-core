@@ -13,8 +13,8 @@ state store, then exposes that state through REST and GraphQL surfaces.
 3. `openapi()` in `src/rest/index.ts` mounts REST handlers against the chosen
    OpenAPI schema.
 4. `extendRouter()` in `src/extend-api.ts` installs request actor middleware,
-   applies caller-provided routes, then mounts the built-in GraphQL, health,
-   and OAuth helper routes.
+   applies caller-provided routes, then mounts built-in local routes such as
+   GraphQL, health, and OAuth helper routes.
 5. `createHandler()` and `createResolvers()` expose the same store state through
    GraphQL Yoga. GraphQL Yoga also builds request context from simulator actor
    headers before resolvers run.
@@ -140,16 +140,19 @@ are `anonymous`, `user:<login>`, `app:<id-or-slug>`, and `installation:<id>`.
 `x-simulacat-user` and `x-github-user` remain compatibility aliases for user
 actors.
 
-`src/extend-api.ts` installs `requestActorMiddleware()` before caller routes,
-built-in OpenAPI handlers, and GraphQL. The middleware builds one
-request-scoped actor context from inbound headers, attaches it to
-`req.simulacatActor`, and records one parse observation for the HTTP request.
-The REST and GraphQL adapters then pass that normalized context into
-`requireUserActor()`, which resolves seeded users and installations through
-the shared store helpers and returns user-shaped data only when the actor is a
-known user. GraphQL Yoga builds the same context from Fetch headers and passes
-it into `createResolvers()`, so `viewer`, REST `/user`, caller OpenAPI
-handlers, and caller Express routes agree for equivalent user actor input.
+`src/extend-api.ts` installs `requestActorMiddleware()` before caller
+`extendRouter()`/extension routes, and before built-in local routes such as
+`/graphql`. It builds a request-scoped actor context from inbound headers,
+attaches it to `req.simulacatActor`, and records one parse observation for the
+HTTP request. `openapi()` mounts built-in REST handlers, but the middleware does
+not directly govern OpenAPI handler mounting. The actor context includes parsed
+actor details, diagnostics, and request-id context. The REST and GraphQL
+adapters then pass that normalized context into shared helper flows, which
+resolve user actors through `requireUserActor()` and GraphQL's
+`requireGraphQLUserActor()` respectively. GraphQL Yoga builds the same context
+from Fetch headers using `buildActorContext` and passes it into
+`createResolvers()`, so `viewer`, REST `/user`, caller OpenAPI handlers, and
+caller Express routes agree for equivalent user actor input.
 
 For extension code, `getActorContext(request)` reads the middleware-attached
 context and `requireRestUserActor(request, simulationStore, surface)` applies

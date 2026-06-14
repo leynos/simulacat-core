@@ -206,8 +206,8 @@ its complexity.
 
 ## 3. Keep production clients configurable, not simulator-aware
 
-Your production code should not contain `isSimulator`, `isLocal`, or
-`useMockService` branches. Let configuration choose the service base URL and
+Production code should not contain `isSimulator`, `isLocal`, or
+`useMockService` branches. Configuration should choose the service base URL and
 credentials.
 
 ```typescript
@@ -2148,9 +2148,9 @@ machinery. Avoid building machinery that does not need to exist.
 
 ## 29. Keep concurrency realistic but bounded
 
-Node’s request handling can interleave asynchronous work. Your simulator should
-avoid accidental race bugs, especially if scenario routes introduce waits,
-faults, or webhook delivery.
+Node’s request handling can interleave asynchronous work. Simulator
+implementations should avoid accidental race bugs, especially if scenario
+routes introduce waits, faults, or webhook delivery.
 
 Keep store mutations synchronous where possible.
 
@@ -2247,7 +2247,7 @@ src/
   simulator.ts
 ```
 
-That structure keeps the service model independent from protocol machinery. It
+That structure keeps the service model independent of protocol machinery. It
 also helps expose when a REST handler starts hoarding business logic like a
 raccoon with a jewellery box.
 

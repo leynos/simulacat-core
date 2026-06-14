@@ -12,10 +12,10 @@ section 1.2 "Make request actors visible to REST and GraphQL". Depends on
 `1.2.1`, which landed in commit `b9093ce` and is documented in
 `docs/execplans/1-2-1-request-scoped-actor-resolution.md`.
 
-Approval gate: not yet satisfied. Drafting, validating, and committing this
-plan happen before approval. Branch renaming, upstream tracking, and draft PR
-creation may occur to support reviewing the plan, but no production code in
-`src/` may change before the user explicitly approves implementation.
+Approval gate: complete. This plan was drafted, validated, implemented, and
+reviewed. Branch renaming, upstream tracking, and draft PR creation were
+completed as part of this delivery. No further production changes in `src/`
+are pending under this plan.
 
 ## Purpose / big picture
 
@@ -33,16 +33,18 @@ if such a handler wants actor-aware behaviour today, it has to import the
 helpers, re-read headers, and re-resolve against the store on its own.
 
 After this work, a single Express middleware decorates each incoming
-`request` with a typed `simulacatActor` property carrying the parsed actor,
-parse diagnostics, optional request-id observation context, and a lazy
-`resolve(simulationStore)` helper. The GraphQL Yoga context function uses the
-same shared `buildActorContext` helper so that REST, GraphQL, built-in
-handlers, and caller-supplied extensions all see one consistent
-`ResolvedRequestActor` for the same request. A new pair of exported
-helpers — `getActorContext(request)` and `requireUserActor(request,
-simulationStore)` — let extension authors make actor-aware decisions in two
-lines, with the same authentication-failure observability the built-in
-handlers emit. After this work, the `/user/memberships/orgs` and `viewer`
+`request` with a typed `simulacatActor` context carrying the parsed actor,
+parse diagnostics, and optional request-id observation context. The GraphQL
+Yoga context function uses the same shared `buildActorContext(headers)` helper
+so that REST, GraphQL, built-in handlers, and caller-supplied extensions all
+see one consistent request parse result.
+
+A new pair of exported helpers — `getActorContext(request)` and
+`requireRestUserActor(request, simulationStore, surface)` — let extension
+authors make REST actor decisions in two lines, with the same
+authentication-failure observability as built-in handlers. GraphQL handlers use
+`requireUserActor({transport: 'graphql', context, surface}, simulationStore)`.
+After this work, the `/user/memberships/orgs` and `viewer`
 handlers must select their authenticated user through the same shared helper
 as a brand-new caller-provided OpenAPI route.
 
@@ -250,8 +252,8 @@ escalation, not workarounds.
   Severity: low. Likelihood: low.
   Mitigation: document that actor context is *request-scoped* and lives on
   the request, not in the store. Provide the `getActorContext(request)` and
-  `requireUserActor(request, simulationStore)` helpers as the public access
-  points.
+  `requireRestUserActor(request, simulationStore, surface)` helpers as the
+  public access points.
 
 - Risk: external GitHub documentation changes over time.
   Severity: low. Likelihood: medium.
@@ -282,7 +284,7 @@ escalation, not workarounds.
   `1-2-2-expose-actor-context-to-handlers`, not a default branch.
 - [x] (2026-06-01T00:00:00+02:00) Confirmed the leta workspace already exists
   for this worktree.
-- [ ] Rename branch to `1-2-2-expose-actor-context-to-handlers` and set
+- [x] Rename branch to `1-2-2-expose-actor-context-to-handlers` and set
   upstream tracking.
 - [x] (2026-06-01T00:00:00+02:00) Implemented milestone 1 (shared
   actor-context helper surface, Express request augmentation, request actor
@@ -296,8 +298,9 @@ escalation, not workarounds.
   Stage B scope.
 - [x] (2026-06-01T00:00:00+02:00) Implemented built-in REST and GraphQL
   rewiring: `extendRouter` installs request actor middleware before caller
-  extensions, `/user` and `/user/memberships/orgs` call `requireUserActor`,
-  and GraphQL `viewer` uses the same helper via Yoga context.
+  extensions, `/user` and `/user/memberships/orgs` call
+  `requireRestUserActor`, and GraphQL `viewer` uses the same helper via Yoga
+  context.
 - [x] (2026-06-01T00:00:00+02:00) Ran `coderabbit review --agent` for the
   built-in REST/GraphQL rewiring. Addressed valid findings in changed actor,
   middleware, and GraphQL files by expanding JSDoc, clarifying observability
@@ -339,7 +342,8 @@ escalation, not workarounds.
   #15 with the implemented scope, review walkthrough, validation evidence, and
   known deferred baseline refactor.
 - [x] (2026-06-08T00:00:00+02:00) Addressed follow-up review comments on PR
-  #15. Normalized `requireUserActor` around transport-neutral actor context,
+  #15. Normalized `requireUserActor` and `requireRestUserActor` around
+  transport-neutral actor context,
   added REST and GraphQL adapter helpers, covered REST header fallback and
   preferred-header precedence tests, clarified the JSDoc baseline warning and
   pull request node-id example, and removed first- and second-person pronouns
@@ -415,7 +419,7 @@ escalation, not workarounds.
   `req.simulacatActor`; GraphQL Yoga `context({request})` and built-in REST
   handlers both call the same `buildActorContext(headers)` helper; extension
   authors read either `req.simulacatActor` or call
-  `getActorContext(request)`/`requireUserActor(request, simulationStore)`.
+  `getActorContext(request)`/`requireRestUserActor(request, simulationStore, surface)`.
   Rationale: the alternative options each fail one of the stated
   requirements. Pure helper-only (every handler calls `buildActorContext`)
   forces extension authors to opt in and multiplies parse observations per
@@ -454,11 +458,9 @@ escalation, not workarounds.
   names `docs/development.md` as the developer guide. The 1.2.1 ExecPlan
   applied the same substitution.
 
-- Decision: defer branch rename, upstream tracking, push, and draft PR
-  creation until after plan approval, mirroring the 1.2.1 ExecPlan
-  precedent.
-  Rationale: the user explicitly stated that the plan must be approved
-  before implementation. The plan itself may be pushed for review.
+- Decision: branch rename, upstream tracking, push, and draft PR
+  creation were completed during implementation.
+  Rationale: this plan reached `Status: COMPLETE` after delivery.
 
 - Decision: use `users/get-by-username` as the extension OpenAPI fixture route
   instead of inventing a test-only OpenAPI path.
@@ -538,7 +540,7 @@ Key files this plan will touch (see milestone breakdown for details):
 - `src/store/actors.ts` — add `SimulacatRequestActor` (the
   middleware-attached aggregate) and `buildActorContext(headers)` /
   `resolveActorContext(simulationStore, context)` /
-  `requireUserActor(request, simulationStore, surface)` /
+  `requireRestUserActor(request, simulationStore, surface)` /
   `getActorContext(request)` helpers; preserve every existing export.
 - `src/types/express-request.d.ts` (new) — module-augment
   `express-serve-static-core#Request` with an optional `simulacatActor`
@@ -552,13 +554,13 @@ Key files this plan will touch (see milestone breakdown for details):
 - `src/rest/index.ts` — replace the inline `parseActorRequest` and
   `selectUserForRequest` helpers with calls into the shared helpers.
   `users/get-authenticated` and `orgs/list-memberships-for-authenticated-user`
-  both call `requireUserActor(...)`.
+  both call `requireRestUserActor(request, simulationStore, '<surface>')`.
 - `src/graphql/handler.ts` — replace the inline parse with
   `buildActorContext(request.headers)`. Carry the parse result on the
   Yoga user context as today.
 - `src/graphql/resolvers.ts` — `Query.viewer` calls
-  `requireUserActor(...)` against the resolver context instead of
-  re-resolving manually.
+  `requireUserActor({transport: 'graphql', context, surface}, simulationStore)`
+  against the resolver context instead of re-resolving manually.
 - `tests/actors.test.ts` — extend with middleware-shape and
   helper-contract cases, including a `fast-check` test for any new
   parser rule (none planned today, so this may be empty additions).
@@ -610,7 +612,7 @@ tests first.
   `SimulacatRequestActor` type and the
   `buildActorContext(headers)`, `resolveActorContext(simulationStore,
   context)`, `getActorContext(request)`, and
-  `requireUserActor(request, simulationStore, surface)` helpers. Each
+  `requireRestUserActor(request, simulationStore, surface)` helpers. Each
   helper has a `/**` docstring including an `@example`.
 - Add `src/types/express-request.d.ts` declaring
   `simulacatActor?: SimulacatRequestActor` on
@@ -630,7 +632,7 @@ tests first.
   not leak state. Each test asserts exactly one parse observation per
   request via `getActorObservabilityCounters`.
 - Add `tests/actors-helpers.test.ts` with unit cases for
-  `buildActorContext`, `resolveActorContext`, `requireUserActor`, and
+  `buildActorContext`, `resolveActorContext`, `requireRestUserActor`, and
   `getActorContext`, covering all four actor kinds and the
   unauthenticated path.
 
@@ -658,7 +660,7 @@ Run `coderabbit review --agent` and clear concerns before stage C.
   `// Why:` comment on the middleware registration line.
 - Update `src/rest/index.ts` so `users/get-authenticated` and
   `orgs/list-memberships-for-authenticated-user` call
-  `requireUserActor(request, simulationStore, '<surface>')` instead of
+  `requireRestUserActor(request, simulationStore, '<surface>')` instead of
   the local `parseActorRequest`/`selectUserForRequest`/observation
   trio. Remove the inline helpers. Re-export nothing new from this
   module.
@@ -668,9 +670,9 @@ Run `coderabbit review --agent` and clear concerns before stage C.
   the same code path. The previous inline parse-then-record sequence
   is removed.
 - Update `src/graphql/resolvers.ts` so `Query.viewer` calls
-  `requireUserActor` against the resolver context. Keep the
-  `AuthenticationError` shape so the existing `graphql.test.ts`
-  snapshots and assertions hold.
+  `requireUserActor({transport: 'graphql', context, surface}, simulationStore)`
+  against the resolver context. Keep the `AuthenticationError` shape so the
+  existing `graphql.test.ts` snapshots and assertions hold.
 - Adjust `tests/user.test.ts`, `tests/graphql.test.ts`, and
   `tests/actors.test.ts` only where mechanically necessary (helper
   imports, observation-counter expectations). Existing observable
@@ -795,7 +797,8 @@ tests/middleware-request-actor.test.ts:
 tests/actors-helpers.test.ts:
 - buildActorContext returns the same actor as parseRequestActor for the same headers
 - resolveActorContext resolves user actors against seeded users
-- requireUserActor records a single authentication-failure observation per failure
+- requireRestUserActor records a single authentication-failure observation per
+  failure
 - getActorContext returns undefined when the middleware has not run
 
 tests/extension-handlers.test.ts:
@@ -936,19 +939,31 @@ export const buildActorContext: (headers: HeaderReader) => SimulacatRequestActor
 export const resolveActorContext: (
   simulationStore: ExtendedSimulationStore,
   context: SimulacatRequestActor
-) => { resolvedActor: ResolvedRequestActor; user: GitHubUser | undefined };
+) =>
+  | {kind: 'authenticated'; resolvedActor: ResolvedRequestActor; user: GitHubUser}
+  | {kind: 'unauthenticated'; resolvedActor: ResolvedRequestActor};
 
 /** Reads middleware-attached context from an Express request. */
 export const getActorContext: (request: Request) => SimulacatRequestActor | undefined;
 
+export const requireRestUserActor: (
+  request: Request,
+  simulationStore: ExtendedSimulationStore,
+  surface: string
+) =>
+  | {user: GitHubUser; resolvedActor: ResolvedRequestActor}
+  | {failure: 'unauthenticated'; resolvedActor: ResolvedRequestActor};
+
 /**
- * Selects an authenticated user, emits observation, and throws a
- * GraphQL-compatible AuthenticationError when no user actor resolves.
+ * Selects an authenticated user, emits observation, and returns an
+ * unauthenticated failure when no user actor resolves.
  */
 export const requireUserActor: (
-  source:
-    | {transport: 'rest'; request: Request; surface: string}
-    | {transport: 'graphql'; context: GraphQLContext; surface: string},
+  input: {
+    transport: 'graphql' | 'rest';
+    surface: string;
+    context: SimulacatRequestActor;
+  },
   simulationStore: ExtendedSimulationStore
 ) =>
   | {user: GitHubUser; resolvedActor: ResolvedRequestActor}
@@ -985,13 +1000,16 @@ No other public type or runtime export changes.
   - `src/store/actors.ts` now exports `buildActorContext`,
     `resolveActorContext`, `getActorContext`, and `requireUserActor` alongside
     the existing parser, resolver, and observability helpers.
+  - `src/rest/actor-context.ts` exports `requireRestUserActor`.
   - `src/middleware/request-actor.ts` attaches `req.simulacatActor` and records
     one REST parse observation per inbound HTTP request.
   - `src/extend-api.ts` installs the middleware before caller router
-    extensions, built-in GraphQL, and OpenAPI handlers.
+    extensions and built-in local routes such as GraphQL. OpenAPI mounting is
+    handled by the API composition layer rather than directly by
+    `extend-api.ts`.
 - Built-in adoption:
   - `src/rest/index.ts` routes `/user` and `/user/memberships/orgs` through
-    `requireUserActor`.
+    `requireRestUserActor`.
   - `src/graphql/handler.ts` carries actor context through Yoga context, and
     `src/graphql/resolvers.ts` resolves `viewer` through the same helper.
 - Acceptance evidence:

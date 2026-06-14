@@ -215,12 +215,15 @@ without updating the relevant roadmap item and design documentation.
 ### Request actors
 
 Request actor parsing lives in `src/store/actors.ts`, not in individual REST
-or GraphQL routes. `requestActorMiddleware()` runs before caller router
-extensions, built-in OpenAPI handlers, and GraphQL, then attaches
-`req.simulacatActor` with the parsed actor, diagnostics, request-id context,
-and lazy store resolution pathway. GraphQL Yoga builds the same context shape
-from Fetch headers, and `Query.viewer` resolves the selected user from that
-context.
+or GraphQL routes. `requestActorMiddleware()` runs before caller
+`extendRouter()`/extension routes and before built-in local routes such as
+`/graphql`; it is installed by the API router composition and does not directly
+govern OpenAPI handler mounting. It then attaches `req.simulacatActor` with the
+parsed actor, diagnostics, and request-id observation context. GraphQL Yoga
+builds the same `SimulacatRequestActor` context shape from Fetch headers using
+`buildActorContext`, and `Query.viewer` resolves the selected user through
+`requireGraphQLUserActor()` and `requireUserActor()`, so expectations stay
+consistent.
 
 Extension handlers should use the shared helper surface rather than parsing
 headers again. `getActorContext(request)` reads the middleware-attached
