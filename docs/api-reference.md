@@ -30,10 +30,32 @@ state, REST handlers, GraphQL resolvers, and a few convenience routes.
   Merges additional schema slices, actions, and selectors into the GitHub store.
 - `extend.openapiHandlers`
   Adds or overrides OpenAPI handlers. The callback receives the shared
-  simulation store, so custom operations can read seeded entities.
+  simulation store, so custom operations can read seeded entities. Operation
+  handlers can call `requireRestUserActor()` with the Express request to use
+  the same request actor selection path as built-in authenticated-user routes.
 - `extend.extendRouter`
   Adds plain Express routes before the built-in health, OAuth, and GraphQL
-  routes are wired in.
+  routes are wired in. Request actor middleware runs before these routes, so
+  `getActorContext(request)` can read `req.simulacatActor` when custom routes
+  need raw actor details.
+
+### Request actor helpers
+
+`src/store/actors.ts` exports request actor helpers for extension authors:
+
+- `buildActorContext(headers)`
+  Builds the parsed request actor context from an abstract header reader.
+- `getActorContext(request)`
+  Reads the actor context attached to an Express request by middleware.
+- `requireUserActor(input, simulationStore)`
+  Resolves a normalized actor context against the seeded store and returns
+  either the selected user or an unauthenticated failure result while recording
+  the same actor observability as built-in handlers.
+
+`src/rest/actor-context.ts` exports `requireRestUserActor(request,
+simulationStore, surface)` for REST and extension handlers that should read
+middleware-attached context or fall back to request headers when middleware did
+not run.
 
 ## Exported fixture schemas
 
@@ -206,14 +228,14 @@ flat route list.
 | `GET /repos/{owner}/{repo}/issues/{number}`        | Fully scriptable     | Returns a seeded issue by owner, repository, and number.                                  |
 | `GET /repos/{owner}/{repo}/pulls`                  | Fully scriptable     | Lists seeded pull requests scoped to the requested owner and repository.                  |
 | `GET /repos/{owner}/{repo}/pulls/{number}`         | Fully scriptable     | Returns a seeded pull request by owner, repository, and number.                           |
-| `GET /user`                                        | Partially scriptable | Returns the selected `user:<login>` actor, or 401 when no user actor resolves.            |
-| `GET /user/memberships/orgs`                       | Partially scriptable | Returns active memberships for the selected user actor only.                              |
+| `GET /user`                                        | Partially scriptable | Uses shared request actor helpers to return the selected `user:<login>` actor or 401.     |
+| `GET /user/memberships/orgs`                       | Partially scriptable | Uses shared request actor helpers to return active memberships for the selected user.     |
 
 ### GraphQL fields
 
 | Surface                                 | Classification       | Current behaviour                                                                         |
 | --------------------------------------- | -------------------- | ----------------------------------------------------------------------------------------- |
-| `viewer`                                | Partially scriptable | Resolves the selected `user:<login>` actor, or fails when no user actor resolves.         |
+| `viewer`                                | Partially scriptable | Uses GraphQL request actor context to resolve the selected `user:<login>` actor.          |
 | `user(login: String!)`                  | Fully scriptable     | Store-backed user lookup by login.                                                        |
 | `organization(login: String!)`          | Fully scriptable     | Store-backed organization lookup by login.                                                |
 | `repository(...)`                       | Fully scriptable     | Store-backed repository lookup with case-insensitive owner/name matching.                 |

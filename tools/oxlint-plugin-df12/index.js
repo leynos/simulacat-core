@@ -28,7 +28,12 @@ function loadBaseline() {
     const parsed = JSON.parse(readFileSync(baselinePath, 'utf8'));
     baselineCache = new Set(parsed.entries ?? []);
     return baselineCache;
-  } catch {
+  } catch (error) {
+    console.warn(
+      `Failed to load JSDoc baseline JSON at ${baselinePath}; ignoring baseline entries: ${
+        error instanceof Error ? error.message : String(error)
+      }`
+    );
     baselineCache = new Set();
     return baselineCache;
   }

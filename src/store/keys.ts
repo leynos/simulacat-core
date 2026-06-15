@@ -73,6 +73,12 @@ export type RepositoryCoords = {
 /**
  * Serialises a repository store key as a GitHub GraphQL-compatible Node ID.
  *
+ * @example
+ * ```ts
+ * repositoryNodeId({owner: 'acme', name: 'widgets'});
+ * // 'UmVwb3NpdG9yeTphY21lL3dpZGdldHM='
+ * ```
+ *
  * @param owner Repository owner login.
  * @param name Repository name.
  * @returns Base64-encoded Repository node id.
@@ -83,6 +89,12 @@ export const repositoryNodeId = ({owner, name}: RepositoryStoreKeyParts): string
 
 /**
  * Serialises a ref store key as a GitHub GraphQL-compatible Node ID.
+ *
+ * @example
+ * ```ts
+ * refNodeId({owner: 'acme', repo: 'widgets', qualifiedName: 'refs/heads/main'});
+ * // 'UmVmOmFjbWUvd2lkZ2V0czpyZWZzL2hlYWRzL21haW4='
+ * ```
  *
  * @param owner Repository owner login.
  * @param repo Repository name.
@@ -96,6 +108,12 @@ export const refNodeId = ({owner, repo, qualifiedName}: RefStoreKeyParts): strin
 /**
  * Serialises a commit store key as a GitHub GraphQL-compatible Node ID.
  *
+ * @example
+ * ```ts
+ * commitNodeId({owner: 'acme', repo: 'widgets', sha: 'abc123'});
+ * // 'Q29tbWl0OmFjbWUvd2lkZ2V0czphYmMxMjM='
+ * ```
+ *
  * @param owner Repository owner login.
  * @param repo Repository name.
  * @param sha Commit SHA.
@@ -108,6 +126,12 @@ export const commitNodeId = ({owner, repo, sha}: CommitStoreKeyParts): string =>
 /**
  * Serialises an issue store key as a GitHub GraphQL-compatible Node ID.
  *
+ * @example
+ * ```ts
+ * issueNodeId({owner: 'acme', repo: 'widgets', number: 7});
+ * // 'SXNzdWU6YWNtZS93aWRnZXRzIzc='
+ * ```
+ *
  * @param owner Repository owner login.
  * @param repo Repository name.
  * @param number Positive issue number.
@@ -119,6 +143,13 @@ export const issueNodeId = ({owner, repo, number}: IssueStoreKeyParts): string =
 
 /**
  * Serialises a pull request store key as a GitHub GraphQL-compatible Node ID.
+ *
+ * @example
+ * ```ts
+ * pullRequestNodeId({owner: 'acme', repo: 'widgets', number: 3});
+ * // encodes 'PullRequest:acme/widgets!3'
+ * // 'UHVsbFJlcXVlc3Q6YWNtZS93aWRnZXRzITM='
+ * ```
  *
  * @param owner Repository owner login.
  * @param repo Repository name.

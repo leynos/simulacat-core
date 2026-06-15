@@ -6,6 +6,7 @@
  * the shared interpretation.
  */
 import type {GitHubAppInstallation, GitHubUser} from './entities.ts';
+import type {ExtendedSimulationStore} from './index.ts';
 
 /** Header used to select the request actor for REST and GraphQL calls. */
 export const requestActorHeader = 'x-simulacat-actor';
@@ -161,6 +162,68 @@ export type RequestActorParseResult = {
   reason?: string;
 };
 
+/** Request-scoped actor context built once at a transport boundary. */
+export type SimulacatRequestActor = {
+  /** Actor selected from request headers before fixture-backed resolution. */
+  actor: RequestActor;
+  /** Full parse diagnostics used for observability counters. */
+  parseResult: RequestActorParseResult;
+  /** Optional request correlation context copied from supported headers. */
+  observationContext?: ActorObservationContext;
+};
+
+/** Request-like object that may carry middleware-attached actor context. */
+export type ActorContextCarrier = {
+  /** Actor context attached at the transport boundary when middleware ran. */
+  simulacatActor?: SimulacatRequestActor;
+};
+
+/** Resolved request actor after consulting the simulation store. */
+export type ResolvedActorResult =
+  | {
+      /** Stable success discriminator for authenticated user actors. */
+      kind: 'authenticated';
+      /** Actor after fixture-backed resolution. */
+      resolvedActor: ResolvedRequestActor;
+      /** Authenticated GitHub user selected by the resolved actor. */
+      user: GitHubUser;
+    }
+  | {
+      /** Stable failure discriminator for non-user actors. */
+      kind: 'unauthenticated';
+      /** Actor after fixture-backed resolution. */
+      resolvedActor: ResolvedRequestActor;
+    };
+
+/** Input accepted by `requireUserActor` after adapter normalization. */
+export type RequireUserActorInput = {
+  /** Transport that owns the actor-aware surface. */
+  transport: 'graphql' | 'rest';
+  /** Route or field name used in authentication-failure observations. */
+  surface: string;
+  /** Request actor context built at the transport boundary. */
+  context: SimulacatRequestActor;
+};
+
+/** Successful authenticated-user actor selection. */
+export type RequiredUserActor = {
+  /** Resolved user actor selected for the request. */
+  resolvedActor: ResolvedRequestActor;
+  /** Seeded user row selected by the actor. */
+  user: GitHubUser;
+};
+
+/** Failed authenticated-user actor selection. */
+export type RequiredUserActorFailure = {
+  /** Stable failure discriminator for protected surfaces. */
+  failure: 'unauthenticated';
+  /** Resolved actor that failed to authenticate as a user. */
+  resolvedActor: ResolvedRequestActor;
+};
+
+/** Result returned by `requireUserActor` for protected actor-aware surfaces. */
+export type RequireUserActorResult = RequiredUserActor | RequiredUserActorFailure;
+
 /**
  * Returns the non-sensitive actor label used in diagnostic actor events.
  *
@@ -224,6 +287,12 @@ const withObservationContext = (
 /**
  * Records an actor selection observation and optionally logs it.
  *
+ * `actorObservationCounters` stores dot-separated keys in the order
+ * event.actorKind.outcome.source.reason. Undefined parts are omitted, while an
+ * empty source is preserved as a positional placeholder so aggregation can
+ * distinguish missing source from shifted fields. `isActorObservationEnabled`
+ * gates structured debug logging; callers should keep reason labels dot-free.
+ *
  * @param observation Structured observation to count and, when enabled, emit
  * as a JSON debug line.
  */
@@ -246,6 +315,11 @@ const recordActorObservation = (observation: ActorObservation): void => {
 
 /**
  * Returns a snapshot of actor selection counters.
+ *
+ * `getActorObservabilityCounters` reassembles keys from the internal
+ * `actorObservationCounters` map so public keys drop placeholder empty
+ * segments for absent source or reason values. Internal keys are expected to
+ * follow event.actorKind.outcome.source.reasonParts order.
  *
  * @returns Copy of the current process-local actor observability counters.
  */
@@ -334,6 +408,7 @@ const parsePositiveInteger = (input: string): number | undefined => {
 const parseAppActor = (rawIdentifier: string): RequestActor | undefined => {
   const appId = parsePositiveInteger(rawIdentifier);
   if (appId !== undefined) return {kind: 'app', appId};
+  // Integer-shaped identifiers such as 007, 0, and -1 are invalid app ids, not slugs.
   return integerPattern.test(rawIdentifier) ? undefined : {kind: 'app', slug: rawIdentifier};
 };
 
@@ -564,6 +639,109 @@ export const resolveRequestActor = (
       throw new Error(`Unsupported request actor kind: ${JSON.stringify(exhaustive)}`);
     }
   }
+};
+
+/**
+ * Builds request-scoped actor context from inbound headers.
+ *
+ * `buildActorContext` derives `parseResult` with
+ * `parseRequestActorWithDiagnostics`, copies `parseResult.actor` into the
+ * top-level `actor` field for convenient access, and includes
+ * `observationContext.requestId` when `requestIdFromHeaders` finds a
+ * correlation header.
+ *
+ * @example
+ * ```ts
+ * const context = buildActorContext({get: (name) => request.get(name)});
+ * ```
+ *
+ * @param headers Transport-neutral header reader.
+ * @returns `SimulacatRequestActor` with parsed actor diagnostics and optional
+ * request correlation details.
+ */
+export const buildActorContext = (headers: HeaderReader): SimulacatRequestActor => {
+  const parseResult = parseRequestActorWithDiagnostics(headers);
+  const requestId = requestIdFromHeaders(headers);
+  return requestId === undefined
+    ? {actor: parseResult.actor, parseResult}
+    : {actor: parseResult.actor, parseResult, observationContext: {requestId}};
+};
+
+/**
+ * Resolves actor context against the current simulation store state.
+ *
+ * @example
+ * ```ts
+ * const result = resolveActorContext(simulationStore, request.simulacatActor);
+ * ```
+ *
+ * @param simulationStore Store containing seeded users and installations.
+ * @param context Request actor context built from inbound headers.
+ * @returns Authenticated or unauthenticated actor resolution result.
+ */
+export const resolveActorContext = (
+  simulationStore: ExtendedSimulationStore,
+  context: SimulacatRequestActor
+): ResolvedActorResult => {
+  const state = simulationStore.store.getState();
+  const resolvedActor = resolveRequestActor(context.actor, {
+    users: simulationStore.schema.users.selectTableAsList(state),
+    installations: simulationStore.schema.installations.selectTableAsList(state)
+  });
+  const user = selectAuthenticatedUser(resolvedActor);
+
+  return user === undefined ? {kind: 'unauthenticated', resolvedActor} : {kind: 'authenticated', resolvedActor, user};
+};
+
+/**
+ * Reads actor context attached by the Express request-actor middleware.
+ *
+ * @example
+ * ```ts
+ * const context = getActorContext(request);
+ * ```
+ *
+ * @param request Express request that may have passed through middleware.
+ * @returns Middleware-attached actor context, or undefined before middleware.
+ */
+export const getActorContext = (request: ActorContextCarrier): SimulacatRequestActor | undefined => {
+  return request.simulacatActor;
+};
+
+/**
+ * Selects a required authenticated user for REST or GraphQL handlers.
+ *
+ * The helper resolves the request actor against seeded users and
+ * installations, emits resolution and selected-actor observations, and emits
+ * an authentication-failure observation when the actor is not a resolved user.
+ * Callers receive a discriminated union: success includes `{resolvedActor,
+ * user}`, while failure includes `{failure: 'unauthenticated', resolvedActor}`.
+ *
+ * @example
+ * ```ts
+ * const result = requireUserActor({transport: 'rest', surface: 'GET /user', context}, store);
+ * if ('failure' in result) return response.status(401).json({message: 'Authentication required'});
+ * ```
+ *
+ * @param input Transport, surface, and normalized request actor context.
+ * @param simulationStore Store containing seeded users and installations.
+ * @returns Authenticated user selection or an unauthenticated failure result.
+ */
+export const requireUserActor = (
+  input: RequireUserActorInput,
+  simulationStore: ExtendedSimulationStore
+): RequireUserActorResult => {
+  const {context, surface, transport} = input;
+  const result = resolveActorContext(simulationStore, context);
+  observeResolvedRequestActor(transport, context.actor, result.resolvedActor, context.observationContext);
+  observeSelectedActor(transport, result.resolvedActor, context.observationContext);
+
+  if (result.kind === 'authenticated') {
+    return {resolvedActor: result.resolvedActor, user: result.user};
+  }
+
+  observeAuthenticationFailure(transport, result.resolvedActor, surface, context.observationContext);
+  return {failure: 'unauthenticated', resolvedActor: result.resolvedActor};
 };
 
 /**

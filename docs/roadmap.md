@@ -85,7 +85,7 @@ Coverage.
     actor-aware selectors.
   - Success: `/user` and `viewer` resolve from the request actor rather than
     from the first seeded user.
-- [ ] 1.2.2. Expose actor context to REST and GraphQL handlers.
+- [x] 1.2.2. Expose actor context to REST and GraphQL handlers.
   - Carries legacy task label `1.2.3`.
   - Requires 1.2.1.
   - Make actor context available to OpenAPI handlers, GraphQL resolvers, and

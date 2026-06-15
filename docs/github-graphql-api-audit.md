@@ -247,7 +247,12 @@ The package does not expose a first-class GraphQL extension API similar to
 What exists:
 
 - the backing store can be changed with `extend.extendStore`
+- REST OpenAPI handlers can be added or replaced with
+  `extend.openapiHandlers`
 - routes can be added with `extend.extendRouter`
+- REST extensions can use `getActorContext(request)` and
+  `requireRestUserActor(...)` to share the same request actor selection path
+  as built-in `/user` and GraphQL `viewer`
 
 What does not exist:
 
@@ -257,7 +262,9 @@ What does not exist:
   intercepting `/graphql` yourself
 
 That makes GraphQL less scriptable than the REST side from a consumer-extension
-standpoint.
+standpoint. Actor context is available to the built-in GraphQL resolver
+context, but extending the GraphQL schema or resolver map remains a separate
+future API decision.
 
 ## Assessment
 
