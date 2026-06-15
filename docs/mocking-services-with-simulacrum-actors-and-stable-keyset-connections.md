@@ -1273,11 +1273,11 @@ export const toKeysetConnection = <Row, Node>(
   const lastPageKey = lastPageRow ? options.sort.keyOf(lastPageRow) : undefined;
 
   const firstPageIndex = firstPageKey
-    ? sorted.findIndex(row => compareSortKey(options.sort.keyOf(row), firstPageKey) === 0)
+    ? filtered.findIndex(row => compareSortKey(options.sort.keyOf(row), firstPageKey) === 0)
     : -1;
 
   const lastPageIndex = lastPageKey
-    ? sorted.findIndex(row => compareSortKey(options.sort.keyOf(row), lastPageKey) === 0)
+    ? filtered.findIndex(row => compareSortKey(options.sort.keyOf(row), lastPageKey) === 0)
     : -1;
 
   return {
@@ -1286,7 +1286,7 @@ export const toKeysetConnection = <Row, Node>(
     nodes: edges.map(edge => edge.node),
     pageInfo: {
       hasPreviousPage: firstPageIndex > 0,
-      hasNextPage: lastPageIndex >= 0 && lastPageIndex < sorted.length - 1,
+      hasNextPage: lastPageIndex >= 0 && lastPageIndex < filtered.length - 1,
       startCursor: edges[0]?.cursor,
       endCursor: edges.at(-1)?.cursor
     }
@@ -1510,9 +1510,18 @@ A REST handler then stays thin:
 const restListTickets = simulationStore => async (context, request, response) => {
   const actor = resolveActorFromExpressRequest(request, simulationStore);
   const state = simulationStore.store.getState();
+  const rawLimit = request.query.limit;
+  const limit = typeof rawLimit === 'string' && /^\d+$/.test(rawLimit)
+    ? Number(rawLimit)
+    : undefined;
+
+  if (rawLimit !== undefined && limit === undefined) {
+    response.status(400).json({message: 'limit must be a non-negative integer'});
+    return;
+  }
 
   const args: TicketConnectionArgs = {
-    first: request.query.limit ? Number(request.query.limit) : undefined,
+    first: limit,
     after: typeof request.query.cursor === 'string'
       ? request.query.cursor
       : undefined,

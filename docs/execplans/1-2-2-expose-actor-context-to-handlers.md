@@ -946,14 +946,6 @@ export const resolveActorContext: (
 /** Reads middleware-attached context from an Express request. */
 export const getActorContext: (request: Request) => SimulacatRequestActor | undefined;
 
-export const requireRestUserActor: (
-  request: Request,
-  simulationStore: ExtendedSimulationStore,
-  surface: string
-) =>
-  | {user: GitHubUser; resolvedActor: ResolvedRequestActor}
-  | {failure: 'unauthenticated'; resolvedActor: ResolvedRequestActor};
-
 /**
  * Selects an authenticated user, emits observation, and returns an
  * unauthenticated failure when no user actor resolves.
@@ -965,6 +957,18 @@ export const requireUserActor: (
     context: SimulacatRequestActor;
   },
   simulationStore: ExtendedSimulationStore
+) =>
+  | {user: GitHubUser; resolvedActor: ResolvedRequestActor}
+  | {failure: 'unauthenticated'; resolvedActor: ResolvedRequestActor};
+```
+
+The REST adapter helper in `src/rest/actor-context.ts`:
+
+```ts
+export const requireRestUserActor: (
+  request: Request,
+  simulationStore: ExtendedSimulationStore,
+  surface: string
 ) =>
   | {user: GitHubUser; resolvedActor: ResolvedRequestActor}
   | {failure: 'unauthenticated'; resolvedActor: ResolvedRequestActor};

@@ -172,8 +172,10 @@ The package is designed to be extended rather than forked.
 - `extendStore`
   Provides schema slices, actions, and selectors.
 - `openapiHandlers`
-  Registers or overrides REST operations while reusing the same store and
-  request actor context.
+  Registers or overrides REST operations while reusing the same store. Actor-aware
+  handlers should call `requireRestUserActor(request, simulationStore, surface)`,
+  which uses middleware-attached `req.simulacatActor` when present and falls back
+  to rebuilding the same actor context from request headers.
 - `extendRouter`
   Adds plain Express routes for harness-specific behaviour. These routes run
   after request actor middleware, so `req.simulacatActor` is already available.

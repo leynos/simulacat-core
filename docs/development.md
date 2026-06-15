@@ -219,17 +219,20 @@ or GraphQL routes. `requestActorMiddleware()` runs before caller
 `extendRouter()`/extension routes and before built-in local routes such as
 `/graphql`; it is installed by the API router composition and does not directly
 govern OpenAPI handler mounting. It then attaches `req.simulacatActor` with the
-parsed actor, diagnostics, and request-id observation context. GraphQL Yoga
-builds the same `SimulacatRequestActor` context shape from Fetch headers using
-`buildActorContext`, and `Query.viewer` resolves the selected user through
-`requireGraphQLUserActor()` and `requireUserActor()`, so expectations stay
-consistent.
+parsed actor, diagnostics, and request-id observation context. Plain
+`extendRouter()` routes can read that context with `getActorContext(request)`
+when raw actor details are needed.
 
-Extension handlers should use the shared helper surface rather than parsing
-headers again. `getActorContext(request)` reads the middleware-attached
-context when raw actor details are needed. REST handlers can call
-`requireRestUserActor(request, simulationStore, surface)` to select the
-authenticated user and emit the same resolution, selection, and
+GraphQL Yoga builds the same `SimulacatRequestActor` context shape from Fetch
+headers using `buildActorContext`, and `Query.viewer` resolves the selected user
+through `requireGraphQLUserActor()` and `requireUserActor()`, so expectations
+stay consistent.
+
+OpenAPI extension handlers should not depend on router middleware ordering.
+They should call `requireRestUserActor(request, simulationStore, surface)`,
+which uses middleware-attached context when present and falls back to rebuilding
+the same actor context from request headers. That helper selects the
+authenticated user and emits the same resolution, selection, and
 authentication-failure observability as built-in `/user` handlers.
 
 New actor-aware behaviour should add focused unit tests for parser or resolver
