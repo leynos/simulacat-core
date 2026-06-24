@@ -157,7 +157,17 @@ Stop and escalate when any of these is reached.
   `origin/1-4-1-derive-rest-ur-ls`; PR #19 title is now
   "Derive REST URLs from request host (1.4.1)" and the PR references this Lody
   session.
-- [ ] Milestone 0 — orientation, inventory, golden snapshots (no behaviour
+- [ ] 2026-06-24T14:42:26+02:00 — Milestone 0 golden snapshot test added.
+  `tests/url-templates.golden.test.ts` captures current parsed URL fields for
+  repository, issue, pull request, organization, commit, ref, and branch
+  fixtures. Focused validation passed with
+  `bun test tests/url-templates.golden.test.ts --update-snapshots` and then
+  `bun test tests/url-templates.golden.test.ts` without snapshot update.
+- [x] 2026-06-24T14:48:39+02:00 — Milestone 0 gates and review cleared.
+  `make check-fmt`, `make test`, `make typecheck`, `make lint`, and
+  `make --no-print-directory markdownlint nixie` passed. CodeRabbit
+  `coderabbit review --agent` completed with `findings: 0`.
+- [x] Milestone 0 — orientation, inventory, golden snapshots (no behaviour
   change).
 - [ ] Milestone 1 — shared request base-URL policy (`src/http/request-url.ts`).
 - [ ] Milestone 2 — per-entity URL projection policy (`src/urls/*`).
@@ -205,6 +215,14 @@ Stop and escalate when any of these is reached.
   `repository.ts:201` defaults `homepage` to `http://${host}`. Impact: it is a
   fixture content field, not an API/web link; it is treated as web-derived only
   to preserve "points at the simulator", not folded into the API template table.
+- Observation: Milestone 0 confirmed the request-root threading split. Evidence:
+  `src/index.ts` passes `args.apiUrl ?? '/'` to `openapi(...)`; REST stores it
+  as the OpenAPI `apiRoot`, but `src/rest/index.ts` still calls
+  `handlers(initialState, openapiHandlers)` without passing `apiRoot` into the
+  handler closure. GraphQL is mounted in `src/extend-api.ts` as
+  `createHandler(simulationStore)`, and `src/graphql/handler.ts` currently has
+  no `apiRoot` or base-URL parameter. Impact: Milestones 4 and 5 must thread
+  `apiRoot` separately through REST handlers and GraphQL router composition.
 
 ## Decision log
 
@@ -255,6 +273,11 @@ Stop and escalate when any of these is reached.
 - Decision D-9: "label URLs" scopes to the repository `labels_url` template;
   first-class label entities are out of scope (roadmap 1.5). Rationale: no label
   entity exists yet. Date/Author: 2026-06-18, expert panel (Pandalump).
+- Decision D-10: Milestone 0 snapshots collect only URL-shaped fields from
+  parsed fixtures. Rationale: generated timestamps, ids, and random display data
+  are not part of the URL-template safety net and would make the snapshot noisy.
+  The ref fixture uses `qualifiedName: 'main'` so the baseline covers the normal
+  branch-ref path. Date/Author: 2026-06-24, implementation agent.
 
 ## External references and prior art
 
@@ -653,7 +676,7 @@ green.
 ## Concrete steps
 
 Run from the repository root
-`/home/leynos/.lody/repos/github---leynos---simulacat-core/worktrees/4c29fb82-3255-4a70-b30f-28eb82c2619c`.
+`/home/leynos/.lody/repos/github---leynos---simulacat-core/worktrees/9cf131a4-bce1-4dda-99f6-d0abb89d6f38`.
 
 Per the global command guidance, tee gate output to a log for review:
 
