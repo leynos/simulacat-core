@@ -169,7 +169,24 @@ Stop and escalate when any of these is reached.
   `coderabbit review --agent` completed with `findings: 0`.
 - [x] Milestone 0 — orientation, inventory, golden snapshots (no behaviour
   change).
-- [ ] Milestone 1 — shared request base-URL policy (`src/http/request-url.ts`).
+- [x] 2026-06-24T14:51:39+02:00 — Milestone 1 red and green focused tests
+  completed. Red: `bun test tests/request-url.test.ts` failed because
+  `../src/http/request-url.ts` did not exist. Green:
+  `bun test tests/request-url.test.ts` passed with 18 tests after adding
+  `src/http/request-url.ts`. The focused suite covers API-root normalization,
+  URL joining, request-host base derivation, fallback derivation, missing-host
+  errors, IPv6, ports, uppercase hosts, and generated host/root combinations.
+- [x] 2026-06-24T17:46:34+02:00 — Milestone 1 gates and review cleared after
+  CodeRabbit review. Final focused validation
+  `bun test tests/request-url.test.ts` passed with 29 tests. Full validation
+  passed with `make check-fmt`, `make test`, `make typecheck`, `make lint`, and
+  `make --no-print-directory markdownlint nixie`; the full suite reported
+  291 passing tests, 5 snapshots, and 5824 assertions. CodeRabbit initially
+  found malformed URL handling, seeded fast-check drift, canonical-host test
+  drift, non-HTTP origins, raw JavaScript input guards, and protocol delimiter
+  normalization. Each actionable finding is fixed and
+  `coderabbit review --agent` now reports `findings: 0`.
+- [x] Milestone 1 — shared request base-URL policy (`src/http/request-url.ts`).
 - [ ] Milestone 2 — per-entity URL projection policy (`src/urls/*`).
 - [ ] Milestone 3 — make the store host-agnostic (Zod transforms stop baking
   URLs; override-only storage).
@@ -223,6 +240,22 @@ Stop and escalate when any of these is reached.
   `createHandler(simulationStore)`, and `src/graphql/handler.ts` currently has
   no `apiRoot` or base-URL parameter. Impact: Milestones 4 and 5 must thread
   `apiRoot` separately through REST handlers and GraphQL router composition.
+- Observation: the installed `fast-check` version does not expose
+  `fc.stringOf`. Evidence: the first Milestone 1 green attempt failed with
+  `TypeError: fc.stringOf is not a function` from `tests/request-url.test.ts`.
+  Impact: property tests that need generated strings should use
+  `fc.array(fc.constantFrom(...)).map((parts) => parts.join(''))` or another
+  available string arbitrary.
+- Observation: CodeRabbit found several request-origin boundary cases after
+  the first Milestone 1 green pass. Evidence: reviews flagged malformed
+  `new URL(...)` constructor leakage, non-deterministic fast-check seeds,
+  lower-case expected hosts that missed URL canonicalization, non-HTTP origins
+  whose `.origin` is `null`, raw JavaScript callers passing non-string
+  `protocol`/`host` fields, and raw protocol strings ending in `://`. Impact:
+  `src/http/request-url.ts` now safe-parses URLs, accepts only HTTP(S) origins,
+  guards raw inputs before string methods, canonicalizes `http://`/`https://`
+  protocol delimiters before origin assembly, and fixes generated tests with a
+  stable seed plus canonical host expectations.
 
 ## Decision log
 
@@ -278,6 +311,20 @@ Stop and escalate when any of these is reached.
   are not part of the URL-template safety net and would make the snapshot noisy.
   The ref fixture uses `qualifiedName: 'main'` so the baseline covers the normal
   branch-ref path. Date/Author: 2026-06-24, implementation agent.
+- Decision D-11: keep raw `RequestOrigin` guard checks in
+  `src/http/request-url.ts` until the REST and GraphQL adapter wiring
+  milestones introduce real adapter extractors. Rationale: CodeRabbit suggested
+  moving all parsing to the adapter edge with Zod; that is the desired final
+  boundary, but Milestone 1 deliberately provides a framework-neutral helper
+  with no adapter call sites yet. Removing guards before the adapters exist
+  would make JavaScript callers brittle without improving the boundary.
+  Date/Author: 2026-06-24, implementation agent.
+- Decision D-12: protocol inputs ending in `://` are accepted and normalized to
+  the bare scheme before origin assembly. Rationale: adapters commonly expose
+  `request.protocol` as `http`/`https`, but callers can pass `http://`; treating
+  that as a malformed composed URL would incorrectly force fallback or failure
+  even though the protocol intent is unambiguous. Date/Author: 2026-06-24,
+  implementation agent.
 
 ## External references and prior art
 
