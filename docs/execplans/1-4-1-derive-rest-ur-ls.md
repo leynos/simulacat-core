@@ -5,7 +5,7 @@ This ExecPlan (execution plan) is a living document. The sections
 `Decision Log`, and `Outcomes & Retrospective` must be kept up to date as work
 proceeds.
 
-Status: DRAFT
+Status: IN PROGRESS
 
 Roadmap item: 1.4.1 (see `docs/roadmap.md` §1.4 "Make GitHub client payloads
 contract-tested"). Requires 1.1.2 (first-class early entities), which is
@@ -152,6 +152,11 @@ Stop and escalate when any of these is reached.
 
 ## Progress
 
+- [ ] 2026-06-24T14:39:54+02:00 — Branch, PR, and session aligned for
+  implementation. Local branch is `1-4-1-derive-rest-ur-ls`, tracking
+  `origin/1-4-1-derive-rest-ur-ls`; PR #19 title is now
+  "Derive REST URLs from request host (1.4.1)" and the PR references this Lody
+  session.
 - [ ] Milestone 0 — orientation, inventory, golden snapshots (no behaviour
   change).
 - [ ] Milestone 1 — shared request base-URL policy (`src/http/request-url.ts`).
