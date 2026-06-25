@@ -3,7 +3,13 @@ import {describe, expect, it} from 'bun:test';
 import {convertCommitToGraphql} from '../src/graphql/converters/early-entities.ts';
 import {convertRepositoryToGraphql} from '../src/graphql/converters/repository.ts';
 import type {DataSchemas, ToGraphqlDispatcher} from '../src/graphql/to-graphql-shapes.ts';
+import type {BaseUrls} from '../src/http/request-url.ts';
 import type {ExtendedSimulationStore} from '../src/store/index.ts';
+
+const baseUrls: BaseUrls = {
+  apiBaseUrl: 'http://localhost:3300',
+  webBaseUrl: 'http://localhost:3300'
+};
 
 const makeRepositoryFixture = (): DataSchemas['Repository'] =>
   ({
@@ -29,9 +35,14 @@ describe('convertRepositoryToGraphql', () => {
       node_id: Buffer.from('Repository:test-org/test-repo').toString('base64')
     } as unknown as DataSchemas['Repository'];
 
-    const graphqlRepository = convertRepositoryToGraphql({} as ExtendedSimulationStore, repository, (() => {
-      throw new Error('owner resolution is not exercised in this test');
-    }) as ToGraphqlDispatcher);
+    const graphqlRepository = convertRepositoryToGraphql(
+      {} as ExtendedSimulationStore,
+      repository,
+      (() => {
+        throw new Error('owner resolution is not exercised in this test');
+      }) as ToGraphqlDispatcher,
+      baseUrls
+    );
 
     expect(graphqlRepository.id).toBe(repository.node_id);
     expect(graphqlRepository.defaultBranchRef.id).toBe(
@@ -45,9 +56,14 @@ describe('convertRepositoryToGraphql', () => {
       node_id: undefined
     } as unknown as DataSchemas['Repository'];
 
-    const graphqlRepository = convertRepositoryToGraphql({} as ExtendedSimulationStore, repository, (() => {
-      throw new Error('owner resolution is not exercised in this test');
-    }) as ToGraphqlDispatcher);
+    const graphqlRepository = convertRepositoryToGraphql(
+      {} as ExtendedSimulationStore,
+      repository,
+      (() => {
+        throw new Error('owner resolution is not exercised in this test');
+      }) as ToGraphqlDispatcher,
+      baseUrls
+    );
 
     expect(graphqlRepository.id).toBe(Buffer.from('Repository:test-org/test-repo').toString('base64'));
   });
@@ -58,9 +74,14 @@ describe('convertRepositoryToGraphql', () => {
       topics: 'typescript'
     } as unknown as DataSchemas['Repository'];
 
-    const graphqlRepository = convertRepositoryToGraphql({} as ExtendedSimulationStore, repository, (() => {
-      throw new Error('owner resolution is not exercised in this test');
-    }) as ToGraphqlDispatcher);
+    const graphqlRepository = convertRepositoryToGraphql(
+      {} as ExtendedSimulationStore,
+      repository,
+      (() => {
+        throw new Error('owner resolution is not exercised in this test');
+      }) as ToGraphqlDispatcher,
+      baseUrls
+    );
 
     expect(graphqlRepository.repositoryTopics({}).nodes).toEqual([]);
   });
@@ -77,8 +98,11 @@ describe('convertCommitToGraphql', () => {
       commit: {
         message: 'Headline\r\n\r\nBody',
         author: {name: 'Author', email: 'author@example.test', date: '2024-01-01T00:00:00.000Z'},
-        committer: {name: 'Committer', email: 'committer@example.test', date: '2024-01-01T00:00:00.000Z'}
-      }
+        committer: {name: 'Committer', email: 'committer@example.test', date: '2024-01-01T00:00:00.000Z'},
+        tree: {sha: 'abcdef1234567'},
+        parents: []
+      },
+      parents: []
     } as unknown as DataSchemas['Commit'];
     const store = {
       store: {getState: () => ({})},
@@ -90,7 +114,7 @@ describe('convertCommitToGraphql', () => {
       }
     } as unknown as ExtendedSimulationStore;
 
-    const graphqlCommit = convertCommitToGraphql(store, commit);
+    const graphqlCommit = convertCommitToGraphql(store, commit, baseUrls);
     const commitShape = graphqlCommit as unknown as {
       messageHeadline: string;
       messageBody: string;

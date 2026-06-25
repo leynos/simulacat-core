@@ -104,6 +104,22 @@ type TeamMembersQuery = {
   };
 };
 
+type RequestScopedGraphqlUrlsQuery = {
+  repository: {
+    url: string;
+    owner: {login: string; url?: string};
+    repositoryTopics: {nodes: Array<{url: string}>};
+    defaultBranchRef?: {target?: {url?: string; commitUrl?: string} | null} | null;
+    ref?: {target?: {url?: string; commitUrl?: string} | null} | null;
+    issue?: {url: string} | null;
+    issues: {nodes: Array<{url: string}>};
+    pullRequest?: {url: string; permalink: string; baseRef?: {target?: {url?: string} | null} | null} | null;
+    pullRequests: {nodes: Array<{url: string; permalink: string}>};
+  } | null;
+};
+
+type RequestScopedGraphqlRepository = NonNullable<RequestScopedGraphqlUrlsQuery['repository']>;
+
 /** Shared fixture state seeded into the simulated GitHub store for all GraphQL integration tests. */
 const graphqlTestFixtureState: InitialState = {
   users: [
@@ -120,7 +136,7 @@ const graphqlTestFixtureState: InitialState = {
   ],
   organizations: [{login: 'lovely-org'}, {login: 'Acme'}],
   repositories: [
-    {owner: 'lovely-org', name: 'awesome-repo'},
+    {owner: 'lovely-org', name: 'awesome-repo', topics: ['simulator']},
     {owner: 'Acme', name: 'Awesome-Repo'}
   ],
   branches: [
@@ -185,6 +201,147 @@ const graphqlTestFixtureState: InitialState = {
   ]
 };
 
+/** Runs a callback against a random-port GraphQL simulator. */
+const withRandomGraphqlServer = async (apiRoot: string, run: (origin: string) => Promise<void>): Promise<void> => {
+  const app = simulation({initialState: graphqlTestFixtureState, apiUrl: apiRoot});
+  const activeServer: SimulationServer = await app.listen(0);
+  try {
+    await run(`http://localhost:${activeServer.port}`);
+  } finally {
+    await activeServer.ensureClose();
+  }
+};
+
+/** Executes a GraphQL query against the simulator and asserts a successful response. */
+const fetchGraphqlData = async <Payload>(
+  origin: string,
+  query: string,
+  variables: Record<string, unknown>
+): Promise<Payload> => {
+  const request = await fetch(`${origin}/graphql`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({query, variables})
+  });
+  const response = (await request.json()) as {data?: Payload; errors?: unknown};
+  expect(request.status).toBe(200);
+  expect(response.errors).toBe(undefined);
+  if (!response.data) {
+    throw new Error('Expected GraphQL response data');
+  }
+  return response.data;
+};
+
+const requestScopedGraphqlUrlsQuery = gql`
+  query requestScopedGraphqlUrls($owner: String!, $name: String!) {
+    repository(owner: $owner, name: $name) {
+      url
+      owner {
+        login
+        url
+      }
+      repositoryTopics(first: 10) {
+        nodes {
+          url
+        }
+      }
+      defaultBranchRef {
+        target {
+          ... on Commit {
+            url
+            commitUrl
+          }
+        }
+      }
+      ref(qualifiedName: "main") {
+        target {
+          ... on Commit {
+            url
+            commitUrl
+          }
+        }
+      }
+      issue(number: 1) {
+        url
+      }
+      issues(first: 10) {
+        nodes {
+          url
+        }
+      }
+      pullRequest(number: 2) {
+        url
+        permalink
+        baseRef {
+          target {
+            ... on Commit {
+              url
+            }
+          }
+        }
+      }
+      pullRequests(first: 10) {
+        nodes {
+          url
+          permalink
+        }
+      }
+    }
+  }
+`;
+
+/** Returns the seeded repository from request-scoped GraphQL URL test data. */
+const requireRequestScopedRepository = (data: RequestScopedGraphqlUrlsQuery): RequestScopedGraphqlRepository => {
+  expect(data.repository).not.toBe(null);
+  if (!data.repository) {
+    throw new Error('Expected seeded repository');
+  }
+  return data.repository;
+};
+
+/** Asserts that repository-level GraphQL URL fields use the request origin. */
+const expectRepositoryGraphqlUrls = (origin: string, repository: RequestScopedGraphqlRepository): void => {
+  expect(repository.url).toBe(`${origin}/lovely-org/awesome-repo`);
+  expect(repository.owner.url).toBe(`${origin}/orgs/lovely-org`);
+  expect(repository.repositoryTopics.nodes).toEqual([{url: `${origin}/lovely-org/awesome-repo/topics/simulator`}]);
+};
+
+/** Asserts that commit GraphQL URL fields use the request origin. */
+const expectCommitGraphqlUrls = (origin: string, repository: RequestScopedGraphqlRepository): void => {
+  const commitUrl = `${origin}/lovely-org/awesome-repo/commit/commit-a`;
+
+  expect(repository.defaultBranchRef?.target?.url).toBe(commitUrl);
+  expect(repository.defaultBranchRef?.target?.commitUrl).toBe(commitUrl);
+  expect(repository.ref?.target?.url).toBe(commitUrl);
+};
+
+/** Asserts that issue GraphQL URL fields use the request origin. */
+const expectIssueGraphqlUrls = (origin: string, repository: RequestScopedGraphqlRepository): void => {
+  const issueUrl = `${origin}/lovely-org/awesome-repo/issues/1`;
+
+  expect(repository.issue?.url).toBe(issueUrl);
+  expect(repository.issues.nodes).toEqual([{url: issueUrl}]);
+};
+
+/** Asserts that pull request GraphQL URL fields use the request origin. */
+const expectPullRequestGraphqlUrls = (origin: string, repository: RequestScopedGraphqlRepository): void => {
+  const commitUrl = `${origin}/lovely-org/awesome-repo/commit/commit-a`;
+  const pullUrl = `${origin}/lovely-org/awesome-repo/pull/2`;
+
+  expect(repository.pullRequest?.url).toBe(pullUrl);
+  expect(repository.pullRequest?.permalink).toBe(pullUrl);
+  expect(repository.pullRequest?.baseRef?.target?.url).toBe(commitUrl);
+  expect(repository.pullRequests.nodes).toEqual([{url: pullUrl, permalink: pullUrl}]);
+};
+
+/** Asserts that all GraphQL URL groups use the request origin. */
+const expectRequestScopedGraphqlUrls = (origin: string, repository: RequestScopedGraphqlRepository): void => {
+  expectRepositoryGraphqlUrls(origin, repository);
+  expectCommitGraphqlUrls(origin, repository);
+  expectIssueGraphqlUrls(origin, repository);
+  expectPullRequestGraphqlUrls(origin, repository);
+};
+
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: legacy GraphQL integration suite remains over the line gate.
 describe('graphql queries', () => {
   let server: SimulationServer;
@@ -200,6 +357,16 @@ describe('graphql queries', () => {
 
   beforeEach(() => {
     resetActorObservationCounters();
+  });
+
+  it('derives GraphQL URLs from the random-port request host', async () => {
+    await withRandomGraphqlServer('/api/v3', async (origin) => {
+      const data = await fetchGraphqlData<RequestScopedGraphqlUrlsQuery>(origin, requestScopedGraphqlUrlsQuery, {
+        owner: 'lovely-org',
+        name: 'awesome-repo'
+      });
+      expectRequestScopedGraphqlUrls(origin, requireRequestScopedRepository(data));
+    });
   });
 
   it('validates schema compilation with the request actor context', async () => {

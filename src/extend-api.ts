@@ -39,6 +39,7 @@ const notFound = {message: 'Not Found'};
  * ```
  *
  * @param extend Optional caller hook that can register extra routes.
+ * @param apiRoot Configured API root used by built-in GraphQL URL projection.
  * @returns A foundation `extendRouter` callback that installs built-in routes
  * before exposing the router to the caller hook.
  */
@@ -46,7 +47,8 @@ export const extendRouter =
   (
     extend:
       | ((router: Parameters<FoundationExtendRouter>[0], simulationStore: ExtendedSimulationStore) => void)
-      | undefined
+      | undefined,
+    apiRoot = '/'
   ) =>
   (router: Parameters<FoundationExtendRouter>[0], simulationStore: ExtendedSimulationStore) => {
     // Why: extension routes and built-in OpenAPI handlers must see the same request-scoped actor context.
@@ -64,7 +66,7 @@ export const extendRouter =
       response.type('text/plain; version=0.0.4; charset=utf-8').send(getActorObservabilityMetrics());
     });
 
-    router.use('/graphql', createHandler(simulationStore));
+    router.use('/graphql', createHandler(simulationStore, apiRoot));
 
     router.get('/repos/:owner/:repo/git/ref/*ref', (request, response) => {
       const {owner, repo, ref} = request.params as {owner: string; repo: string; ref: string[]};

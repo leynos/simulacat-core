@@ -14,8 +14,10 @@ import {
 } from '../connections.ts';
 import {deriveOwner} from '../owners.ts';
 import type {DataSchemas, GraphQLData, ToGraphqlDispatcher} from '../to-graphql-shapes.ts';
+import type {BaseUrls} from '../../http/request-url.ts';
 import type {ExtendedSimulationStore} from '../../store/index.ts';
 import {branchStoreKey, repositoryNodeId} from '../../store/keys.ts';
+import {projectRepositoryUrls} from '../../urls/index.ts';
 import {RepositoryVisibility} from '../../__generated__/resolvers-types.ts';
 import type {User} from '../../__generated__/resolvers-types.ts';
 
@@ -33,10 +35,6 @@ import type {User} from '../../__generated__/resolvers-types.ts';
  * ```
  */
 const normalizeRefLookup = (qualifiedName: string) => qualifiedName.replace(/^refs\/(heads|tags)\//, '');
-
-/** Builds a stable repository URL until request-scoped GraphQL projection lands. */
-const repositoryFallbackUrl = (repo: DataSchemas['Repository']) =>
-  repo.url ?? repo.html_url ?? `https://github.com/${repo.full_name}`;
 
 interface ConversionContext {
   simulationStore: ExtendedSimulationStore;
@@ -95,16 +93,20 @@ function resolveRepoItem<K extends 'Issue' | 'PullRequest'>(
  * @param simulationStore `ExtendedSimulationStore` used for linked owner lookups.
  * @param repo `DataSchemas['Repository']` source entity to expose.
  * @param toGraphql `ToGraphqlDispatcher` used for nested owner conversion.
+ * @param baseUrls Request-derived API and web bases for URL projection.
  * @returns `GraphQLData['Repository']` with non-null `id`, `nameWithOwner`,
  * `url`, `createdAt`, and `defaultBranchRef`; relation fields stay lazy or
  * placeholder-backed instead of being fully resolved here.
+ * @throws Error when request-scoped projection cannot produce a string
+ * repository URL.
  */
 // Repository GraphQL conversion intentionally assembles several lazy relation adapters.
 // oxlint-disable-next-line complexity
 export function convertRepositoryToGraphql(
   simulationStore: ExtendedSimulationStore,
   repo: DataSchemas['Repository'],
-  toGraphql: ToGraphqlDispatcher
+  toGraphql: ToGraphqlDispatcher,
+  baseUrls: BaseUrls
 ): GraphQLData['Repository'] {
   const defaultBranchName = repo.default_branch ?? 'main';
   const state = simulationStore.store?.getState();
@@ -122,13 +124,18 @@ export function convertRepositoryToGraphql(
     Buffer.from(`Branch:${branchStoreKey({owner: repo.owner, repo: repo.name, name: defaultBranchName})}`).toString(
       'base64'
     );
+  const projectedRepository = projectRepositoryUrls(repo, baseUrls);
+  const repositoryUrl = projectedRepository.html_url;
+  if (typeof repositoryUrl !== 'string') {
+    throw new Error(`GraphQL repository URL could not be projected for ${repo.full_name}`);
+  }
 
   return {
     __typename: 'Repository',
     id: repo.node_id ?? repositoryNodeId({owner: repo.owner, name: repo.name}),
     name: repo.name,
     nameWithOwner: repo.full_name,
-    url: repositoryFallbackUrl(repo),
+    url: repositoryUrl,
     createdAt: repo.created_at ?? new Date(0).toISOString(),
     ...(repo.description ? {description: repo.description} : {}),
     collaborators(pageArgs: PageArgs) {
@@ -214,7 +221,7 @@ export function convertRepositoryToGraphql(
             stargazers: emptyStargazerConnection(),
             viewerHasStarred: false
           },
-          url: `${repo.url}/topics/${topicName}`
+          url: `${repositoryUrl}/topics/${topicName}`
         }))
       );
     },

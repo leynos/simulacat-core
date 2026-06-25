@@ -9,7 +9,9 @@ import type {PageArgs} from './relay.ts';
 import {applyRelayPagination} from './relay.ts';
 import {convertRepositoryConnection} from './connections.ts';
 import type {DataSchemas, GraphQLData, ToGraphqlDispatcher} from './to-graphql-shapes.ts';
+import type {BaseUrls} from '../http/request-url.ts';
 import type {ExtendedSimulationStore} from '../store/index.ts';
+import {webUrl} from '../urls/shared.ts';
 
 /**
  * Resolves a login to the GraphQL Organization or User owner union member.
@@ -45,14 +47,23 @@ export function deriveOwner(
  *
  * @example
  * ```ts
- * const owner = toGithubRepositoryOwner(simulationStore, user, toGraphql);
+ * const owner = toGithubRepositoryOwner(simulationStore, user, toGraphql, baseUrls);
  * ```
+ *
+ * @param simulationStore Store and selectors used to resolve repositories.
+ * @param entity User or organization owner entity.
+ * @param toGraphql Dispatcher used for repository conversion.
+ * @param baseUrls Request-derived API and web bases for URL projection.
+ * @returns Shared GraphQL repository-owner fields.
  */
 export function toGithubRepositoryOwner(
   simulationStore: ExtendedSimulationStore,
   entity: DataSchemas['User'] | DataSchemas['Organization'],
-  toGraphql: ToGraphqlDispatcher
+  toGraphql: ToGraphqlDispatcher,
+  baseUrls: BaseUrls
 ): Pick<GraphQLData['User'], 'avatarUrl' | 'login' | 'repositories' | 'resourcePath' | 'url'> {
+  const resourcePath = 'organizations' in entity ? `/${entity.login}` : `/orgs/${entity.login}`;
+
   return {
     login: entity.login,
     ...(entity.avatar_url ? {avatarUrl: entity.avatar_url} : {}),
@@ -67,7 +78,7 @@ export function toGithubRepositoryOwner(
         )
       );
     },
-    resourcePath: `/${entity.login}`,
-    ...(entity.url ? {url: entity.url} : {})
+    resourcePath,
+    url: entity.url ?? webUrl(baseUrls, resourcePath)
   };
 }

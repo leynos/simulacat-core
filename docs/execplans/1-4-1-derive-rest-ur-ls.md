@@ -237,7 +237,23 @@ Stop and escalate when any of these is reached.
   so the requested randomized `vsleep` backoff ran for 55 minutes before
   retrying. The retry completed with `findings: 0`.
 - [x] Milestone 4 — wire the REST adapter to project per request.
-- [ ] Milestone 5 — wire the GraphQL adapter to project per request.
+- [x] 2026-06-25T04:01:17+02:00 — Milestone 5 focused GraphQL red/green
+  completed. Red: `bun test tests/graphql.test.ts` failed with
+  `Cannot return null for non-nullable field Organization.url` because sparse
+  stored organizations no longer carry a GraphQL owner URL. Green: GraphQL
+  context now carries request-derived `baseUrls`, `makeToGraphql()` builds a
+  request-bound recursive dispatcher, repository/owner/issue/pull-request/commit
+  converters project URL fields from the shared URL policy, and
+  `tests/graphql.test.ts` asserts random-port repository, owner, topic, issue,
+  pull request, nested pull request, ref target, and commit URLs. Focused
+  validation passed with 33 GraphQL tests and 120 assertions.
+- [x] Milestone 5 — wire the GraphQL adapter to project per request.
+- [x] 2026-06-25T04:07:43+02:00 — Milestone 5 deterministic gates and review
+  cleared. `make check-fmt`, `make test`, `make typecheck`, `make lint`, and
+  `make --no-print-directory markdownlint nixie` all passed after the
+  request-scoped GraphQL changes. The final full test run reported
+  308 passing tests, 4 snapshots, and 30516 assertions. CodeRabbit
+  `coderabbit review --agent` completed with `findings: 0`.
 - [ ] Milestone 6 — fix the `git_url` defect and remove dead suppressions.
 - [ ] Milestone 7 — documentation, capability notes, CHANGELOG, roadmap tick.
 
@@ -315,6 +331,23 @@ Stop and escalate when any of these is reached.
   store object with no `url` or `object.url`. Impact: the wildcard route in
   `src/extend-api.ts` now applies `projectRefUrls` using request-derived base
   URLs with root API semantics.
+- Observation: GraphQL had a stricter failure mode than a wrong-host URL once
+  the store became sparse. Evidence: the Milestone 5 red test failed with
+  `Cannot return null for non-nullable field Organization.url` before it could
+  compare hosts. Impact: owner conversion must always derive a GraphQL `url`
+  from `webBaseUrl` when no explicit owner URL override exists.
+- Observation: `apiUrl` originally reached REST but not GraphQL. Evidence:
+  `simulation()` passed `args.apiUrl` into `openapi(...)`, while GraphQL was
+  mounted via `extendRouter(args?.extend?.extendRouter)` with no API-root
+  parameter. Impact: `simulation()` now passes the configured API root into
+  `extendRouter`, which passes it to `createHandler` for GraphQL base-URL
+  construction.
+- Observation: direct converter tests can bypass schema-normalized nested commit
+  shape. Evidence: full `make test` failed in `tests/graphql-converters.test.ts`
+  because a hand-built commit object had no `commit.tree`, but
+  `projectCommitUrls()` correctly expects the normalized `GitHubCommit` shape.
+  Impact: the test fixture now includes the same `commit.tree` and parent-array
+  structure the schema supplies in production paths.
 
 ## Decision log
 
@@ -453,6 +486,20 @@ Stop and escalate when any of these is reached.
   continue to be preserved or derived by the organization projector so seeded
   organization overrides are not silently rewritten. Date/Author: 2026-06-25,
   implementation agent.
+- Decision D-21: GraphQL `url`, `permalink`, and `commitUrl` fields derive from
+  `webBaseUrl`, not from REST API `url` fields. Rationale: GitHub GraphQL URL
+  scalars represent browser-facing resources; REST self-links still derive from
+  `apiBaseUrl` through the REST projectors. The shared policy remains the source
+  of truth for path construction, but GraphQL consumes the web-facing projected
+  fields (`html_url`) for repository, issue, pull request, commit, and owner
+  URLs. Date/Author: 2026-06-25, implementation agent.
+- Decision D-22: GraphQL owner conversion uses a stable shape discriminator
+  (`organizations` exists only on stored users) rather than optional URL-field
+  presence to choose user versus organization resource paths. Rationale: sparse
+  stored organizations no longer include optional URL fields, so checking
+  optional `html_url` presence misclassified organizations as users and produced
+  `/login` instead of `/orgs/login` in GraphQL owner URLs. Date/Author:
+  2026-06-25, implementation agent.
 
 ## External references and prior art
 
