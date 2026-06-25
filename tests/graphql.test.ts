@@ -120,6 +120,39 @@ type RequestScopedGraphqlUrlsQuery = {
 
 type RequestScopedGraphqlRepository = NonNullable<RequestScopedGraphqlUrlsQuery['repository']>;
 
+type GraphqlApiRoot = '/' | '/api/v3';
+
+type GraphqlServerContext = {
+  origin: string;
+};
+
+type GraphqlRequest<_Payload, Variables> = {
+  query: string;
+  variables: Variables;
+};
+
+type RequestScopedGraphqlAssertionContext = GraphqlServerContext & {
+  repository: RequestScopedGraphqlRepository;
+};
+
+const requestScopedGraphqlFixture = {
+  owner: 'lovely-org',
+  repositoryName: 'awesome-repo',
+  topic: 'simulator',
+  commitSha: 'commit-a',
+  issueNumber: 1,
+  pullRequestNumber: 2,
+  apiRoot: '/api/v3'
+} as const satisfies {
+  owner: string;
+  repositoryName: string;
+  topic: string;
+  commitSha: string;
+  issueNumber: number;
+  pullRequestNumber: number;
+  apiRoot: GraphqlApiRoot;
+};
+
 /** Shared fixture state seeded into the simulated GitHub store for all GraphQL integration tests. */
 const graphqlTestFixtureState: InitialState = {
   users: [
@@ -136,19 +169,27 @@ const graphqlTestFixtureState: InitialState = {
   ],
   organizations: [{login: 'lovely-org'}, {login: 'Acme'}],
   repositories: [
-    {owner: 'lovely-org', name: 'awesome-repo', topics: ['simulator']},
+    {
+      owner: requestScopedGraphqlFixture.owner,
+      name: requestScopedGraphqlFixture.repositoryName,
+      topics: [requestScopedGraphqlFixture.topic]
+    },
     {owner: 'Acme', name: 'Awesome-Repo'}
   ],
   branches: [
-    {owner: 'lovely-org', repo: 'awesome-repo', name: 'main'},
+    {
+      owner: requestScopedGraphqlFixture.owner,
+      repo: requestScopedGraphqlFixture.repositoryName,
+      name: 'main'
+    },
     {owner: 'Acme', repo: 'Awesome-Repo', name: 'main'}
   ],
   blobs: [],
   commits: [
     {
-      owner: 'lovely-org',
-      repo: 'awesome-repo',
-      sha: 'commit-a',
+      owner: requestScopedGraphqlFixture.owner,
+      repo: requestScopedGraphqlFixture.repositoryName,
+      sha: requestScopedGraphqlFixture.commitSha,
       commit: {message: 'Initial commit'}
     },
     {
@@ -160,22 +201,22 @@ const graphqlTestFixtureState: InitialState = {
   ],
   refs: [
     {
-      owner: 'lovely-org',
-      repo: 'awesome-repo',
+      owner: requestScopedGraphqlFixture.owner,
+      repo: requestScopedGraphqlFixture.repositoryName,
       qualifiedName: 'main',
-      object: {sha: 'commit-a'}
+      object: {sha: requestScopedGraphqlFixture.commitSha}
     },
     {
-      owner: 'lovely-org',
-      repo: 'awesome-repo',
+      owner: requestScopedGraphqlFixture.owner,
+      repo: requestScopedGraphqlFixture.repositoryName,
       qualifiedName: 'feature/x',
-      object: {sha: 'commit-a'}
+      object: {sha: requestScopedGraphqlFixture.commitSha}
     },
     {
-      owner: 'lovely-org',
-      repo: 'awesome-repo',
+      owner: requestScopedGraphqlFixture.owner,
+      repo: requestScopedGraphqlFixture.repositoryName,
       qualifiedName: 'v1.0.0',
-      object: {type: 'tag', sha: 'commit-a'}
+      object: {type: 'tag', sha: requestScopedGraphqlFixture.commitSha}
     },
     {
       owner: 'Acme',
@@ -185,38 +226,45 @@ const graphqlTestFixtureState: InitialState = {
     }
   ],
   issues: [
-    {owner: 'lovely-org', repo: 'awesome-repo', number: 1, title: 'Lovely issue'},
+    {
+      owner: requestScopedGraphqlFixture.owner,
+      repo: requestScopedGraphqlFixture.repositoryName,
+      number: requestScopedGraphqlFixture.issueNumber,
+      title: 'Lovely issue'
+    },
     {owner: 'Acme', repo: 'Awesome-Repo', number: 1, title: 'Acme issue'}
   ],
   pullRequests: [
     {
-      owner: 'lovely-org',
-      repo: 'awesome-repo',
-      number: 2,
+      owner: requestScopedGraphqlFixture.owner,
+      repo: requestScopedGraphqlFixture.repositoryName,
+      number: requestScopedGraphqlFixture.pullRequestNumber,
       title: 'Lovely pull request',
       draft: true,
-      base: {ref: 'main', sha: 'commit-a'},
+      base: {ref: 'main', sha: requestScopedGraphqlFixture.commitSha},
       head: {ref: 'feature/entity-spine', sha: 'commit-c'}
     }
   ]
 };
 
 /** Runs a callback against a random-port GraphQL simulator. */
-const withRandomGraphqlServer = async (apiRoot: string, run: (origin: string) => Promise<void>): Promise<void> => {
+const withRandomGraphqlServer = async (
+  {apiRoot}: {apiRoot: GraphqlApiRoot},
+  run: (serverContext: GraphqlServerContext) => Promise<void>
+): Promise<void> => {
   const app = simulation({initialState: graphqlTestFixtureState, apiUrl: apiRoot});
   const activeServer: SimulationServer = await app.listen(0);
   try {
-    await run(`http://localhost:${activeServer.port}`);
+    await run({origin: `http://localhost:${activeServer.port}`});
   } finally {
     await activeServer.ensureClose();
   }
 };
 
 /** Executes a GraphQL query against the simulator and asserts a successful response. */
-const fetchGraphqlData = async <Payload>(
-  origin: string,
-  query: string,
-  variables: Record<string, unknown>
+const fetchGraphqlData = async <Payload, Variables extends Record<string, unknown>>(
+  {origin}: GraphqlServerContext,
+  {query, variables}: GraphqlRequest<Payload, Variables>
 ): Promise<Payload> => {
   const request = await fetch(`${origin}/graphql`, {
     method: 'POST',
@@ -300,15 +348,20 @@ const requireRequestScopedRepository = (data: RequestScopedGraphqlUrlsQuery): Re
 };
 
 /** Asserts that repository-level GraphQL URL fields use the request origin. */
-const expectRepositoryGraphqlUrls = (origin: string, repository: RequestScopedGraphqlRepository): void => {
-  expect(repository.url).toBe(`${origin}/lovely-org/awesome-repo`);
-  expect(repository.owner.url).toBe(`${origin}/orgs/lovely-org`);
-  expect(repository.repositoryTopics.nodes).toEqual([{url: `${origin}/lovely-org/awesome-repo/topics/simulator`}]);
+const expectRepositoryGraphqlUrls = ({origin, repository}: RequestScopedGraphqlAssertionContext): void => {
+  const repositoryPath = `${requestScopedGraphqlFixture.owner}/${requestScopedGraphqlFixture.repositoryName}`;
+
+  expect(repository.url).toBe(`${origin}/${repositoryPath}`);
+  expect(repository.owner.url).toBe(`${origin}/orgs/${requestScopedGraphqlFixture.owner}`);
+  expect(repository.repositoryTopics.nodes).toEqual([
+    {url: `${origin}/${repositoryPath}/topics/${requestScopedGraphqlFixture.topic}`}
+  ]);
 };
 
 /** Asserts that commit GraphQL URL fields use the request origin. */
-const expectCommitGraphqlUrls = (origin: string, repository: RequestScopedGraphqlRepository): void => {
-  const commitUrl = `${origin}/lovely-org/awesome-repo/commit/commit-a`;
+const expectCommitGraphqlUrls = ({origin, repository}: RequestScopedGraphqlAssertionContext): void => {
+  const repositoryPath = `${requestScopedGraphqlFixture.owner}/${requestScopedGraphqlFixture.repositoryName}`;
+  const commitUrl = `${origin}/${repositoryPath}/commit/${requestScopedGraphqlFixture.commitSha}`;
 
   expect(repository.defaultBranchRef?.target?.url).toBe(commitUrl);
   expect(repository.defaultBranchRef?.target?.commitUrl).toBe(commitUrl);
@@ -316,17 +369,19 @@ const expectCommitGraphqlUrls = (origin: string, repository: RequestScopedGraphq
 };
 
 /** Asserts that issue GraphQL URL fields use the request origin. */
-const expectIssueGraphqlUrls = (origin: string, repository: RequestScopedGraphqlRepository): void => {
-  const issueUrl = `${origin}/lovely-org/awesome-repo/issues/1`;
+const expectIssueGraphqlUrls = ({origin, repository}: RequestScopedGraphqlAssertionContext): void => {
+  const repositoryPath = `${requestScopedGraphqlFixture.owner}/${requestScopedGraphqlFixture.repositoryName}`;
+  const issueUrl = `${origin}/${repositoryPath}/issues/${requestScopedGraphqlFixture.issueNumber}`;
 
   expect(repository.issue?.url).toBe(issueUrl);
   expect(repository.issues.nodes).toEqual([{url: issueUrl}]);
 };
 
 /** Asserts that pull request GraphQL URL fields use the request origin. */
-const expectPullRequestGraphqlUrls = (origin: string, repository: RequestScopedGraphqlRepository): void => {
-  const commitUrl = `${origin}/lovely-org/awesome-repo/commit/commit-a`;
-  const pullUrl = `${origin}/lovely-org/awesome-repo/pull/2`;
+const expectPullRequestGraphqlUrls = ({origin, repository}: RequestScopedGraphqlAssertionContext): void => {
+  const repositoryPath = `${requestScopedGraphqlFixture.owner}/${requestScopedGraphqlFixture.repositoryName}`;
+  const commitUrl = `${origin}/${repositoryPath}/commit/${requestScopedGraphqlFixture.commitSha}`;
+  const pullUrl = `${origin}/${repositoryPath}/pull/${requestScopedGraphqlFixture.pullRequestNumber}`;
 
   expect(repository.pullRequest?.url).toBe(pullUrl);
   expect(repository.pullRequest?.permalink).toBe(pullUrl);
@@ -335,11 +390,11 @@ const expectPullRequestGraphqlUrls = (origin: string, repository: RequestScopedG
 };
 
 /** Asserts that all GraphQL URL groups use the request origin. */
-const expectRequestScopedGraphqlUrls = (origin: string, repository: RequestScopedGraphqlRepository): void => {
-  expectRepositoryGraphqlUrls(origin, repository);
-  expectCommitGraphqlUrls(origin, repository);
-  expectIssueGraphqlUrls(origin, repository);
-  expectPullRequestGraphqlUrls(origin, repository);
+const expectRequestScopedGraphqlUrls = (context: RequestScopedGraphqlAssertionContext): void => {
+  expectRepositoryGraphqlUrls(context);
+  expectCommitGraphqlUrls(context);
+  expectIssueGraphqlUrls(context);
+  expectPullRequestGraphqlUrls(context);
 };
 
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: legacy GraphQL integration suite remains over the line gate.
@@ -360,12 +415,18 @@ describe('graphql queries', () => {
   });
 
   it('derives GraphQL URLs from the random-port request host', async () => {
-    await withRandomGraphqlServer('/api/v3', async (origin) => {
-      const data = await fetchGraphqlData<RequestScopedGraphqlUrlsQuery>(origin, requestScopedGraphqlUrlsQuery, {
-        owner: 'lovely-org',
-        name: 'awesome-repo'
+    await withRandomGraphqlServer({apiRoot: requestScopedGraphqlFixture.apiRoot}, async (serverContext) => {
+      const data = await fetchGraphqlData<RequestScopedGraphqlUrlsQuery, {owner: string; name: string}>(serverContext, {
+        query: requestScopedGraphqlUrlsQuery,
+        variables: {
+          owner: requestScopedGraphqlFixture.owner,
+          name: requestScopedGraphqlFixture.repositoryName
+        }
       });
-      expectRequestScopedGraphqlUrls(origin, requireRequestScopedRepository(data));
+      expectRequestScopedGraphqlUrls({
+        ...serverContext,
+        repository: requireRequestScopedRepository(data)
+      });
     });
   });
 
