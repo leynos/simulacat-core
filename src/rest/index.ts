@@ -38,6 +38,12 @@ type Res = Parameters<SimulationHandler>[2];
 /** Projects a selected store entity into its REST response payload. */
 type RestProjector = (item: any, baseUrls: BaseUrls) => unknown;
 
+/** Repository identity read from repository-scoped REST route params. */
+type RepositoryRouteParams = {owner: string; repo: string};
+
+/** Options for repository list handlers. */
+type MakeListHandlerOptions = {project?: RestProjector};
+
 /** Shared 404 JSON payload used by REST repository and item guards. */
 const notFound = {message: 'Not Found'};
 
@@ -52,6 +58,9 @@ const handlers =
   ) =>
   (simulationStore: ExtendedSimulationStore): SimulationHandlers => {
     const getState = () => simulationStore.store.getState();
+    type StoreState = ReturnType<typeof getState>;
+    type RepositoryListSelector = (state: StoreState, repository: RepositoryRouteParams) => unknown;
+
     const {SIMULACAT_GITHUB_API_URL: fallbackBaseUrl} = process.env;
     const baseUrlsFor = (request: Req) =>
       buildBaseUrls(
@@ -113,27 +122,33 @@ const handlers =
       return repository ?? null;
     };
 
+    /** Reads repository identity from a repository-scoped REST request context. */
+    const readRepositoryRouteParams = (context: Ctx): RepositoryRouteParams =>
+      context.request.params as RepositoryRouteParams;
+
     /**
      * Creates a repository-specific list `SimulationHandler`.
      *
-     * @param selector Function that receives the current `getState()` result,
-     * owner, and repo, and returns the selected list data.
+     * @param selector Function that receives the current `getState()` result
+     * and repository route params, and returns the selected list data.
+     * @param options Optional response projection configuration.
      * @returns A `SimulationHandler` that sends JSON `200` with the selected
      * data, or exits early when `requireRepository` sends a 404.
      *
      * `makeListHandler` expects request params shaped as
      * `{owner: string; repo: string}`. It calls `requireRepository` before
-     * invoking `selector`, and calls `getState` for the selector input.
+     * invoking `selector`, and calls `getState` for the selector input. When
+     * `options.project` is supplied, each selected list item is projected with
+     * request-derived base URLs before the response is sent.
      */
     const makeListHandler =
-      (
-        selector: (state: ReturnType<typeof getState>, owner: string, repo: string) => unknown,
-        project?: RestProjector
-      ): SimulationHandler =>
+      (selector: RepositoryListSelector, options: MakeListHandlerOptions = {}): SimulationHandler =>
       async (context: Ctx, request: Req, response: Res) => {
-        const {owner, repo} = context.request.params as {owner: string; repo: string};
-        if (!requireRepository(owner, repo, response)) return;
-        return response.status(200).json(projectList(selector(getState(), owner, repo), baseUrlsFor(request), project));
+        const repository = readRepositoryRouteParams(context);
+        if (!requireRepository(repository.owner, repository.repo, response)) return;
+        return response
+          .status(200)
+          .json(projectList(selector(getState(), repository), baseUrlsFor(request), options.project));
       };
 
     /**
@@ -374,8 +389,8 @@ const handlers =
           ),
           // GET /repos/{owner}/{repo}/issues
           'issues/list-for-repo': makeListHandler(
-            (state, owner, repo) => simulationStore.selectors.listIssuesForRepository(state, {owner, repo}),
-            projectIssueUrls
+            (state, repository) => simulationStore.selectors.listIssuesForRepository(state, repository),
+            {project: projectIssueUrls}
           ),
           // GET /repos/{owner}/{repo}/issues/{issue_number}
           'issues/get': makeItemHandler(
@@ -387,8 +402,8 @@ const handlers =
           ),
           // GET /repos/{owner}/{repo}/pulls
           'pulls/list': makeListHandler(
-            (state, owner, repo) => simulationStore.selectors.listPullRequestsForRepository(state, {owner, repo}),
-            projectPullRequestUrls
+            (state, repository) => simulationStore.selectors.listPullRequestsForRepository(state, repository),
+            {project: projectPullRequestUrls}
           ),
           // GET /repos/{owner}/{repo}/pulls/{pull_number}
           'pulls/get': makeItemHandler(
