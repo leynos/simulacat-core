@@ -152,12 +152,12 @@ Stop and escalate when any of these is reached.
 
 ## Progress
 
-- [ ] 2026-06-24T14:39:54+02:00 — Branch, PR, and session aligned for
+- [x] 2026-06-24T14:39:54+02:00 — Branch, PR, and session aligned for
   implementation. Local branch is `1-4-1-derive-rest-ur-ls`, tracking
   `origin/1-4-1-derive-rest-ur-ls`; PR #19 title is now
   "Derive REST URLs from request host (1.4.1)" and the PR references this Lody
   session.
-- [ ] 2026-06-24T14:42:26+02:00 — Milestone 0 golden snapshot test added.
+- [x] 2026-06-24T14:42:26+02:00 — Milestone 0 golden snapshot test added.
   `tests/url-templates.golden.test.ts` captures current parsed URL fields for
   repository, issue, pull request, organization, commit, ref, and branch
   fixtures. Focused validation passed with
@@ -187,7 +187,24 @@ Stop and escalate when any of these is reached.
   normalization. Each actionable finding is fixed and
   `coderabbit review --agent` now reports `findings: 0`.
 - [x] Milestone 1 — shared request base-URL policy (`src/http/request-url.ts`).
-- [ ] Milestone 2 — per-entity URL projection policy (`src/urls/*`).
+- [x] 2026-06-24T17:49:44+02:00 — Milestone 2 started. The projector tests
+  will use sparse copies of parsed fixtures, with URL fields deleted, so the
+  request-host derivation is observable before Milestone 3 removes baked store
+  URLs.
+- [x] 2026-06-25T02:21:03+02:00 — Milestone 2 gates and review cleared.
+  Per-entity projectors now cover repository, issue, pull request,
+  organization, commit, ref, and branch payloads. Focused validation passed
+  with `bun test tests/urls.test.ts`, reporting 8 tests and 24447 assertions.
+  Full validation passed with `make check-fmt`, `make test`, `make typecheck`,
+  `make lint`, and `make --no-print-directory markdownlint nixie`; the full
+  suite reported 299 passing tests, 5 snapshots, and 30271 assertions.
+  CodeRabbit findings for repository web and external URL derivation,
+  non-derived homepage fields, branch protection encoding, organization avatar
+  fallback, organization user-only URL omission, commit REST versus Git data
+  endpoint selection, ref path preservation, typed URL classifications, SSH URL
+  collection, and top-level payload aliases are fixed. Final
+  `coderabbit review --agent` reports `findings: 0`.
+- [x] Milestone 2 — per-entity URL projection policy (`src/urls/*`).
 - [ ] Milestone 3 — make the store host-agnostic (Zod transforms stop baking
   URLs; override-only storage).
 - [ ] Milestone 4 — wire the REST adapter to project per request.
@@ -300,9 +317,13 @@ Stop and escalate when any of these is reached.
   primary while giving single-server callers a deterministic fallback and
   avoiding `http://undefined`. Date/Author: 2026-06-18, expert panel
   (Doggylump, Wafflecat).
-- Decision D-8: fix `git_url` (`git:` → `git://`) in this task. Rationale:
-  confirmed with the requester; trivial and clearly correct. Committed
-  separately from the host-derivation work. Date/Author: 2026-06-18, leynos.
+- Decision D-8: fix malformed Git protocol URLs (`git:` → `git://`) in this
+  task. Rationale: confirmed with the requester; trivial and clearly correct.
+  Milestone 2 applies the corrected sparse projector values for `git_url` and
+  `mirror_url`; the legacy baked store defaults and golden snapshot remain as
+  evidence until the store is made host-agnostic and the deferred cleanup
+  milestone removes or fixes the baked defaults. Date/Author: 2026-06-18,
+  leynos; updated 2026-06-24, implementation agent.
 - Decision D-9: "label URLs" scopes to the repository `labels_url` template;
   first-class label entities are out of scope (roadmap 1.5). Rationale: no label
   entity exists yet. Date/Author: 2026-06-18, expert panel (Pandalump).
@@ -325,6 +346,43 @@ Stop and escalate when any of these is reached.
   that as a malformed composed URL would incorrectly force fallback or failure
   even though the protocol intent is unambiguous. Date/Author: 2026-06-24,
   implementation agent.
+- Decision D-13: sparse repository projection uses GitHub-correct web, clone,
+  SVN, and Git-protocol URLs even while current parsed fixtures still preserve
+  legacy explicit values. Rationale: CodeRabbit correctly flagged that
+  repository `html_url` is a web URL (`/{owner}/{repo}`), while `clone_url` and
+  `svn_url` should use GitHub HTTPS forms and `git_url` / `mirror_url` should
+  use valid `git://` schemes. Milestone 2 now projects those corrected values
+  only when fields are absent; current baked store values remain explicit
+  overrides until later milestones remove or fix them. Date/Author: 2026-06-24,
+  implementation agent.
+- Decision D-14: `homepage` is not a derived URL field, branch names are
+  encoded in `protection_url`, and missing organization avatars use a
+  per-organization GitHub avatar URL (`avatars.githubusercontent.com/u/{id}`).
+  Rationale: CodeRabbit found that inventing repository homepage metadata
+  changes payload meaning, raw branch names break reserved-character path
+  segments, and a shared octocat fallback collapses distinct organizations.
+  Date/Author: 2026-06-24, implementation agent.
+- Decision D-15: organization projection excludes user-only URL fields, and
+  commit projection distinguishes REST commit resources from nested Git commit
+  object URLs. Rationale: the current GitHub REST organization shape exposes
+  org-scoped URLs (`repos_url`, `events_url`, `hooks_url`, `issues_url`,
+  `members_url`, `public_members_url`) but not user-scoped follower/gist/star
+  URL templates; commit payloads use `/commits/{sha}` for the top-level
+  resource and top-level parents, while nested Git object references keep
+  `/git/commits/{sha}`. Date/Author: 2026-06-24, implementation agent.
+- Decision D-16: ref projection preserves the full `refs/...` name under
+  `/git/refs/...`, issue and pull-request URL classifications are derived from
+  typed field arrays, and the URL property collector treats scp-style SSH
+  values (`git@github.com:owner/repo.git`) as URL-like external fields.
+  Rationale: CodeRabbit found that stripping `refs/` breaks GitHub ref URL
+  round-tripping, while raw classification literals and missed SSH URLs reduce
+  test coverage. Date/Author: 2026-06-24, implementation agent.
+- Decision D-17: every top-level projector payload alias omits the derived URL
+  fields from the stored entity type before adding them back as optional
+  projection fields. Rationale: the projection contract says sparse stored
+  entities may omit derived URLs; intersecting with the original schema type
+  accidentally kept those fields effectively required in TypeScript. Date/
+  Author: 2026-06-24, implementation agent.
 
 ## External references and prior art
 
@@ -430,24 +488,29 @@ Field host classification (the central policy, defined once in Milestone 2):
   `notifications_url`, `pulls_url`, `releases_url`, `stargazers_url`,
   `statuses_url`, `subscribers_url`, `subscription_url`, `tags_url`,
   `teams_url`, `trees_url`, `hooks_url`. Issue: `url`, `repository_url`. Pull
-  request: `url`, `issue_url`. Organization: `url`, `followers_url`,
-  `following_url`, `gists_url`, `starred_url`, `subscriptions_url`,
-  `organizations_url`, `repos_url`, `events_url`, `received_events_url`,
-  `hooks_url`, `issues_url`, `members_url`, `public_members_url`. Commit:
-  `url`, tree URL, parent URLs. Ref: `url`, `object.url`. Branch: `commit.url`,
+  request: `url`, `issue_url`. Organization: `url`, `repos_url`,
+  `events_url`, `hooks_url`, `issues_url`, `members_url`,
+  `public_members_url`. Commit: top-level `url` and `parents[].url` use
+  `/commits/{sha}`; nested tree URLs and `commit.parents[].url` use Git data
+  endpoints. Ref: `url`, `object.url`. Branch: `commit.url`,
   `protection_url`.
 - Web-host fields — derived from `webBaseUrl` (= origin, no API root). Each
-  entity keeps its current path shape, only the host changes. Repository:
-  `html_url` (`${webBaseUrl}/repos/${full_name}`), `homepage`
-  (`${webBaseUrl}`). Issue: `html_url`
+  entity keeps its GitHub web path shape. Repository:
+  `html_url` (`${webBaseUrl}/${full_name}`). `homepage` is repository metadata,
+  not a navigation URL, so it is preserved only when explicitly stored. Issue:
+  `html_url`
   (`${webBaseUrl}/${owner}/${repo}/issues/${number}`). Pull request: `html_url`
   (`${webBaseUrl}/${owner}/${repo}/pull/${number}`). Commit: `html_url`
   (`${webBaseUrl}/${owner}/${repo}/commit/${sha}`).
 - External fixed fields — never host-rewritten (Constraint 5). `git_url`
-  (`git://github.com/${full_name}.git` after the D-8 fix), `ssh_url`
-  (`git@github.com:${full_name}.git`), `clone_url`, `svn_url`, `mirror_url`,
-  `avatar_url`. These keep their current literals (host = github.com /
-  example.com).
+  (`git://github.com/${full_name}.git`), `ssh_url`
+  (`git@github.com:${full_name}.git`), `clone_url`
+  (`https://github.com/${full_name}.git`), `svn_url`
+  (`https://github.com/${full_name}`), `mirror_url`
+  (`git://github.com/${full_name}`), `avatar_url`
+  (`https://avatars.githubusercontent.com/u/${id}?v=4`). These keep fixed
+  external hosts (github.com / avatars.githubusercontent.com) and are never
+  rewritten to the simulator host.
 
 ## Plan of work
 
@@ -561,11 +624,9 @@ so the projectors are proven correct before the store changes:
   (exact `toBe`, host included).
 - Override test: seed a custom `html_url` (and a `null` `mirror_url`); assert it
   is returned unchanged while siblings derive.
-- Golden parity: with `baseUrls` built from `localhost:3300` and `apiRoot='/'`,
-  the projector output equals the Milestone 0 snapshot for the API/web fields
-  (proves no template mangling). External fields equal the snapshot except the
-  intentional `git_url` fix is deferred to Milestone 6, so assert the
-  pre-fix literal here and update in Milestone 6.
+- Current fixture parity: projecting the parsed fixtures preserves explicit
+  legacy URL values unchanged, while sparse fixtures derive the corrected
+  GitHub web, clone, SVN, Git-protocol, and avatar values.
 - Deny-list property test (fast-check over hosts/owners/repos/numbers): no
   API/web field of any projected entity contains `localhost:3300`,
   `api.github.com`, or `github.com`; external fields may.
