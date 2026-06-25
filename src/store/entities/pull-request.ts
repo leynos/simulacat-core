@@ -27,6 +27,65 @@ const pullRequestRefSchema = z.object({
   sha: z.string().trim().min(1)
 });
 
+type PullRequestNumberInput = {
+  issue_number?: number | undefined;
+  number: number;
+};
+
+type PullRequestStateInput = {
+  closed_at?: string | null | undefined;
+  merged_at?: string | null | undefined;
+  state: 'open' | 'closed' | 'merged';
+  updated_at: string;
+};
+
+type PullRequestRefInput = {
+  owner?: string | undefined;
+  repo?: string | undefined;
+  ref: string;
+  sha: string;
+};
+
+type NormalizedPullRequestRef = {
+  owner: string;
+  repo: string;
+  ref: string;
+  sha: string;
+};
+
+/** Ensures the fixture does not describe one pull request as another issue. */
+const assertMatchingIssueNumber = (pullRequest: PullRequestNumberInput): void => {
+  if (pullRequest.issue_number !== undefined && pullRequest.issue_number !== pullRequest.number) {
+    throw new Error(
+      `Pull request issue_number ${pullRequest.issue_number} must match pull request number ${pullRequest.number}`
+    );
+  }
+};
+
+/** Returns the canonical closed timestamp stored for the pull request state. */
+const deriveClosedAt = (pullRequest: PullRequestStateInput): string | null => {
+  if (pullRequest.state !== 'closed' && pullRequest.state !== 'merged') {
+    return null;
+  }
+  return pullRequest.closed_at ?? pullRequest.updated_at;
+};
+
+/** Returns the canonical merged timestamp stored for the pull request state. */
+const deriveMergedAt = (pullRequest: PullRequestStateInput): string | null => {
+  if (pullRequest.state !== 'merged') {
+    return null;
+  }
+  return pullRequest.merged_at ?? pullRequest.updated_at;
+};
+
+/** Applies top-level repository coordinates to incomplete base/head refs. */
+const normalizePullRequestRef = (ref: PullRequestRefInput, owner: string, repo: string): NormalizedPullRequestRef => ({
+  owner: ref.owner ?? owner,
+  repo: ref.repo ?? repo,
+  ref: ref.ref,
+  sha: ref.sha
+});
+
 /**
  * Validates and normalizes a minimal GitHub pull request fixture.
  *
@@ -73,20 +132,10 @@ export const githubPullRequestSchema = z
     html_url: z.string().optional(),
     issue_url: z.string().optional()
   })
-  // Legacy schema transform keeps GitHub URL defaults colocated with validation.
-  /* oxlint-disable complexity */
-  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: legacy schema transform; refactor deferred.
   .transform((pullRequest) => {
     const key = pullRequestStoreKey(pullRequest);
-    if (pullRequest.issue_number !== undefined && pullRequest.issue_number !== pullRequest.number) {
-      throw new Error(
-        `Pull request issue_number ${pullRequest.issue_number} must match pull request number ${pullRequest.number}`
-      );
-    }
+    assertMatchingIssueNumber(pullRequest);
     const issueNumber = pullRequest.number;
-    const isClosedOrMerged = pullRequest.state === 'closed' || pullRequest.state === 'merged';
-    const closedAt = isClosedOrMerged ? (pullRequest.closed_at ?? pullRequest.updated_at) : null;
-    const mergedAt = pullRequest.state === 'merged' ? (pullRequest.merged_at ?? pullRequest.updated_at) : null;
 
     return {
       ...pullRequest,
@@ -94,22 +143,11 @@ export const githubPullRequestSchema = z
       node_id: pullRequest.node_id ?? Buffer.from(`PullRequest:${key}`).toString('base64'),
       issue_number: issueNumber,
       user: pullRequest.user ?? {login: 'octocat'},
-      base: {
-        owner: pullRequest.base.owner ?? pullRequest.owner,
-        repo: pullRequest.base.repo ?? pullRequest.repo,
-        ref: pullRequest.base.ref,
-        sha: pullRequest.base.sha
-      },
-      head: {
-        owner: pullRequest.head.owner ?? pullRequest.owner,
-        repo: pullRequest.head.repo ?? pullRequest.repo,
-        ref: pullRequest.head.ref,
-        sha: pullRequest.head.sha
-      },
-      closed_at: closedAt,
-      merged_at: mergedAt
+      base: normalizePullRequestRef(pullRequest.base, pullRequest.owner, pullRequest.repo),
+      head: normalizePullRequestRef(pullRequest.head, pullRequest.owner, pullRequest.repo),
+      closed_at: deriveClosedAt(pullRequest),
+      merged_at: deriveMergedAt(pullRequest)
     };
   });
-/* oxlint-enable complexity */
 
 export type GitHubPullRequest = z.infer<typeof githubPullRequestSchema>;

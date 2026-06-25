@@ -254,7 +254,22 @@ Stop and escalate when any of these is reached.
   request-scoped GraphQL changes. The final full test run reported
   308 passing tests, 4 snapshots, and 30516 assertions. CodeRabbit
   `coderabbit review --agent` completed with `findings: 0`.
-- [ ] Milestone 6 — fix the `git_url` defect and remove dead suppressions.
+- [x] 2026-06-25T04:11:25+02:00 — Milestone 6 implementation completed.
+  Search found no remaining malformed `git:github...` source or test URLs; the
+  repository URL projector already emits `git://github.com/...`. Removed a
+  stale issue transform suppression and refactored the pull-request transform
+  into small validation, timestamp, and ref-normalization helpers so its
+  complexity suppressions could be removed without changing behaviour. Focused
+  validation before this plan update passed with `make lint`, `make typecheck`,
+  and `make test`; the focused full test run reported 308 passing tests,
+  4 snapshots, and 30516 assertions.
+- [x] 2026-06-25T04:19:08+02:00 — Milestone 6 gates and review cleared.
+  `bun fmt`, `make check-fmt`, `make test`, `make typecheck`, `make lint`, and
+  `make --no-print-directory markdownlint nixie` passed after the suppression
+  cleanup and plan update. The final full test run reported 308 passing tests,
+  4 snapshots, and 30516 assertions. CodeRabbit `coderabbit review --agent`
+  completed with `findings: 0`.
+- [x] Milestone 6 — fix the `git_url` defect and remove dead suppressions.
 - [ ] Milestone 7 — documentation, capability notes, CHANGELOG, roadmap tick.
 
 ## Surprises & discoveries
@@ -348,6 +363,17 @@ Stop and escalate when any of these is reached.
   `projectCommitUrls()` correctly expects the normalized `GitHubCommit` shape.
   Impact: the test fixture now includes the same `commit.tree` and parent-array
   structure the schema supplies in production paths.
+- Observation: Milestone 6 found no live malformed `git:github...` URLs in
+  source or tests. Evidence: literal search found only this plan's historical
+  notes, while `src/urls/repository.ts` already projects `git_url` as
+  `git://github.com/${repository.full_name}.git`. Impact: Milestone 6 narrowed
+  to verification and stale suppression cleanup rather than introducing a
+  redundant URL change.
+- Observation: pull-request transform complexity remained real after URL
+  derivation moved out of entity schemas. Evidence: removing the old suppression
+  made Biome report cognitive complexity 14. Impact: the transform now delegates
+  number validation, state timestamp derivation, and base/head ref coordinate
+  normalization to small helpers before returning the normalized store shape.
 
 ## Decision log
 
@@ -500,6 +526,17 @@ Stop and escalate when any of these is reached.
   optional `html_url` presence misclassified organizations as users and produced
   `/login` instead of `/orgs/login` in GraphQL owner URLs. Date/Author:
   2026-06-25, implementation agent.
+- Decision D-23: treat the `git_url` defect as already fixed by the projector
+  and store-sparsity work, and verify that no malformed live URLs remain rather
+  than adding a redundant change. Rationale: source and tests now use
+  `git://github.com/...`; only historical execplan notes mention the old
+  malformed `git:github...`. Date/Author: 2026-06-25, implementation agent.
+- Decision D-24: refactor the pull-request transform instead of retaining the
+  complexity suppression. Rationale: after URL derivation moved out of schemas,
+  the remaining complexity was separable into issue-number validation, state
+  timestamp derivation, and ref coordinate normalization, which makes the schema
+  transform lint-clean without changing behaviour. Date/Author: 2026-06-25,
+  implementation agent.
 
 ## External references and prior art
 
