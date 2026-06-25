@@ -19,6 +19,37 @@ import type {DataSchemas, GraphQLData, ToGraphqlDispatcher} from './to-graphql-s
 import type {BaseUrls} from '../http/request-url.ts';
 import type {ExtendedSimulationStore} from '../store/index.ts';
 
+type GraphqlConverter<T extends keyof DataSchemas> = (entity: DataSchemas[T]) => GraphQLData[T];
+
+type ConverterMap = {
+  [T in keyof DataSchemas]: GraphqlConverter<T>;
+};
+
+/** Raises the existing unhandled-typename error after logging the rejected entity. */
+function throwUnhandledTypename(__typename: string, entity: unknown): never {
+  console.error(`toGraphql: unhandled __typename ${__typename}`, {
+    entity
+  });
+  throw new Error(`toGraphql: unhandled __typename ${__typename} for entity ${JSON.stringify(entity)}`);
+}
+
+/** Adapts entity-specific converters to a uniform request-bound dispatch shape. */
+function makeConverterMap(
+  simulationStore: ExtendedSimulationStore,
+  baseUrls: BaseUrls,
+  toGraphql: ToGraphqlDispatcher
+): ConverterMap {
+  return {
+    User: (entity) => convertUserToGraphql(simulationStore, entity, toGraphql, baseUrls),
+    Organization: (entity) => convertOrganizationToGraphql(simulationStore, entity, toGraphql, baseUrls),
+    Repository: (entity) => convertRepositoryToGraphql(simulationStore, entity, toGraphql, baseUrls),
+    Ref: (entity) => convertRefToGraphql(simulationStore, entity, toGraphql),
+    Commit: (entity) => convertCommitToGraphql(simulationStore, entity, baseUrls),
+    Issue: (entity) => convertIssueToGraphql(simulationStore, entity, baseUrls),
+    PullRequest: (entity) => convertPullRequestToGraphql(simulationStore, entity, toGraphql, baseUrls)
+  };
+}
+
 /**
  * Builds a request-bound dispatcher for stored GraphQL entities.
  *
@@ -32,48 +63,14 @@ export const makeToGraphql = (simulationStore: ExtendedSimulationStore, baseUrls
     __typename: T,
     entity: DataSchemas[T]
   ): GraphQLData[T] => {
-    switch (__typename) {
-      case 'User':
-        return convertUserToGraphql(
-          simulationStore,
-          entity as DataSchemas['User'],
-          toGraphql,
-          baseUrls
-        ) as GraphQLData[T];
-      case 'Organization':
-        return convertOrganizationToGraphql(
-          simulationStore,
-          entity as DataSchemas['Organization'],
-          toGraphql,
-          baseUrls
-        ) as GraphQLData[T];
-      case 'Repository':
-        return convertRepositoryToGraphql(
-          simulationStore,
-          entity as DataSchemas['Repository'],
-          toGraphql,
-          baseUrls
-        ) as GraphQLData[T];
-      case 'Ref':
-        return convertRefToGraphql(simulationStore, entity as DataSchemas['Ref'], toGraphql) as GraphQLData[T];
-      case 'Commit':
-        return convertCommitToGraphql(simulationStore, entity as DataSchemas['Commit'], baseUrls) as GraphQLData[T];
-      case 'Issue':
-        return convertIssueToGraphql(simulationStore, entity as DataSchemas['Issue'], baseUrls) as GraphQLData[T];
-      case 'PullRequest':
-        return convertPullRequestToGraphql(
-          simulationStore,
-          entity as DataSchemas['PullRequest'],
-          toGraphql,
-          baseUrls
-        ) as GraphQLData[T];
-      default:
-        console.error(`toGraphql: unhandled __typename ${__typename}`, {
-          entity
-        });
-        throw new Error(`toGraphql: unhandled __typename ${__typename} for entity ${JSON.stringify(entity)}`);
+    const converter = converters[__typename] as GraphqlConverter<T> | undefined;
+    if (!converter) {
+      return throwUnhandledTypename(__typename, entity);
     }
+
+    return converter(entity);
   }) as ToGraphqlDispatcher;
+  const converters = makeConverterMap(simulationStore, baseUrls, toGraphql);
 
   return toGraphql;
 };
