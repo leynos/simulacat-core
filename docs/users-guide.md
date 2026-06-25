@@ -132,6 +132,53 @@ Seeded refs, commits, issues, and pull requests are visible through the
 documented REST endpoints and through repository GraphQL fields such as
 `defaultBranchRef`, `ref`, `issues`, and `pullRequests`.
 
+## Request-derived URLs
+
+REST and GraphQL payload URLs are derived from the request that produced the
+response. A simulator listening on a random port returns repository, issue,
+pull request, commit, ref, branch, and organization URLs that point back at
+that same host and port.
+
+`apiUrl` controls the mounted API root and is included in API URLs:
+
+```typescript
+const app = simulation({
+  apiUrl: '/api/v3',
+  initialState
+});
+```
+
+A request to `http://127.0.0.1:49152/api/v3/repos/acme/awesome-repo` returns
+API links under `http://127.0.0.1:49152/api/v3/...` and web links under
+`http://127.0.0.1:49152/...`.
+
+Fixture URL fields are overrides. When a fixture explicitly seeds a URL, the
+projectors preserve it; when the field is omitted, the adapters derive it from
+the request. Nullable URL fields can still be set to `null` deliberately.
+
+```typescript
+simulation({
+  initialState: {
+    users: [],
+    organizations: [{login: 'acme'}],
+    repositories: [
+      {
+        owner: 'acme',
+        name: 'awesome-repo',
+        html_url: 'https://docs.example.test/acme/awesome-repo',
+        mirror_url: null
+      }
+    ],
+    branches: [],
+    blobs: []
+  }
+});
+```
+
+If a request has no usable `Host` header, Simulacat Core uses the absolute
+`SIMULACAT_GITHUB_API_URL` environment variable as a fallback base. Normal HTTP
+requests should not need that fallback because the request host is preferred.
+
 ## Request actors
 
 Authenticated-user surfaces use a simulator-controlled request actor instead

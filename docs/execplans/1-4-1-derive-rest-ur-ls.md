@@ -270,7 +270,20 @@ Stop and escalate when any of these is reached.
   4 snapshots, and 30516 assertions. CodeRabbit `coderabbit review --agent`
   completed with `findings: 0`.
 - [x] Milestone 6 — fix the `git_url` defect and remove dead suppressions.
-- [ ] Milestone 7 — documentation, capability notes, CHANGELOG, roadmap tick.
+- [x] 2026-06-25T04:22:05+02:00 — Milestone 7 documentation implementation
+  completed. Updated architecture, API reference, REST audit, development
+  guide, users guide, changelog, and roadmap to describe request-derived REST
+  and GraphQL URLs, host-agnostic store fixtures, explicit URL override
+  preservation, `apiUrl` path behaviour, and the `SIMULACAT_GITHUB_API_URL`
+  fallback. The roadmap now marks 1.4.1 complete.
+- [x] 2026-06-25T05:56:42+02:00 — Milestone 7 gates and review cleared.
+  `bun fmt`, `make check-fmt`, `make test`, `make typecheck`, `make lint`, and
+  `make --no-print-directory markdownlint nixie` passed after the documentation
+  updates. The full test run reported 308 passing tests, 4 snapshots, and
+  30516 assertions. CodeRabbit initially returned a recoverable rate limit, so
+  the requested randomized `vsleep` backoff ran for 85 minutes before retrying;
+  the retry completed with `findings: 0`.
+- [x] Milestone 7 — documentation, capability notes, CHANGELOG, roadmap tick.
 
 ## Surprises & discoveries
 
@@ -374,6 +387,11 @@ Stop and escalate when any of these is reached.
   made Biome report cognitive complexity 14. Impact: the transform now delegates
   number validation, state timestamp derivation, and base/head ref coordinate
   normalization to small helpers before returning the normalized store shape.
+- Observation: `CHANGELOG.md` predates strict Common Changelog formatting.
+  Evidence: existing headings omit dates and use escaped bracket headings such
+  as `## \[0.6.4]`. Impact: Milestone 7 adds a consumer-facing 0.6.5 entry in
+  the existing latest-first style and references PR #19 without rewriting
+  historical release notes.
 
 ## Decision log
 
@@ -537,6 +555,11 @@ Stop and escalate when any of these is reached.
   timestamp derivation, and ref coordinate normalization, which makes the schema
   transform lint-clean without changing behaviour. Date/Author: 2026-06-25,
   implementation agent.
+- Decision D-25: preserve the existing changelog release-entry shape for this
+  branch. Rationale: the current file does not follow strict Common Changelog
+  release headings, and converting historical entries would be unrelated churn;
+  a new latest-first 0.6.5 entry records the user-visible URL behaviour change
+  and references PR #19. Date/Author: 2026-06-25, implementation agent.
 
 ## External references and prior art
 
@@ -1050,8 +1073,24 @@ expansion contract test (record in Decision Log if used). `bun:test` and
 
 ## Outcomes & retrospective
 
-To be completed at major milestones and at the end. Compare the delivered
-behaviour against the five acceptance criteria, record the final `make test`
-counts, note any tolerance breaches, and capture lessons for the follow-on
-tasks 1.4.2 (`github3.py` contract tests) and 1.5 (mutable repository labels),
-which both reuse the URL-policy helpers introduced here.
+Delivered behaviour matches the acceptance criteria. REST and GraphQL payload
+URLs for repository, organization, branch, ref, commit, issue, and pull request
+entities are projected from the request host and configured API root. Stored
+fixtures are host-agnostic unless a caller explicitly seeds a URL override, and
+external repository fields such as `clone_url`, `ssh_url`, `svn_url`,
+`git_url`, `mirror_url`, and `homepage` are not simulator-host rewritten.
+
+Final deterministic validation passed with `make check-fmt`, `make test`,
+`make typecheck`, `make lint`, and `make --no-print-directory markdownlint
+nixie`. The final full test run reported 308 passing tests, 4 snapshots, and
+30516 assertions. CodeRabbit review for each major milestone completed with
+`findings: 0`; the only tolerance event was the expected recoverable
+CodeRabbit rate limit before the final documentation review, handled with the
+requested randomized `vsleep` backoff.
+
+Follow-on task 1.4.2 should use the request-derived URL projectors as its
+payload baseline and add real `github3.py` navigation tests rather than
+duplicating URL derivation logic. Follow-on task 1.5 can add first-class label
+entities on top of `src/urls/repository.ts`'s existing `labels_url` template
+projection, then promote a label-specific projector only if label payloads gain
+their own URL-bearing response shape.

@@ -198,6 +198,7 @@ Actor-aware extension handlers should call `requireRestUserActor()` from
 headers. Built-in REST handlers, caller OpenAPI overrides, and caller Express
 routes all see the same middleware-attached request actor context.
 
+
 ## Store and Modelling Constraints
 
 The current store model is enough for a thin set of repository and installation
@@ -208,8 +209,33 @@ Notable constraints:
 - Installations are generated for organizations during
   `githubInitialStoreSchema.parse(...)`, but caller-supplied installation rows
   are preserved rather than overwritten.
-- Generated repository, organization, and installation URLs assume
-  `localhost:3300`.
+- Repository, organization, branch, ref, commit, issue, and pull request URLs
+  are projected at the REST or GraphQL boundary from the inbound request host
+  and configured API root. Explicit fixture URL overrides are preserved.
+- External repository fields such as `clone_url`, `ssh_url`, `svn_url`,
+  `git_url`, `mirror_url`, and `homepage` are not rewritten to the simulator
+  host unless a caller explicitly seeds them that way.
+- Authentication and authorization are intentionally not enforced.
+
+These constraints reduce the realism of any attempt to script broader GitHub
+REST workflows.
+
+## Store and Modelling Constraints
+
+The current store model is enough for a thin set of repository and installation
+flows, but it is not a close model of the GitHub REST domain.
+
+Notable constraints:
+
+- Installations are generated for organizations during
+  `githubInitialStoreSchema.parse(...)`, but caller-supplied installation rows
+  are preserved rather than overwritten.
+- Repository, organization, branch, ref, commit, issue, and pull request URLs
+  are projected at the REST or GraphQL boundary from the inbound request host
+  and configured API root. Explicit fixture URL overrides are preserved.
+- External repository fields such as `clone_url`, `ssh_url`, `svn_url`,
+  `git_url`, `mirror_url`, and `homepage` are not rewritten to the simulator
+  host unless a caller explicitly seeds them that way.
 - Authentication and authorization are intentionally not enforced.
 
 These constraints reduce the realism of any attempt to script broader GitHub

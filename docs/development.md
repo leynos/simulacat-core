@@ -34,6 +34,27 @@ The normal contributor gate is:
 repository's preferred order. The `lint` target runs the `biomejs` and
 `oxlint` sub-targets.
 
+
+## URL derivation
+
+The GitHub store is host-agnostic. Entity schemas preserve caller-supplied URL
+fields, including explicit `null` where the GitHub shape allows it, but they do
+not synthesize simulator-host URLs while parsing fixtures.
+
+Request-derived URL policy is split across two layers:
+
+- `src/http/request-url.ts` normalizes `apiUrl`, derives API and web base URLs
+  from a request origin, and falls back to `SIMULACAT_GITHUB_API_URL` only when
+  the request has no usable HTTP(S) host.
+- `src/urls/` contains pure per-entity projectors for repository,
+  organization, branch, ref, commit, issue, and pull request payloads.
+
+New REST or GraphQL handlers should project URL-bearing payloads at the adapter
+boundary instead of reading derived URL fields from the store. Relevant coverage
+lives in `tests/request-url.test.ts`, `tests/urls.test.ts`,
+`tests/rest-request-urls.test.ts`, and the request-host GraphQL coverage in
+`tests/graphql.test.ts`.
+
 ### Spelling policy
 
 Run `make spelling` to enforce en-GB-oxendict spelling in tracked Markdown

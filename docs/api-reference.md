@@ -15,8 +15,9 @@ state, REST handlers, GraphQL resolvers, and a few convenience routes.
   `githubInitialStoreSchema`, so defaults and transforms are applied before the
   store is built.
 - `apiUrl?: string`
-  Changes the mounted REST API root. Applicable when a harness expects the API
-  to reside under `/api/v3` instead of `/`.
+  Changes the mounted REST API root and the API path embedded in derived
+  response URLs. Applicable when a harness expects the API to reside under
+  `/api/v3` instead of `/`.
 - `apiSchema?: SchemaFile | string`
   Loads one of the bundled schemas (`api.github.com.json`,
   `schema.docs.graphql`, or `schema.docs-enterprise.graphql`) or a custom file
@@ -128,7 +129,7 @@ remain later work.
 | `full_name`      | `string`                | No         | Derived as `${owner}/${name}`                        | Recomputed during schema transform.                      |
 | `visibility`     | `'public' \| 'private'` | No         | `'public'`                                           | Mapped into GraphQL repository visibility.               |
 | `default_branch` | `string`                | No         | `'main'`                                             | Used for the placeholder `defaultBranchRef`.             |
-| `url`            | `string`                | No         | Derived simulator URL                                | Recomputed as a simulator-local repository URL.          |
+| `url`            | `string`                | No         | Derived at response time                             | Uses the request host and `apiUrl` unless seeded.        |
 
 ### `githubBranchSchema`
 
@@ -138,7 +139,7 @@ remain later work.
 | `repo`      | `string`                         | Yes      | None     | Repository component of the canonical branch key.                                              |
 | `name`      | `string`                         | No       | `'main'` | Branch or ref name.                                                                            |
 | `protected` | `boolean`                        | No       | `true`   | Mirrors the REST branch payload field.                                                         |
-| `commit`    | `{ sha?: string; url?: string }` | No       | `{}`     | `commit.sha` is generated when absent, and `commit.url` is derived from that SHA when omitted. |
+| `commit`    | `{ sha?: string; url?: string }` | No       | `{}`     | `commit.sha` is generated; `commit.url` is projected unless seeded.                            |
 
 ### `githubBlobSchema`
 
@@ -156,8 +157,8 @@ remain later work.
 | Schema                    | Required identity fields                           | Key format                 | Notes                                                                                               |
 | ------------------------- | -------------------------------------------------- | -------------------------- | --------------------------------------------------------------------------------------------------- |
 | `githubRefSchema`         | `owner`, `repo`, `qualifiedName`, `object.sha`     | `owner/repo:qualifiedName` | Defaults unqualified names to branch refs for branches and tag refs for tags.                       |
-| `githubCommitSchema`      | `owner`, `repo`                                    | `owner/repo:sha`           | Generates `sha` when omitted and normalizes commit author, committer, tree, parent, and URL fields. |
-| `githubIssueSchema`       | `owner`, `repo`, `number`, `title`                 | `owner/repo#number`        | Supports minimal open/closed issue reads with generated ids, URLs, user, and timestamps.            |
+| `githubCommitSchema`      | `owner`, `repo`                                    | `owner/repo:sha`           | Generates `sha` when omitted and normalizes commit author, committer, tree, and parent fields.      |
+| `githubIssueSchema`       | `owner`, `repo`, `number`, `title`                 | `owner/repo#number`        | Supports minimal open/closed issue reads with generated ids, user, and timestamps.                  |
 | `githubPullRequestSchema` | `owner`, `repo`, `number`, `title`, `base`, `head` | `owner/repo!number`        | Supports minimal open/closed/merged pull request reads with base/head refs and linked issue number. |
 
 ### Fixture builders
@@ -191,11 +192,28 @@ Optional top-level collections default to empty arrays:
 Derived behaviour worth knowing:
 
 - Each organization creates a matching app installation during schema parsing.
-- Repositories gain GitHub-like URLs and default metadata.
+- Stored repositories gain default metadata, but URL fields stay absent unless
+  a fixture explicitly seeds them.
+- REST and GraphQL responses derive repository, organization, branch, ref,
+  commit, issue, and pull request URLs from the inbound request host and the
+  configured `apiUrl`.
 - Blobs may be addressed by `path`, `sha`, or both, but at least one must be
   present.
 - Refs, commits, issues, and pull requests are converted into owner-scoped keyed
   tables and reject duplicate canonical keys.
+
+### Request-derived URLs
+
+URL fields on stored fixtures are override fields, not seed-time defaults. When
+a URL field is omitted, built-in REST handlers and GraphQL resolvers project it
+from the current request. API URLs use the request host plus `apiUrl`; browser
+URLs use the same request host without the API root. Explicitly seeded URL
+fields are preserved, including nullable fields such as `mirror_url: null`.
+
+If a handler has no usable request `Host` header, the adapters use
+`SIMULACAT_GITHUB_API_URL` as an absolute fallback base. If neither source can
+produce an HTTP(S) origin, URL projection throws a greppable
+`SIMULACAT: cannot derive base URL` error.
 
 ## Capability matrix
 
