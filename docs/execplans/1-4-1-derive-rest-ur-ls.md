@@ -205,9 +205,38 @@ Stop and escalate when any of these is reached.
   collection, and top-level payload aliases are fixed. Final
   `coderabbit review --agent` reports `findings: 0`.
 - [x] Milestone 2 — per-entity URL projection policy (`src/urls/*`).
-- [ ] Milestone 3 — make the store host-agnostic (Zod transforms stop baking
+- [ ] 2026-06-25T02:23:11+02:00 — Milestone 3 started. The next red step is
+  to change `tests/entities.test.ts` so parsed store entities are
+  host-agnostic: URL fields must be absent unless the caller explicitly seeded
+  overrides, while non-URL defaults such as IDs, keys, timestamps, users, and
+  repository names continue to normalize.
+- [x] 2026-06-25T03:31:46+02:00 — Milestone 3 implementation is integrated
+  with Milestone 4 REST wiring. Parsed repository, issue, pull request,
+  organization, commit, ref, and branch entities now keep URL fields absent
+  unless explicitly seeded, and `tests/entities.test.ts` /
+  `tests/url-templates.golden.test.ts` assert the store is host-agnostic.
+  Full `make test` could not pass after the store change alone because sparse
+  entities made REST OpenAPI validation reject unprojected responses, so REST
+  projection wiring was required before committing the milestone.
+- [x] Milestone 3 — make the store host-agnostic (Zod transforms stop baking
   URLs; override-only storage).
-- [ ] Milestone 4 — wire the REST adapter to project per request.
+- [x] 2026-06-25T03:58:12+02:00 — Milestone 4 focused REST validation passed.
+  `tests/rest-utils.test.ts` now injects `apiBaseUrl` exactly, and the new
+  `tests/rest-request-urls.test.ts` starts random-port simulators for `/` and
+  `/api/v3` to verify repository, branch, ref, issue, pull request, commit,
+  content, and organization-membership URLs. The focused suite passed with
+  6 tests and 78 assertions after wiring `repos/get` through the enriched
+  repository selector and projecting the root Express wildcard ref route.
+- [x] 2026-06-25T04:13:05+02:00 — Milestone 3/4 deterministic gates passed.
+  `make check-fmt`, `make test`, `make typecheck`, `make lint`, and
+  `make --no-print-directory markdownlint nixie` all passed after the combined
+  store/REST changes. The final full test run reported 307 passing tests,
+  4 snapshots, and 30501 assertions.
+- [x] 2026-06-25T05:13:41+02:00 — Milestone 3/4 CodeRabbit review cleared.
+  The first `coderabbit review --agent` attempt hit a recoverable rate limit,
+  so the requested randomized `vsleep` backoff ran for 55 minutes before
+  retrying. The retry completed with `findings: 0`.
+- [x] Milestone 4 — wire the REST adapter to project per request.
 - [ ] Milestone 5 — wire the GraphQL adapter to project per request.
 - [ ] Milestone 6 — fix the `git_url` defect and remove dead suppressions.
 - [ ] Milestone 7 — documentation, capability notes, CHANGELOG, roadmap tick.
@@ -273,6 +302,19 @@ Stop and escalate when any of these is reached.
   guards raw inputs before string methods, canonicalizes `http://`/`https://`
   protocol delimiters before origin assembly, and fixes generated tests with a
   stable seed plus canonical host expectations.
+- Observation: the direct `GET /repos/{owner}/{repo}` REST route was not wired
+  to the seeded store. Evidence: the first `tests/rest-request-urls.test.ts`
+  run received the OpenAPI example payload
+  `https://api.github.com/repos/octocat/Hello-World` for a seeded
+  `lovely-org/awesome-repo` repository. Impact: Milestone 4 adds a `repos/get`
+  handler that uses the same enriched repository/organization selector as
+  `repos/list-for-org` before applying repository URL projection.
+- Observation: root-level Git ref requests bypass the OpenAPI handler through
+  a custom Express wildcard route. Evidence: `/api/v3/repos/.../git/ref/main`
+  returned a projected ref, but `/repos/.../git/ref/main` returned the raw
+  store object with no `url` or `object.url`. Impact: the wildcard route in
+  `src/extend-api.ts` now applies `projectRefUrls` using request-derived base
+  URLs with root API semantics.
 
 ## Decision log
 
@@ -383,6 +425,34 @@ Stop and escalate when any of these is reached.
   entities may omit derived URLs; intersecting with the original schema type
   accidentally kept those fields effectively required in TypeScript. Date/
   Author: 2026-06-24, implementation agent.
+- Decision D-18: the Milestone 0 URL snapshot is replaced by an explicit
+  host-agnostic store assertion once Milestone 3 removes schema URL synthesis.
+  Rationale: after parsed fixtures intentionally collect `{}` for URL fields, a
+  snapshot adds no template safety; `tests/urls.test.ts` now owns exact URL and
+  template projection coverage, while `tests/url-templates.golden.test.ts`
+  proves the parsed store remains sparse. Date/Author: 2026-06-25,
+  implementation agent.
+- Decision D-19: projector payload aliases explicitly allow `undefined` for
+  URL fields, and GraphQL `Repository.url` keeps a temporary non-request
+  fallback until Milestone 5. Rationale: with `exactOptionalPropertyTypes`, Zod
+  optional fields are visible to TypeScript as possibly `undefined`; the
+  projector runtime already treats `undefined` as "derive". GraphQL cannot be
+  request-scoped until the dispatcher is refactored in Milestone 5, so the
+  converter uses seeded `url`, seeded `html_url`, or a GitHub web fallback only
+  to keep the existing non-null GraphQL contract type-safe between milestones.
+  Date/Author: 2026-06-25, implementation agent.
+- Decision D-20: REST repository payloads project from an enriched
+  repository-with-owner response shape, but the nested owner keeps organization
+  identity URLs while gaining simple-user-only URL fields. Rationale:
+  repository list and get responses must satisfy the OpenAPI repository owner
+  schema after stored organization URLs become sparse; top-level organizations
+  still follow the organization projector from Decision D-15, while repository
+  owner sub-objects add `followers_url`, `following_url`, `gists_url`,
+  `starred_url`, `subscriptions_url`, `organizations_url`, and
+  `received_events_url` at the REST boundary. The owner `url`/`html_url` fields
+  continue to be preserved or derived by the organization projector so seeded
+  organization overrides are not silently rewritten. Date/Author: 2026-06-25,
+  implementation agent.
 
 ## External references and prior art
 

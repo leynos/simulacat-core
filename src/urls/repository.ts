@@ -53,7 +53,7 @@ export const repositoryUrlFields = [
 
 export type RepositoryUrlField = (typeof repositoryUrlFields)[number];
 export type RepositoryUrlPayload = Omit<GitHubRepository, RepositoryUrlField> &
-  Partial<Record<RepositoryUrlField, string | null>>;
+  Partial<Record<RepositoryUrlField, string | null | undefined>>;
 
 /** Builds the repository API path shared by derived fields. */
 const apiPath = (repository: RepositoryUrlPayload) => `/repos/${repository.full_name}`;
@@ -121,5 +121,10 @@ export const repositoryUrlFieldClassifications: UrlFieldClassification<Repositor
  * @param baseUrls Request-derived API and web bases.
  * @returns Repository payload with URL fields populated.
  */
-export const projectRepositoryUrls = (repository: RepositoryUrlPayload, baseUrls: BaseUrls): RepositoryUrlPayload =>
-  projectDerivedFields(repository, baseUrls, repositoryUrlFields, repositoryUrlBuilders);
+export const projectRepositoryUrls = (repository: RepositoryUrlPayload, baseUrls: BaseUrls): RepositoryUrlPayload => {
+  const projected = projectDerivedFields(repository, baseUrls, repositoryUrlFields, repositoryUrlBuilders);
+  return {
+    ...projected,
+    homepage: projected.homepage ?? null
+  };
+};

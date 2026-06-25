@@ -5,7 +5,7 @@ import {apiUrl, classifyUrlFields, projectDerivedFields, type UrlFieldClassifica
 
 export const branchUrlFields = ['protection_url'] as const;
 export type BranchUrlField = (typeof branchUrlFields)[number];
-export type BranchUrlPayload = Omit<GitHubBranch, BranchUrlField> & Partial<Record<BranchUrlField, string>>;
+export type BranchUrlPayload = Omit<GitHubBranch, BranchUrlField> & Partial<Record<BranchUrlField, string | undefined>>;
 
 const branchUrlBuilders = {
   protection_url: (branch, baseUrls) =>

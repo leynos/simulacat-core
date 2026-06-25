@@ -40,8 +40,7 @@ const pullRequestRefSchema = z.object({
  * `PullRequest:${pullRequestStoreKey(...)}`, `issue_number` falls back to the
  * pull request number, `closed_at` and `merged_at` are computed from state with
  * `updated_at` fallback, base/head owner and repo fall back to the top-level
- * owner and repo, and `url`, `html_url`, and `issue_url` are synthesized from
- * owner, repo, and number when omitted.
+ * owner and repo.
  *
  * @returns The normalized `GitHubPullRequest` shape used by the store and
  * adapters.
@@ -108,16 +107,7 @@ export const githubPullRequestSchema = z
         sha: pullRequest.head.sha
       },
       closed_at: closedAt,
-      merged_at: mergedAt,
-      url:
-        pullRequest.url ??
-        `https://api.github.com/repos/${pullRequest.owner}/${pullRequest.repo}/pulls/${pullRequest.number}`,
-      html_url:
-        pullRequest.html_url ??
-        `https://github.com/${pullRequest.owner}/${pullRequest.repo}/pull/${pullRequest.number}`,
-      issue_url:
-        pullRequest.issue_url ??
-        `https://api.github.com/repos/${pullRequest.owner}/${pullRequest.repo}/issues/${issueNumber}`
+      merged_at: mergedAt
     };
   });
 /* oxlint-enable complexity */

@@ -1,4 +1,4 @@
-/** @file Golden snapshots for current generated URL fields. */
+/** @file Store-level assertions for host-agnostic parsed fixtures. */
 import {describe, expect, it} from 'bun:test';
 import {
   buildBranchFixture,
@@ -52,8 +52,8 @@ const collectUrlFields = (value: unknown): unknown => {
   return Object.fromEntries(entries);
 };
 
-describe('generated URL field golden snapshots', () => {
-  it('captures the current parsed fixture URL output', () => {
+describe('host-agnostic fixture URL fields', () => {
+  it('does not synthesize URL fields while parsing fixtures', () => {
     const fixtures = {
       repository: buildRepositoryFixture({owner, name: repo}),
       issue: buildIssueFixture({owner, repo, number: 7, title: 'A seeded issue'}),
@@ -89,6 +89,6 @@ describe('generated URL field golden snapshots', () => {
       })
     };
 
-    expect(collectUrlFields(fixtures)).toMatchSnapshot();
+    expect(collectUrlFields(fixtures)).toEqual({});
   });
 });

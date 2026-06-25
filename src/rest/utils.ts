@@ -9,19 +9,19 @@ export const normalizeGitRefPath = (ref: string) => ref.replace(/^(heads|tags)\/
  *
  * @example
  * ```ts
- * const payload = blobAsBase64({blob, host, owner, repo, ref: 'README.md'});
+ * const payload = blobAsBase64({blob, apiBaseUrl, owner, repo, ref: 'README.md'});
  * ```
  */
 export const blobAsBase64 = ({
   blob,
-  host,
+  apiBaseUrl,
   owner,
   repo,
   ref,
   kind = 'contents'
 }: {
   blob: GitHubBlob;
-  host: string;
+  apiBaseUrl: string;
   owner: string;
   repo: string;
   ref: string;
@@ -34,8 +34,8 @@ export const blobAsBase64 = ({
     content: blob.encoding === 'base64' ? blob.content : Buffer.from(blob.content).toString('base64'),
     encoding: 'base64',
     url: shouldUseGitBlobUrl
-      ? `${host}/repos/${owner}/${repo}/git/blobs/${effectiveSha}`
-      : `${host}/repos/${owner}/${repo}/contents/${ref}`,
+      ? `${apiBaseUrl}/repos/${owner}/${repo}/git/blobs/${effectiveSha}`
+      : `${apiBaseUrl}/repos/${owner}/${repo}/contents/${ref}`,
     sha: effectiveSha,
     size: blob.encoding === 'base64' ? Buffer.from(blob.content, 'base64').byteLength : Buffer.byteLength(blob.content),
     node_id: Buffer.from(`Blob:${blobStoreKey(blob)}`).toString('base64')
@@ -47,18 +47,18 @@ export const blobAsBase64 = ({
  *
  * @example
  * ```ts
- * const tree = gitTrees({blobs, host, owner, repo, ref: 'tree-sha'});
+ * const tree = gitTrees({blobs, apiBaseUrl, owner, repo, ref: 'tree-sha'});
  * ```
  */
 export const gitTrees = ({
   blobs,
-  host,
+  apiBaseUrl,
   owner,
   repo,
   ref
 }: {
   blobs: GitHubBlob[];
-  host: string;
+  apiBaseUrl: string;
   owner: string;
   repo: string;
   ref: string;
@@ -75,13 +75,13 @@ export const gitTrees = ({
       sha: effectiveSha,
       // should be like /git/blobs/44b4fc6d56897b048c772eb4087f854f46256132,
       //  but just need to return a file with content in base64
-      url: `${host}/repos/${blob.owner}/${blob.repo}/git/blobs/${effectiveSha}`
+      url: `${apiBaseUrl}/repos/${blob.owner}/${blob.repo}/git/blobs/${effectiveSha}`
     };
   });
 
   return {
     sha: ref,
-    url: `${host}/repos/${owner}/${repo}/git/trees/${ref}`,
+    url: `${apiBaseUrl}/repos/${owner}/${repo}/git/trees/${ref}`,
     tree,
     truncated: false
   };
@@ -92,16 +92,16 @@ export const gitTrees = ({
  *
  * @example
  * ```ts
- * const status = commitStatusResponse({host, owner, repo, ref: 'abc123'});
+ * const status = commitStatusResponse({apiBaseUrl, owner, repo, ref: 'abc123'});
  * ```
  */
 export const commitStatusResponse = ({
-  host,
+  apiBaseUrl,
   owner,
   repo,
   ref
 }: {
-  host: string;
+  apiBaseUrl: string;
   owner: string;
   repo: string;
   ref: string;
@@ -127,8 +127,8 @@ export const commitStatusResponse = ({
       private: false,
       description: 'This your first repo!',
       fork: false,
-      trees_url: `${host}/repos/${owner}/${repo}/git/trees{/sha}`,
-      archive_url: `${host}/repos/${owner}/${repo}/{archive_format}{/ref}`
+      trees_url: `${apiBaseUrl}/repos/${owner}/${repo}/git/trees{/sha}`,
+      archive_url: `${apiBaseUrl}/repos/${owner}/${repo}/{archive_format}{/ref}`
     }
   };
 };

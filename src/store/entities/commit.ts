@@ -34,10 +34,10 @@ const actorSchema = z
  * `node_id`, REST URLs, commit message, author/committer actors, tree, and
  * parent commit references. It defaults `sha`, `commit.message`,
  * `commit.author`, `commit.committer`, and `commit.tree` when omitted. During
- * transformation, `commit.tree.sha` falls back to the top-level `sha`, and
+ * transformation, `commit.tree.sha` falls back to the top-level `sha`,
  * top-level `parents` take precedence over `commit.parents` when both fixture
- * forms are present. Missing `node_id`, `url`, `html_url`, tree URLs, and
- * parent URLs are synthesized from `commitStoreKey`, owner, repo, and sha.
+ * forms are present, and missing `node_id` values are synthesized from
+ * `commitStoreKey`.
  *
  * @returns The normalized `GitHubCommit` shape used by the store and adapters.
  */
@@ -74,21 +74,16 @@ export const githubCommitSchema = z
     // Top-level REST commit parents take precedence over nested commit parents
     // when both fixture forms are present.
     const parentInputs = input.parents ?? input.commit.parents ?? [];
-    const parents = parentInputs.map((parent) => ({
-      ...parent,
-      url: parent.url ?? `https://api.github.com/repos/${input.owner}/${input.repo}/git/commits/${parent.sha}`
-    }));
+    const parents = parentInputs.map((parent) => ({...parent}));
 
     return {
       ...input,
       node_id: input.node_id ?? Buffer.from(`Commit:${commitStoreKey(input)}`).toString('base64'),
-      url: input.url ?? `https://api.github.com/repos/${input.owner}/${input.repo}/git/commits/${input.sha}`,
-      html_url: input.html_url ?? `https://github.com/${input.owner}/${input.repo}/commit/${input.sha}`,
       commit: {
         ...input.commit,
         tree: {
-          sha: treeSha,
-          url: input.commit.tree.url ?? `https://api.github.com/repos/${input.owner}/${input.repo}/git/trees/${treeSha}`
+          ...input.commit.tree,
+          sha: treeSha
         },
         parents
       },

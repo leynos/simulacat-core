@@ -34,6 +34,10 @@ import type {User} from '../../__generated__/resolvers-types.ts';
  */
 const normalizeRefLookup = (qualifiedName: string) => qualifiedName.replace(/^refs\/(heads|tags)\//, '');
 
+/** Builds a stable repository URL until request-scoped GraphQL projection lands. */
+const repositoryFallbackUrl = (repo: DataSchemas['Repository']) =>
+  repo.url ?? repo.html_url ?? `https://github.com/${repo.full_name}`;
+
 interface ConversionContext {
   simulationStore: ExtendedSimulationStore;
   toGraphql: ToGraphqlDispatcher;
@@ -124,7 +128,7 @@ export function convertRepositoryToGraphql(
     id: repo.node_id ?? repositoryNodeId({owner: repo.owner, name: repo.name}),
     name: repo.name,
     nameWithOwner: repo.full_name,
-    url: repo.url,
+    url: repositoryFallbackUrl(repo),
     createdAt: repo.created_at ?? new Date(0).toISOString(),
     ...(repo.description ? {description: repo.description} : {}),
     collaborators(pageArgs: PageArgs) {

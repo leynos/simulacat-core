@@ -22,7 +22,7 @@ export const organizationUrlFields = [
 
 export type OrganizationUrlField = (typeof organizationUrlFields)[number];
 export type OrganizationUrlPayload = Omit<GitHubOrganization, OrganizationUrlField> &
-  Partial<Record<OrganizationUrlField, string>>;
+  Partial<Record<OrganizationUrlField, string | undefined>>;
 
 const organizationUrlBuilders = {
   url: (organization, baseUrls) => apiUrl(baseUrls, `/orgs/${organization.login}`),

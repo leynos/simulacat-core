@@ -8,10 +8,12 @@
 import type {createFoundationSimulationServer} from '@simulacrum/foundation-simulator';
 import {stringify} from 'querystring';
 import {createHandler} from './graphql/handler.ts';
+import {buildBaseUrls} from './http/request-url.ts';
 import {requestActorMiddleware} from './middleware/request-actor.ts';
 import {normalizeGitRefPath} from './rest/utils.ts';
 import {getActorObservabilityMetrics} from './store/actors.ts';
 import type {ExtendedSimulationStore} from './store/index.ts';
+import {projectRefUrls} from './urls/ref.ts';
 
 /**
  * The `extendRouter` callback shape expected by
@@ -72,7 +74,16 @@ export const extendRouter =
       const item = repository ? simulationStore.selectors.getRef(state, {owner, repo, qualifiedName}) : undefined;
 
       if (!item) return response.status(404).json(notFound);
-      return response.status(200).json(item);
+      const {SIMULACAT_GITHUB_API_URL: fallbackBaseUrl} = process.env;
+      const baseUrls = buildBaseUrls(
+        {
+          protocol: request.protocol,
+          host: request.headers.host ?? ''
+        },
+        '/',
+        fallbackBaseUrl
+      );
+      return response.status(200).json(projectRefUrls(item, baseUrls));
     });
 
     router.get(['/login/oauth/authorize'], (request, response) => {

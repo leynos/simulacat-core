@@ -7,7 +7,7 @@ export const issueApiUrlFields = ['url', 'repository_url'] as const;
 export const issueWebUrlFields = ['html_url'] as const;
 export const issueUrlFields = [...issueApiUrlFields, ...issueWebUrlFields] as const;
 export type IssueUrlField = (typeof issueUrlFields)[number];
-export type IssueUrlPayload = Omit<GitHubIssue, IssueUrlField> & Partial<Record<IssueUrlField, string>>;
+export type IssueUrlPayload = Omit<GitHubIssue, IssueUrlField> & Partial<Record<IssueUrlField, string | undefined>>;
 
 const issueUrlBuilders = {
   url: (issue, baseUrls) => apiUrl(baseUrls, `/repos/${issue.owner}/${issue.repo}/issues/${issue.number}`),

@@ -225,10 +225,10 @@ describe('projectRepositoryUrls', () => {
     expect(projected.url).toBe(`${baseUrls.apiBaseUrl}/repos/${fullName}`);
   });
 
-  it('does not invent missing repository homepage metadata', () => {
+  it('emits null for missing repository homepage metadata', () => {
     const repository = omitFields(buildRepositoryFixture({owner, name: repo}), [...repositoryUrlFields, 'homepage']);
 
-    expect(projectRepositoryUrls(repository, baseUrls).homepage).toBeUndefined();
+    expect(projectRepositoryUrls(repository, baseUrls).homepage).toBeNull();
   });
 });
 
@@ -294,9 +294,19 @@ describe('non-repository URL projectors', () => {
     expect(firstOrganization.avatar_url).not.toBe(secondOrganization.avatar_url);
   });
 
-  it('does not rewrite explicit legacy URL fields when projecting current parsed fixtures', () => {
-    const repository = buildRepositoryFixture({owner, name: repo});
-    const issue = buildIssueFixture({owner, repo, number: 7, title: 'A seeded issue'});
+  it('does not rewrite explicit URL overrides when projecting parsed fixtures', () => {
+    const repository = buildRepositoryFixture({
+      owner,
+      name: repo,
+      url: 'https://legacy.example.test/repos/lovely-org/awesome-repo'
+    });
+    const issue = buildIssueFixture({
+      owner,
+      repo,
+      number: 7,
+      title: 'A seeded issue',
+      url: 'https://legacy.example.test/repos/lovely-org/awesome-repo/issues/7'
+    });
 
     expect(projectRepositoryUrls(repository, baseUrls).url).toBe(repository.url);
     expect(projectIssueUrls(issue, baseUrls).url).toBe(issue.url);

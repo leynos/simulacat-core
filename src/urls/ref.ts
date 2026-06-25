@@ -5,7 +5,7 @@ import {apiUrl, classifyUrlFields, projectDerivedFields, type UrlFieldClassifica
 
 export const refUrlFields = ['url'] as const;
 export type RefUrlField = (typeof refUrlFields)[number];
-export type RefUrlPayload = Omit<GitHubRef, RefUrlField> & Partial<Record<RefUrlField, string>>;
+export type RefUrlPayload = Omit<GitHubRef, RefUrlField> & Partial<Record<RefUrlField, string | undefined>>;
 
 /** Maps a Git ref object type to its REST API path segment. */
 const refObjectApiPath = (objectType: GitHubRef['object']['type']): string => {

@@ -2,8 +2,6 @@
 import {faker} from '@faker-js/faker';
 import {z} from 'zod';
 
-const GITHUB_API_HOST = 'https://api.github.com';
-
 export const githubBranchSchema = z
   .object({
     owner: z.string(),
@@ -23,17 +21,13 @@ export const githubBranchSchema = z
   .transform((branch) => {
     const sha = branch.commit.sha ?? faker.git.commitSha();
     const commit = {
-      sha,
-      url: branch.commit.url ?? `${GITHUB_API_HOST}/repos/${branch.owner}/${branch.repo}/commits/${sha}`
+      ...branch.commit,
+      sha
     };
-    const protection_url =
-      branch.protection_url ??
-      `${GITHUB_API_HOST}/repos/${branch.owner}/${branch.repo}/branches/${branch.name}/protection`;
 
     return {
       ...branch,
-      commit,
-      protection_url
+      commit
     };
   });
 

@@ -5,7 +5,7 @@ import {apiUrl, classifyUrlFields, projectDerivedFields, webUrl, type UrlFieldCl
 
 export const commitUrlFields = ['url', 'html_url'] as const;
 export type CommitUrlField = (typeof commitUrlFields)[number];
-export type CommitUrlPayload = Omit<GitHubCommit, CommitUrlField> & Partial<Record<CommitUrlField, string>>;
+export type CommitUrlPayload = Omit<GitHubCommit, CommitUrlField> & Partial<Record<CommitUrlField, string | undefined>>;
 
 const commitUrlBuilders = {
   url: (commit, baseUrls) => apiUrl(baseUrls, `/repos/${commit.owner}/${commit.repo}/commits/${commit.sha}`),

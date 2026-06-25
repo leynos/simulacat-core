@@ -8,7 +8,7 @@ export const pullRequestWebUrlFields = ['html_url'] as const;
 export const pullRequestUrlFields = [...pullRequestApiUrlFields, ...pullRequestWebUrlFields] as const;
 export type PullRequestUrlField = (typeof pullRequestUrlFields)[number];
 export type PullRequestUrlPayload = Omit<GitHubPullRequest, PullRequestUrlField> &
-  Partial<Record<PullRequestUrlField, string>>;
+  Partial<Record<PullRequestUrlField, string | undefined>>;
 
 const pullRequestUrlBuilders = {
   url: (pullRequest, baseUrls) =>

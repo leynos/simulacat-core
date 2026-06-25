@@ -36,9 +36,8 @@ const issuePullRequestLinkSchema = z.object({
  * `user: {login: 'octocat'}`, and `created_at` / `updated_at` from
  * `defaultTimestamp`. During transformation, missing IDs use
  * `ENTITY_ID_OFFSETS.ISSUE + number`, `node_id` is Base64 of
- * `Issue:${issueStoreKey(issue)}`, `closed_at` becomes the supplied value or
- * `updated_at` for closed issues and `null` otherwise, and `url`, `html_url`,
- * and `repository_url` are synthesized from owner, repo, and issue number.
+ * `Issue:${issueStoreKey(issue)}`, and `closed_at` becomes the supplied value
+ * or `updated_at` for closed issues and `null` otherwise.
  *
  * @returns The normalized `GitHubIssue` shape used by the store and adapters.
  */
@@ -75,10 +74,7 @@ export const githubIssueSchema = z
       id: issue.id ?? ENTITY_ID_OFFSETS.ISSUE + issue.number,
       node_id: issue.node_id ?? Buffer.from(`Issue:${key}`).toString('base64'),
       user: issue.user ?? {login: 'octocat'},
-      closed_at: issue.state === 'closed' ? (issue.closed_at ?? issue.updated_at) : null,
-      url: issue.url ?? `https://api.github.com/repos/${issue.owner}/${issue.repo}/issues/${issue.number}`,
-      html_url: issue.html_url ?? `https://github.com/${issue.owner}/${issue.repo}/issues/${issue.number}`,
-      repository_url: issue.repository_url ?? `https://api.github.com/repos/${issue.owner}/${issue.repo}`
+      closed_at: issue.state === 'closed' ? (issue.closed_at ?? issue.updated_at) : null
     };
   });
 
