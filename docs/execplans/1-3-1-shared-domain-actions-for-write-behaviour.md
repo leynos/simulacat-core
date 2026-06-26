@@ -152,10 +152,10 @@ Stop and escalate when any of these is breached:
 
 - [x] (Stage A) Confirm orientation facts and finalize the demonstrator field
       set; no code changes.
-- [ ] (Stage B) Red: store-level unit/property tests for the pure reducer and
+- [x] (Stage B) Red: store-level unit/property tests for the pure reducer and
       the dispatched action; REST+GraphQL cross-surface integration test; a
       Gherkin scenario. All fail for the expected reasons.
-- [ ] (Stage C) Green: implement the pure reducer, the thunk adapter, the
+- [x] (Stage C) Green: implement the pure reducer, the thunk adapter, the
       dispatch helper, wire `inputActions`, add the `repos/update` and
       `repos/get` handlers.
 - [ ] (Stage D) Refactor, documentation, JSDoc, and gate clean-up; CodeRabbit
@@ -205,6 +205,55 @@ Stop and escalate when any of these is breached:
   `src/graphql/resolvers.ts:createResolvers`. Impact: a store write to the
   repository table is observable through the existing GraphQL read path with
   no resolver change.
+- Observation: Stage B red tests now cover the reducer contract, store action,
+  use case, REST/GraphQL read-your-write behaviour, Gherkin acceptance, and
+  action extension coexistence. Evidence:
+  `/tmp/red-store-actions-simulacat-core-1-3-1-shared-domain-actions-for-write-behaviour.out`
+  fails because `src/store/actions/repository.ts` does not exist;
+  `/tmp/red-repository-write-simulacat-core-1-3-1-shared-domain-actions-for-write-behaviour.out`
+  fails because `PATCH /repos/acme/awesome-repo` returns the OpenAPI example
+  repository instead of persisted fixture state;
+  `/tmp/red-shared-domain-feature-simulacat-core-1-3-1-shared-domain-actions-for-write-behaviour.out`
+  fails because REST and GraphQL reads still see the original descriptions;
+  and
+  `/tmp/red-extension-actions-simulacat-core-1-3-1-shared-domain-actions-for-write-behaviour.out`
+  fails because `simulationStore.actions.updateRepository` is undefined.
+  Impact: implementation can now proceed against observed failing behaviour.
+- Observation: Stage C introduced the shared action spine under
+  `src/store/actions/`: a pure repository reducer and command builder, a
+  generic `createEntityUpdateThunk`, a `dispatchWrite` helper, and
+  `updateRepositoryUseCase`. `src/store/index.ts` now wires
+  `buildDomainActions(args)` through the built-in action set.
+  Impact: future mutable slices can reuse the reducer/thunk/use-case shape
+  rather than mutating tables in route handlers.
+- Observation: `starfx` table `set` replaces the entire table, while `add`
+  upserts the provided entities into the existing table. Evidence:
+  `node_modules/starfx/dist/esm/store/slice/table.js`; the focused
+  two-owner store test initially lost `globex/awesome-repo` when the adapter
+  used `table.set({[id]: entity})`. Impact: shared update thunks must use
+  `table.add` for whole-entity upserts unless a future slice intentionally
+  replaces the full table.
+- Observation: caller action extensions must remain possible alongside
+  built-in actions, and schema extensions are optional in real use. Evidence:
+  `tests/extension-handlers.test.ts` exercises an action-only
+  `extendStore` configuration. Impact: `GitHubExtendStoreInput` now allows
+  extra action names and keeps `schema` optional, matching the existing
+  runtime extension contract.
+- Observation: the Stage C focused gate passes for store actions,
+  repository write integration, cross-owner Gherkin scenarios, and extension
+  coexistence. The full Stage C commit gates also pass:
+  `make check-fmt`, `make markdownlint`, `make typecheck`, `make lint`, and
+  `make test` (275 tests). Evidence:
+  `/tmp/focused-stage-c-simulacat-core-1-3-1-shared-domain-actions-for-write-behaviour.out`
+  plus
+  `/tmp/check-fmt-simulacat-core-1-3-1-shared-domain-actions-for-write-behaviour-stage-c.out`,
+  `/tmp/markdownlint-simulacat-core-1-3-1-shared-domain-actions-for-write-behaviour-stage-c.out`,
+  `/tmp/typecheck-simulacat-core-1-3-1-shared-domain-actions-for-write-behaviour-stage-c.out`,
+  `/tmp/lint-simulacat-core-1-3-1-shared-domain-actions-for-write-behaviour-stage-c.out`,
+  and
+  `/tmp/test-simulacat-core-1-3-1-shared-domain-actions-for-write-behaviour-stage-c.out`.
+  Impact: implementation can proceed to CodeRabbit review and Stage D
+  documentation.
 
 ## Decision log
 
@@ -255,12 +304,15 @@ Stop and escalate when any of these is breached:
   build on.
   Date/Author: 2026-06-17, planning (added after design review).
 - Decision: the demonstrator command type is
-  `Partial<Record<RepositoryWritableField, string>>` (string-only).
+  `Partial<Record<RepositoryWritableField, string | undefined>>`
+  (string-only values, with optional generated entries tolerated).
   Rationale: `description` and `homepage` are both strings. Boolean policy
   fields (e.g. `private`) are out of scope (phase 4); when a later slice needs
-  them the command/whitelist types widen to a field→value union. Noted so the
-  narrowing is a deliberate, documented choice rather than an oversight
-  (Buzzy Bee).
+  them the command/whitelist types widen to a field→value union. The
+  `undefined` allowance reflects exact optional property typing and property
+  test generation; `buildUpdateRepositoryCommand` still accepts only string
+  values from adapter bodies. Noted so the narrowing is a deliberate,
+  documented choice rather than an oversight.
   Date/Author: 2026-06-17, planning (added after design review).
 - Decision: LemmaScript proof is optional and gate-isolated.
   Rationale: it introduces a Dafny/Lean toolchain dependency (Tech Preview);
@@ -658,6 +710,19 @@ Red-Green-Refactor evidence to record in this section as work proceeds:
 - Red: paste the failing transcript from `/tmp/red-*.out` showing the tests
   fail for the intended reasons (missing modules/routes, mismatched
   description).
+  Evidence captured on 2026-06-26:
+  - `/tmp/red-store-actions-simulacat-core-1-3-1-shared-domain-actions-for-write-behaviour.out`
+    shows `Cannot find module '../src/store/actions/repository.ts'`.
+  - `/tmp/red-repository-write-simulacat-core-1-3-1-shared-domain-actions-for-write-behaviour.out`
+    shows `PATCH /repos/acme/awesome-repo` returning the bundled OpenAPI
+    example repository (`octocat/Hello-World`) rather than the seeded
+    `acme/awesome-repo`.
+  - `/tmp/red-shared-domain-feature-simulacat-core-1-3-1-shared-domain-actions-for-write-behaviour.out`
+    shows the new Gherkin scenario reading `"This your first repo!"` through
+    REST and `"Original description"` through GraphQL after the write.
+  - `/tmp/red-extension-actions-simulacat-core-1-3-1-shared-domain-actions-for-write-behaviour.out`
+    shows `simulationStore.actions.updateRepository` is currently `undefined`
+    when caller action extensions are present.
 - Green: paste the passing transcript from `/tmp/green-writes.out`.
 - Refactor: paste the final `make all`-equivalent transcript
   (`check-fmt`, `typecheck`, `lint`, `test` all green).

@@ -133,3 +133,15 @@ export {
   repositoryNodeId,
   repositoryStoreKey
 } from './store/keys.ts';
+export {buildDomainActions, createEntityUpdateThunk, type DomainActionArgs} from './store/actions/index.ts';
+export {dispatchWrite} from './store/actions/dispatch.ts';
+export {
+  applyRepositoryUpdate,
+  buildUpdateRepositoryCommand,
+  isRepositoryWritableField,
+  REPOSITORY_WRITABLE_FIELDS,
+  type BuildUpdateRepositoryCommandInput,
+  type RepositoryWritableField,
+  type UpdateRepositoryCommand
+} from './store/actions/repository.ts';
+export {updateRepositoryUseCase, type UpdateRepositoryResult} from './store/actions/repository-use-case.ts';

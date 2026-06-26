@@ -1,0 +1,153 @@
+/** @file Unit and store-level tests for shared repository write actions. */
+import {describe, expect, it} from 'bun:test';
+import fc from 'fast-check';
+import {simulation, type InitialState, buildRepositoryFixture} from '../src/index.ts';
+import {applyRepositoryUpdate, type UpdateRepositoryCommand} from '../src/store/actions/repository.ts';
+import {updateRepositoryUseCase} from '../src/store/actions/repository-use-case.ts';
+
+/** Builds a repository fixture used by reducer property tests. */
+const repositoryFixture = () =>
+  buildRepositoryFixture({
+    owner: 'acme',
+    name: 'awesome-repo',
+    description: 'Original description',
+    homepage: 'https://old.example.test'
+  });
+
+const initialState: InitialState = {
+  users: [],
+  organizations: [{login: 'acme'}, {login: 'globex'}],
+  repositories: [
+    {owner: 'acme', name: 'awesome-repo', description: 'Original description'},
+    {owner: 'globex', name: 'awesome-repo', description: 'Other description'}
+  ],
+  branches: [],
+  blobs: []
+};
+
+const command: UpdateRepositoryCommand = {
+  owner: 'acme',
+  name: 'awesome-repo',
+  changes: {description: 'Updated description'}
+};
+
+const writeableString = fc.string({maxLength: 80});
+const commandArbitrary = fc.record({
+  owner: fc.constant('acme'),
+  name: fc.constant('awesome-repo'),
+  changes: fc.record(
+    {
+      description: fc.option(writeableString, {nil: undefined}),
+      homepage: fc.option(writeableString, {nil: undefined})
+    },
+    {requiredKeys: []}
+  )
+});
+
+describe('repository write action reducer', () => {
+  it('applies whitelisted repository fields without mutating the current repository', () => {
+    const current = repositoryFixture();
+    const updated = applyRepositoryUpdate(current, {
+      owner: current.owner,
+      name: current.name,
+      changes: {
+        description: 'New description',
+        homepage: 'https://new.example.test',
+        private: 'ignored'
+      } as UpdateRepositoryCommand['changes']
+    });
+
+    expect(updated).not.toBe(current);
+    expect(updated.description).toBe('New description');
+    expect(updated.homepage).toBe('https://new.example.test');
+    expect(updated.private).toBe(current.private);
+    expect(current.description).toBe('Original description');
+  });
+
+  it('leaves the repository equal-valued for an empty update', () => {
+    const current = repositoryFixture();
+    const updated = applyRepositoryUpdate(current, {
+      owner: current.owner,
+      name: current.name,
+      changes: {}
+    });
+
+    expect(updated).toEqual(current);
+    expect(updated).not.toBe(current);
+  });
+
+  it('is idempotent for repeated commands', () => {
+    fc.assert(
+      fc.property(commandArbitrary, (generatedCommand) => {
+        const current = repositoryFixture();
+        const once = applyRepositoryUpdate(current, generatedCommand);
+        const twice = applyRepositoryUpdate(once, generatedCommand);
+
+        expect(twice).toEqual(once);
+      })
+    );
+  });
+
+  it('is deterministic and keeps the input repository unchanged', () => {
+    fc.assert(
+      fc.property(commandArbitrary, (generatedCommand) => {
+        const current = repositoryFixture();
+        const snapshot = structuredClone(current);
+
+        expect(applyRepositoryUpdate(current, generatedCommand)).toEqual(
+          applyRepositoryUpdate(structuredClone(snapshot), structuredClone(generatedCommand))
+        );
+        expect(current).toEqual(snapshot);
+      })
+    );
+  });
+
+  it('preserves fields outside the repository write whitelist', () => {
+    fc.assert(
+      fc.property(writeableString, (policyValue) => {
+        const current = repositoryFixture();
+        const updated = applyRepositoryUpdate(current, {
+          ...command,
+          changes: {description: 'Allowed', private: policyValue} as UpdateRepositoryCommand['changes']
+        });
+
+        expect(updated.private).toBe(current.private);
+        expect(updated.description).toBe('Allowed');
+      })
+    );
+  });
+});
+
+describe('repository write action dispatch', () => {
+  it('dispatches updates through the store without touching other owners', async () => {
+    const server = await simulation({initialState}).listen(0);
+    try {
+      await server.simulationStore.store.dispatch(server.simulationStore.actions.updateRepository(command));
+      const state = server.simulationStore.store.getState();
+
+      expect(server.simulationStore.selectors.getRepository(state, 'acme', 'awesome-repo')?.description).toBe(
+        'Updated description'
+      );
+      expect(server.simulationStore.selectors.getRepository(state, 'globex', 'awesome-repo')?.description).toBe(
+        'Other description'
+      );
+    } finally {
+      await server.ensureClose();
+    }
+  });
+
+  it('reports not-found updates through the shared use case', async () => {
+    const server = await simulation({initialState}).listen(0);
+    try {
+      await expect(
+        updateRepositoryUseCase(server.simulationStore, {
+          owner: 'acme',
+          name: 'missing',
+          changes: {description: 'No repository'}
+        })
+      ).resolves.toEqual({ok: false, reason: 'not-found'});
+    } finally {
+      await server.ensureClose();
+    }
+  });
+});

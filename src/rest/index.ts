@@ -18,12 +18,15 @@ import {
   projectOrganizationUrls,
   projectPullRequestUrls,
   projectRefUrls,
-  projectRepositoryUrls
+  projectRepositoryUrls,
 } from '../urls/index.ts';
 import {urlPathSegment} from '../urls/shared.ts';
 import {getSchema, type SchemaFile} from '../utils.ts';
 import {requireRestUserActor} from './actor-context.ts';
 import {blobAsBase64, commitStatusResponse, gitTrees, normalizeGitRefPath} from './utils.ts';
+
+import {buildUpdateRepositoryCommand} from '../store/actions/repository.ts';
+import {updateRepositoryUseCase} from '../store/actions/repository-use-case.ts';
 
 /** REST handler callback shape supplied by the foundation simulator. */
 type SimulationHandler = SimulationHandlers[string];
@@ -59,134 +62,6 @@ const handlers =
     extendedHandlers: ((simulationStore: ExtendedSimulationStore) => SimulationHandlers) | undefined
   ) =>
   (simulationStore: ExtendedSimulationStore): SimulationHandlers => {
-    const getState = () => simulationStore.store.getState();
-    type StoreState = ReturnType<typeof getState>;
-    type RepositoryListSelector = (state: StoreState, repository: RepositoryRouteParams) => unknown;
-
-    const {SIMULACAT_GITHUB_API_URL: fallbackBaseUrl} = process.env;
-    const baseUrlsFor = (request: Req) =>
-      buildBaseUrls(
-        {
-          protocol: request.protocol,
-          host: request.headers.host ?? ''
-        },
-        apiRoot,
-        fallbackBaseUrl,
-        makeUrlObservationContext('rest', request.simulacatActor?.observationContext?.requestId)
-      );
-
-    const projectList = (items: unknown, baseUrls: BaseUrls, project?: RestProjector) => {
-      if (!project) return items;
-      if (!Array.isArray(items)) return items;
-      return items.map((item) => project(item, baseUrls));
-    };
-
-    const projectRepositoryOwnerResponse = (owner: any, baseUrls: BaseUrls) => {
-      const projected = projectOrganizationUrls(owner, baseUrls);
-      const userPath = `/users/${urlPathSegment(projected.login)}`;
-      return {
-        ...projected,
-        followers_url: projected.followers_url ?? buildUrl(baseUrls.apiBaseUrl, `${userPath}/followers`),
-        following_url: projected.following_url ?? buildUrl(baseUrls.apiBaseUrl, `${userPath}/following{/other_user}`),
-        gists_url: projected.gists_url ?? buildUrl(baseUrls.apiBaseUrl, `${userPath}/gists{/gist_id}`),
-        starred_url: projected.starred_url ?? buildUrl(baseUrls.apiBaseUrl, `${userPath}/starred{/owner}{/repo}`),
-        subscriptions_url: projected.subscriptions_url ?? buildUrl(baseUrls.apiBaseUrl, `${userPath}/subscriptions`),
-        organizations_url: projected.organizations_url ?? buildUrl(baseUrls.apiBaseUrl, `${userPath}/orgs`),
-        received_events_url:
-          projected.received_events_url ?? buildUrl(baseUrls.apiBaseUrl, `${userPath}/received_events`)
-      };
-    };
-
-    const projectRepositoryResponse = (repository: any, baseUrls: BaseUrls) => {
-      const projected = projectRepositoryUrls(repository, baseUrls);
-      if (typeof projected.owner !== 'object') return projected;
-      if (projected.owner === null) return projected;
-      return {
-        ...projected,
-        owner: projectRepositoryOwnerResponse(projected.owner, baseUrls)
-      };
-    };
-
-    /**
-     * Ensures a repository exists before a repository-scoped handler proceeds.
-     *
-     * @param owner Repository owner login.
-     * @param repo Repository name.
-     * @param response Response adapter used to emit a missing-repository 404.
-     * @returns The repository fixture, or `null` after sending `notFound`.
-     *
-     * Uses `simulationStore.selectors.getRepository` with `getState()`. When
-     * the repository is missing, this function has the side effect of sending
-     * the shared `notFound` JSON response.
-     */
-    const requireRepository = (owner: string, repo: string, response: Res) => {
-      const repository = simulationStore.selectors.getRepository(getState(), owner, repo);
-      if (!repository) response.status(404).json(notFound);
-      return repository ?? null;
-    };
-
-    /** Reads repository identity from a repository-scoped REST request context. */
-    const readRepositoryRouteParams = (context: Ctx): RepositoryRouteParams =>
-      context.request.params as RepositoryRouteParams;
-
-    /**
-     * Creates a repository-specific list `SimulationHandler`.
-     *
-     * @param selector Function that receives the current `getState()` result
-     * and repository route params, and returns the selected list data.
-     * @param options Optional response projection configuration.
-     * @returns A `SimulationHandler` that sends JSON `200` with the selected
-     * data, or exits early when `requireRepository` sends a 404.
-     *
-     * `makeListHandler` expects request params shaped as
-     * `{owner: string; repo: string}`. It calls `requireRepository` before
-     * invoking `selector`, and calls `getState` for the selector input. When
-     * `options.project` is supplied, each selected list item is projected with
-     * request-derived base URLs before the response is sent.
-     */
-    const makeListHandler =
-      (selector: RepositoryListSelector, options: MakeListHandlerOptions = {}): SimulationHandler =>
-      async (context: Ctx, request: Req, response: Res) => {
-        const repository = readRepositoryRouteParams(context);
-        if (!requireRepository(repository.owner, repository.repo, response)) return;
-        return response
-          .status(200)
-          .json(projectList(selector(getState(), repository), baseUrlsFor(request), options.project));
-      };
-
-    /**
-     * Creates a repository-specific item `SimulationHandler`.
-     *
-     * @typeParam TParam Route parameter name used to identify the item.
-     * @param paramName Name of the item parameter in `context.request.params`.
-     * @param selector Function that accepts state, owner, repo, and the
-     * coerced item parameter, returning the selected item or a falsy value.
-     * @param coerce Optional conversion applied to `params[paramName]` before
-     * selector dispatch. The default is string passthrough; callers may pass
-     * numeric coercion such as `Number`.
-     * @returns A `SimulationHandler` that sends 404 when the repository or item
-     * is not found, and JSON `200` with the item when present.
-     *
-     * The generated handler expects request params containing `owner`, `repo`,
-     * and `paramName`. It calls `requireRepository`, applies `coerce`, and then
-     * delegates to `selector`.
-     */
-    const makeItemHandler =
-      <TParam extends string>(
-        paramName: TParam,
-        selector: (state: ReturnType<typeof getState>, owner: string, repo: string, param: string | number) => unknown,
-        coerce: (value: string) => string | number = (value) => value,
-        project?: RestProjector
-      ): SimulationHandler =>
-      async (context: Ctx, request: Req, response: Res) => {
-        const params = context.request.params as {owner: string; repo: string} & Record<string, string>;
-        const {owner, repo} = params;
-        if (!requireRepository(owner, repo, response)) return;
-        const item = selector(getState(), owner, repo, coerce(params[paramName] ?? ''));
-        if (!item) return response.status(404).json(notFound);
-        return response.status(200).json(project ? project(item, baseUrlsFor(request)) : item);
-      };
-
     const baseHandlers = !initialState
       ? {}
       : {
@@ -287,6 +162,24 @@ const handlers =
             if (!repository) response.status(404).json(notFound);
             if (!repository) return;
             return response.status(200).json(projectRepositoryResponse(repository, baseUrlsFor(request)));
+          },
+          // GET /repos/{owner}/{repo}
+          'repos/get': async (context: Ctx, _request: Req, response: Res) => {
+            const {owner, repo} = context.request.params;
+            if (!requireRepository(owner, repo, response)) return;
+            const shapedRepository = shapeRepository(owner, repo);
+            if (!shapedRepository) return response.status(404).json(notFound);
+            return response.status(200).json(shapedRepository);
+          },
+          // PATCH /repos/{owner}/{repo}
+          'repos/update': async (context: Ctx, request: Req, response: Res) => {
+            const {owner, repo} = context.request.params;
+            const command = buildUpdateRepositoryCommand({owner, name: repo, body: request.body});
+            const result = await updateRepositoryUseCase(simulationStore, command);
+            if (!result.ok) return response.status(404).json(notFound);
+            const shapedRepository = shapeRepository(owner, repo);
+            if (!shapedRepository) return response.status(404).json(notFound);
+            return response.status(200).json(shapedRepository);
           },
           // L#29067 /repos/{owner}/{repo}/branches
           'repos/list-branches': async (context: Ctx, request: Req, response: Res) => {
@@ -457,6 +350,9 @@ const handlers =
 
     // note for any cases where it `return`s an object,
     //  that will validate the response per the schema
+
+    type RepositoryListSelector = (state: StoreState, repository: RepositoryRouteParams) => unknown;
+
     return {
       ...baseHandlers,
       ...(extendedHandlers ? extendedHandlers(simulationStore) : {})

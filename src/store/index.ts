@@ -26,6 +26,7 @@ import {
   type GitHubIssue,
   type GitHubPullRequest
 } from './entities.ts';
+import {buildDomainActions} from './actions/index.ts';
 import {buildEarlyEntitySelectors, type EarlyEntitySelectorArgs} from './early-entity-selectors.ts';
 import {branchStoreKey, repositoryStoreKey} from './keys.ts';
 
@@ -53,6 +54,7 @@ type ExtendSelectors = typeof inputSelectors;
 export type GitHubSchema = ReturnType<ExtendedSchema>;
 export type GitHubActions = ReturnType<ExtendActions>;
 export type GitHubSelectors = ReturnType<ExtendSelectors>;
+export type GitHubActionExtensions = Record<string, unknown>;
 
 export type ExtendedSimulationStore = SimulationStore<GitHubSchema, GitHubActions, GitHubSelectors>;
 
@@ -60,7 +62,12 @@ export type ExtendedSimulationStore = SimulationStore<GitHubSchema, GitHubAction
 // `extendStore` argument. This wires the foundation `ExtendStoreConfig`
 // generics to the concrete GitHub schema/actions/selectors types so callers
 // get accurate typing when they provide schema/actions/selectors extensions.
-export type GitHubExtendStoreInput = ExtendStoreConfig<GitHubSchema, GitHubActions, GitHubSelectors>;
+export type GitHubExtendStoreInput = Omit<
+  ExtendStoreConfig<GitHubSchema, GitHubActions & GitHubActionExtensions, GitHubSelectors>,
+  'schema'
+> & {
+  schema?: ExtendSimulationSchemaInput<GitHubSchema>;
+};
 
 export type GitHubOrganizationWithRepositories = GitHubOrganization & {
   repositories: GitHubRepository[];
@@ -104,13 +111,13 @@ const inputSchema =
   };
 
 /** Returns the package's built-in action set before caller extensions. */
-const inputActions = (_args: ExtendSimulationActions<ExtendedSchema>): ExtendSimulationActions<ExtendedSchema> => {
-  return {} as ExtendSimulationActions<ExtendedSchema>;
+const inputActions = (args: ExtendSimulationActions<ExtendedSchema>) => {
+  return buildDomainActions(args);
 };
 
 /** Merges built-in actions with caller-provided extensions. */
 const extendActions =
-  (extendedActions?: ExtendSimulationActionsInputLoose<GitHubActions, GitHubSchema>) =>
+  (extendedActions?: ExtendSimulationActionsInputLoose<GitHubActions & GitHubActionExtensions, GitHubSchema>) =>
   (args: ExtendSimulationActions<ExtendedSchema>) => {
     const base = inputActions(args);
     if (!extendedActions) return base;

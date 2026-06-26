@@ -148,4 +148,26 @@ describe('extension handlers with actor context', () => {
     ]);
     expect(viewer.body.errors?.[0]?.message).toContain('Authentication required');
   });
+
+  it('keeps caller action extensions alongside built-in repository write actions', async () => {
+    const app = simulation({
+      initialState: fixtureState,
+      extend: {
+        extendStore: {
+          actions: ({thunks}) => ({
+            noteExtensionAction: thunks.create<{message: string}>('noteExtensionAction')
+          })
+        }
+      }
+    });
+    const extensionServer = await app.listen(0);
+    const extensionActionName = 'noteExtensionAction';
+
+    try {
+      expect(extensionServer.simulationStore.actions.updateRepository).toBeFunction();
+      expect(extensionServer.simulationStore.actions[extensionActionName]).toBeFunction();
+    } finally {
+      await extensionServer.ensureClose();
+    }
+  });
 });
