@@ -261,10 +261,16 @@ Stop and escalate when any of these is breached:
   delivered public behaviour.
 - Observation: Stage D documents the shared action exports in
   `docs/api-reference.md`, the repository metadata write workflow in
-  `docs/users-guide.md`, and marks roadmap item 1.3.1 complete in
-  `docs/roadmap.md`.
+  `docs/users-guide.md`, the shared write module boundary in
+  `docs/architecture.md` and `docs/development.md`, and marks roadmap item
+  1.3.1 complete in `docs/roadmap.md`.
   Impact: user-facing and roadmap documentation now matches the delivered
   mutation spine.
+- Observation: CodeRabbit reviewed the Stage D documentation commit
+  (`2783f27`) with zero findings after the required rate-limit backoff.
+  Evidence:
+  `/tmp/coderabbit-simulacat-core-1-3-1-shared-domain-actions-for-write-behaviour-stage-d.out`.
+  Impact: no documentation review concerns remain outstanding.
 
 ## Decision log
 
@@ -822,14 +828,18 @@ gated increments.
 
 ## Outcomes & retrospective
 
-To be completed as milestones land. Compare the result against the Purpose: a
-single GitHub-shaped write observable through one REST and one GraphQL read,
-written through one shared action, with mutation logic centralized in a pure
-reducer behind a shared use case rather than in route-local edits. Record what
-the spine cost in lines/files, whether the starfx settlement behaviour matched
-expectations, and any friction that later slices (PR lifecycle, labels,
-reviews) should anticipate when they reuse `createEntityUpdateThunk` and the
-use-case pattern.
+The delivered result matches the Purpose: `PATCH /repos/{owner}/{repo}` writes
+repository `description` and `homepage` through one shared `updateRepository`
+action, and the same state is visible through `GET /repos/{owner}/{repo}`,
+`GET /orgs/{org}/repos`, and GraphQL `repository(owner:, name:)`.
+
+The mutation spine cost four small source modules under `src/store/actions/`
+plus thin REST adapter wiring. The pure reducer stayed framework-free, while
+starfx-specific behaviour lives in the thunk factory. Awaiting the dispatched
+action was sufficient for immediate re-selection in the same request. The main
+implementation lesson is that starfx table `set` replaces an entire table;
+future whole-entity updates should use table `add` unless full replacement is
+explicitly intended.
 
 ## Revision note
 

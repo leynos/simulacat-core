@@ -67,6 +67,11 @@ state store, then exposes that state through REST and GraphQL surfaces.
   resolution, selection, and observability for anonymous, user, app, and
   installation actors. REST, GraphQL, and caller extensions use these helpers
   instead of selecting a user locally.
+- `src/store/actions/`
+  Contains shared write reducers, starfx thunk adapters, dispatch helpers, and
+  application use cases. Pure reducer modules such as
+  `src/store/actions/repository.ts` stay framework-free; adapters and REST
+  handlers call use cases rather than mutating store tables locally.
 - `src/store/entities/shared.ts`
   Defines `githubEntityPermissionSchema`.
 - `src/store/index.ts`
@@ -132,6 +137,13 @@ state for REST and GraphQL reads to agree on refs, commits, issues, and pull
 requests, but they do not yet own collaboration policy. Mutations,
 mergeability, labels, reviews, timelines, checks, and actor-aware permissions
 belong to later roadmap slices.
+
+Repository metadata writes are the first shared action demonstrator. The
+`updateRepository` action applies only whitelisted descriptive fields
+(`description`, `homepage`) through the shared store, so REST
+`PATCH /repos/{owner}/{repo}`, REST repository reads, and GraphQL
+`repository(owner:, name:)` observe the same persisted repository value.
+Repository policy settings remain a later roadmap slice.
 
 ## Request actor flow
 

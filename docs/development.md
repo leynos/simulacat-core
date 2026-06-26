@@ -254,6 +254,20 @@ surfaces for refs, commits, issues, and pull requests. Do not expand it into
 reviews, labels, timelines, mergeability, checks, or actor-aware permissions
 without updating the relevant roadmap item and design documentation.
 
+
+### Shared write actions
+
+Shared write behaviour belongs under `src/store/actions/`. Keep the pure
+domain reducer in an entity-specific module that imports only types and pure
+helpers; put starfx-specific thunk construction in the adapter module and call
+an application use case from REST or GraphQL adapters. Route handlers should
+validate lookup conditions, build commands, call the use case, and shape the
+response.
+
+When updating table entities, prefer preserving operations such as table `add`
+for whole-entity upserts. `set` replaces the entire table and should only be
+used when that full replacement is deliberate.
+
 ### Request actors
 
 Request actor parsing lives in `src/store/actors.ts`, not in individual REST
