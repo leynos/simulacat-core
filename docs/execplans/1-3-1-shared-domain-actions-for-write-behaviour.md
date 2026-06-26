@@ -5,7 +5,7 @@ This ExecPlan (execution plan) is a living document. The sections
 `Decision Log`, and `Outcomes & Retrospective` must be kept up to date as work
 proceeds.
 
-Status: DRAFT
+Status: IN PROGRESS
 
 Roadmap item: `1.3.1` (legacy task label `1.3.1`). See `docs/roadmap.md`
 §1.3.1. Requires roadmap steps 1.1 and 1.2, which are already complete.
@@ -150,7 +150,7 @@ Stop and escalate when any of these is breached:
 
 ## Progress
 
-- [ ] (Stage A) Confirm orientation facts and finalize the demonstrator field
+- [x] (Stage A) Confirm orientation facts and finalize the demonstrator field
       set; no code changes.
 - [ ] (Stage B) Red: store-level unit/property tests for the pure reducer and
       the dispatched action; REST+GraphQL cross-surface integration test; a
@@ -175,6 +175,36 @@ Stop and escalate when any of these is breached:
   fire-and-forget. Evidence: `@simulacrum/foundation-simulator` `src/index.ts`
   lines ~360 and ~407. Impact: confirms the dispatch idiom and that the action
   result is observable on later requests.
+- Observation: the 2026-06-26 rebase onto `origin/main` completed without
+  conflicts. The post-rebase gates passed after running `bun install` because
+  this worktree had no `node_modules` directory. Evidence:
+  `/tmp/rebase-simulacat-core-1-3-1-shared-domain-actions-for-write-behaviour.out`,
+  `/tmp/check-fmt-simulacat-core-1-3-1-shared-domain-actions-for-write-behaviour.out`,
+  `/tmp/test-simulacat-core-1-3-1-shared-domain-actions-for-write-behaviour.out`,
+  `/tmp/typecheck-simulacat-core-1-3-1-shared-domain-actions-for-write-behaviour.out`,
+  and
+  `/tmp/lint-simulacat-core-1-3-1-shared-domain-actions-for-write-behaviour.out`.
+  Impact: implementation starts from a clean, validated branch based on
+  `origin/main`.
+- Observation: the local documentation set has `docs/users-guide.md` and
+  `docs/api-reference.md`, but no `docs/developers-guide.md` or
+  `docs/documentation-style-guide.md`. Impact: Stage D will update
+  `docs/api-reference.md` for public/internal API reference material and
+  `docs/users-guide.md` for user-facing behaviour rather than creating a
+  new developer guide only to satisfy a stale plan reference.
+- Observation: `githubRepositorySchema` already includes both `description`
+  and `homepage`. Evidence: `src/store/entities/repository.ts` fields in
+  `githubRepositorySchema`. Impact: the demonstrator whitelist can remain
+  `description` plus `homepage`; no schema expansion is needed.
+- Observation: `repos/get` and `repos/update` are present in the bundled REST
+  schema. Evidence: `schema/api.github.com.json` operation IDs at lines
+  27824 and 27874. Impact: implementation can add explicit handlers for
+  existing OpenAPI operations rather than altering the schema.
+- Observation: `Query.repository` reads from `selectors.getRepository` and
+  then converts through `toGraphql(..., 'Repository', repo)`. Evidence:
+  `src/graphql/resolvers.ts:createResolvers`. Impact: a store write to the
+  repository table is observable through the existing GraphQL read path with
+  no resolver change.
 
 ## Decision log
 
@@ -236,6 +266,18 @@ Stop and escalate when any of these is breached:
   Rationale: it introduces a Dafny/Lean toolchain dependency (Tech Preview);
   fast-check property tests provide the primary invariant evidence in-repo.
   Date/Author: 2026-06-17, planning.
+- Decision: move from draft to implementation on 2026-06-26.
+  Rationale: the user explicitly requested implementation of this ExecPlan
+  after the rebase, which satisfies the approval gate described by the
+  `execplans` skill for this already-authored plan.
+  Date/Author: 2026-06-26, implementation.
+- Decision: document the action-spine API in `docs/api-reference.md` rather
+  than `docs/developers-guide.md`.
+  Rationale: `docs/developers-guide.md` does not exist in this branch, while
+  `docs/api-reference.md` is the existing public API document and already
+  describes extension hooks. Creating a new guide would be a documentation
+  structure change unrelated to the write spine.
+  Date/Author: 2026-06-26, implementation.
 
 ## Context and orientation
 
@@ -540,7 +582,7 @@ Stage D — refactor, documentation, cleanup.
    `PATCH /repos/{owner}/{repo}` updates `description`/`homepage` and the change
    is visible through REST and GraphQL reads; note that other `repos/update`
    fields are accepted but not yet applied.
-4. Update `docs/developers-guide.md`: document the internal action-spine API
+4. Update `docs/api-reference.md`: document the internal action-spine API
    (`buildDomainActions`, `applyRepositoryUpdate`, `dispatchWrite`), the
    hexagonal boundary, and how a future slice adds a new action.
 5. JSDoc on all new exported functions per the `df12` Oxlint rules
@@ -631,7 +673,7 @@ Quality criteria (definition of done):
   `src/store/actions/repository.ts`; REST/GraphQL observe the same written
   state through the shared action.
 - Docs: `architecture.md`, `development.md`, `users-guide.md`,
-  `developers-guide.md`, and `roadmap.md` updated; `make markdownlint` passes.
+  `api-reference.md`, and `roadmap.md` updated; `make markdownlint` passes.
 - CodeRabbit: `coderabbit review --agent` reports no outstanding actionable
   concerns.
 
@@ -697,7 +739,7 @@ gated increments.
   review of this plan).
 - Repository docs: `docs/architecture.md`, `docs/development.md`,
   `docs/github-rest-api-audit.md`, `docs/api-reference.md`,
-  `docs/roadmap.md`, and
+  `docs/users-guide.md`, `docs/roadmap.md`, and
   `docs/mocking-services-with-simulacrum-actors-and-stable-keyset-connections.md`.
 - External: LemmaScript <https://github.com/midspiral/LemmaScript>; fast-check
   property testing; the foundation simulator / starfx store action model.
