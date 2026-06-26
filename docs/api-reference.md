@@ -78,6 +78,33 @@ The package exports the schemas needed to validate and build seeded state:
 - `buildIssueFixture`
 - `buildPullRequestFixture`
 
+
+## Exported write action helpers
+
+Shared write helpers are exported for extension authors and downstream tests
+that need to reuse the same mutation path as built-in REST handlers:
+
+- `REPOSITORY_WRITABLE_FIELDS`
+- `applyRepositoryUpdate(current, command)`
+- `buildUpdateRepositoryCommand(input)`
+- `buildDomainActions(args)`
+- `createEntityUpdateThunk(args)`
+- `dispatchWrite(store, action)`
+- `updateRepositoryUseCase(simulationStore, command)`
+
+`applyRepositoryUpdate` is the pure repository reducer. It accepts
+`UpdateRepositoryCommand` values and only applies the current demonstrator
+fields, `description` and `homepage`. Other fields accepted by GitHub's
+`repos/update` request schema, including policy or visibility fields such as
+`private`, are intentionally ignored until the repository settings roadmap
+slice implements them.
+
+`updateRepositoryUseCase` dispatches the built-in `updateRepository` action,
+then re-selects the repository from the shared store. This keeps
+`PATCH /repos/{owner}/{repo}`, `GET /repos/{owner}/{repo}`,
+`GET /orgs/{org}/repos`, and GraphQL `repository(owner:, name:)` aligned on
+one persisted repository value.
+
 Repository identity is owner-scoped. Repositories are keyed as `owner/name`,
 branches are keyed as `owner/repo:name`, and blobs are keyed as
 `owner/repo:reference`, where `reference` is the seeded `path` or `sha`. Two
@@ -235,6 +262,8 @@ flat route list.
 | `GET /orgs/{org}/installation`                     | Fully scriptable     | Store-backed installation lookup for an organization account.                             |
 | `GET /repos/{owner}/{repo}/installation`           | Fully scriptable     | Store-backed installation lookup for a repository owner/repo pair.                        |
 | `GET /orgs/{org}/repos`                            | Fully scriptable     | Store-backed repository list scoped by organization.                                      |
+| `GET /repos/{owner}/{repo}`                        | Fully scriptable     | Returns the store-backed repository joined with the organization owner shape.             |
+| `PATCH /repos/{owner}/{repo}`                      | Fully scriptable     | Updates whitelisted repository metadata through the shared `updateRepository` action.     |
 | `GET /repos/{owner}/{repo}/branches`               | Fully scriptable     | Returns repository-scoped branches and 404s for unknown repositories.                     |
 | `GET /repos/{owner}/{repo}/commits/{ref}/status`   | Schema-stubbed       | Returns a fixed success payload with dynamic owner/repo/ref interpolation only.           |
 | `GET /repos/{owner}/{repo}/contents/{path}`        | Fully scriptable     | Returns store-backed blob content looked up by owner/repo/path.                           |

@@ -158,7 +158,7 @@ Stop and escalate when any of these is breached:
 - [x] (Stage C) Green: implement the pure reducer, the thunk adapter, the
       dispatch helper, wire `inputActions`, add the `repos/update` and
       `repos/get` handlers.
-- [ ] (Stage D) Refactor, documentation, JSDoc, and gate clean-up; CodeRabbit
+- [x] (Stage D) Refactor, documentation, JSDoc, and gate clean-up; CodeRabbit
       review; mark roadmap 1.3.1 done.
 - [ ] (Optional) LemmaScript proof of the reducer idempotence/determinism
       axioms, only if the Dafny/Lean toolchain dependency is approved.
@@ -254,6 +254,17 @@ Stop and escalate when any of these is breached:
   `/tmp/test-simulacat-core-1-3-1-shared-domain-actions-for-write-behaviour-stage-c.out`.
   Impact: implementation can proceed to CodeRabbit review and Stage D
   documentation.
+- Observation: CodeRabbit reviewed the Stage C implementation commit
+  (`2867a0c`) with zero findings. Evidence:
+  `/tmp/coderabbit-simulacat-core-1-3-1-shared-domain-actions-for-write-behaviour-stage-c.out`.
+  Impact: no Stage C review concerns need remediation before documenting the
+  delivered public behaviour.
+- Observation: Stage D documents the shared action exports in
+  `docs/api-reference.md`, the repository metadata write workflow in
+  `docs/users-guide.md`, and marks roadmap item 1.3.1 complete in
+  `docs/roadmap.md`.
+  Impact: user-facing and roadmap documentation now matches the delivered
+  mutation spine.
 
 ## Decision log
 

@@ -101,13 +101,16 @@ webhooks, and external scenario recipes. See docs/architecture.md §Extension
 seams, docs/development.md §Testing expectations, and
 docs/github-rest-api-audit.md §Extension Surface.
 
-- [ ] 1.3.1. Add shared domain actions for write behaviour.
+- [x] 1.3.1. Add shared domain actions for write behaviour.
   - Carries legacy task label `1.3.1`.
   - Requires steps 1.1-1.2.
   - Centralize mutating behaviour in reducers and shared actions instead of
     route-local state updates.
   - Success: at least one REST and one GraphQL-facing read path can observe
     state written through the same action.
+  - Delivered: `PATCH /repos/{owner}/{repo}` updates repository
+    `description` and `homepage` through `updateRepository`, and the result is
+    observable through REST repository reads and GraphQL `repository`.
 - [ ] 1.3.2. Publish actor-aware fixture builders.
   - Carries legacy task label `1.3.3`.
   - Requires 1.3.1.
