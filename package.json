@@ -86,7 +86,7 @@
     "@arethetypeswrong/core": "^0.18.4",
     "@biomejs/biome": "^2.5.1",
     "@graphql-codegen/cli": "^5.0.7",
-    "@graphql-codegen/typescript": "^4.1.6",
+    "@graphql-codegen/typescript": "^6.0.2",
     "@graphql-codegen/typescript-resolvers": "^6.0.2",
     "@octokit/graphql": "^9.0.3",
     "@types/express": "^5.0.6",
