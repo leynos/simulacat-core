@@ -73,7 +73,7 @@
   },
   "dependencies": {
     "@faker-js/faker": "^9.9.0",
-    "@graphql-tools/utils": "^10.11.0",
+    "@graphql-tools/utils": "^11.1.0",
     "@simulacrum/foundation-simulator": "^0.6.1",
     "assert-ts": "^0.3.4",
     "express": "^5.2.1",
