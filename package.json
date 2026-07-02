@@ -96,7 +96,7 @@
     "markdownlint-cli2": "^0.22.1",
     "oxlint": "^1.71.0",
     "publint": "^0.3.21",
-    "tsdown": "^0.21.10",
+    "tsdown": "^0.22.3",
     "typescript": "^6.0.3"
   },
   "overrides": {
