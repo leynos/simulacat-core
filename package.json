@@ -84,7 +84,7 @@
   "devDependencies": {
     "@aboviq/bun-test-cucumber": "^0.2.0",
     "@arethetypeswrong/core": "^0.18.4",
-    "@biomejs/biome": "^2.5.1",
+    "@biomejs/biome": "^2.5.2",
     "@graphql-codegen/cli": "^7.1.3",
     "@graphql-codegen/typescript": "^6.0.2",
     "@graphql-codegen/typescript-resolvers": "^6.0.2",
