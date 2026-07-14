@@ -37,11 +37,15 @@ repository's preferred order. The `lint` target runs the `biomejs` and
 ### Spelling policy
 
 Run `make spelling` to enforce en-GB-oxendict spelling in tracked Markdown
-prose. The generated `typos.toml` starts from the shared estate dictionary and
+prose. The generated `typos.toml` starts from the shared Oxford dictionary and
 applies the narrow repository policy in `typos.local.toml`. Edit the local
 policy, then run `make spelling-config` rather than changing generated entries
 by hand. The focused shared config builder refreshes its untracked dictionary
 cache only when the authoritative copy is newer.
+
+The helper remains syntax-compatible with Python 3.13, and isolated Ruff checks
+therefore target `py313`. Normal rollout commands continue to execute it with
+Python 3.14.
 
 The following diagram summarizes the current Makefile quality-gate flow:
 
