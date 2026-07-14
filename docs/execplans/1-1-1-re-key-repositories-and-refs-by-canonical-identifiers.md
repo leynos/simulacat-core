@@ -49,7 +49,7 @@ suggestions; violation requires escalation, not workarounds.
   existing schemas.
 - The simulator must not introduce authentication or authorization
   enforcement as a side effect (per `docs/github-rest-api-audit.md`
-  §Store and Modeling Constraints). Identity rekeying is independent of
+  §Store and Modelling Constraints). Identity rekeying is independent of
   actor work, which lives in roadmap task 1.2.
 - `convertObjByKey` already throws on duplicate keys. That contract must
   remain: seeding two repositories with identical `owner/name` is an error.
@@ -304,7 +304,7 @@ Reading order for a newcomer:
 2. `docs/api-reference.md` §Exported fixture schemas: lists the public
    fixture entry points (`githubRepositorySchema`, `githubBranchSchema`,
    `githubBlobSchema`, etc.).
-3. `docs/github-rest-api-audit.md` §Store and Modeling Constraints:
+3. `docs/github-rest-api-audit.md` §Store and Modelling Constraints:
    captures the current limitation that motivated this task.
 
 Key files that this task touches:
@@ -743,7 +743,7 @@ are required at any stage; the branch was already renamed during draft
 creation, so recovery only requires pushing or updating the existing
 branch.
 
-## Artifacts and notes
+## Artefacts and notes
 
 Indicative diff shapes (illustrative only — do not copy verbatim):
 
@@ -862,7 +862,7 @@ will be tackled in later roadmap items:
   survives line-number drift. Standardized the plan's documentation
   lint command on `make markdownlint` to match the project's gating
   surface. Removed first-person plural ("we") in favour of neutral or
-  passive voice. Switched non-Oxford "parameterised" and "stabilises"
+  passive voice. Switched non-Oxford "parameterized" and "stabilizes"
   to the en-GB-oxendict "-ize" spellings. Defined "pull request (PR)"
   on first use. Reflowed the Concrete steps preamble to drop the
   environment-specific absolute path and to reflect that the branch

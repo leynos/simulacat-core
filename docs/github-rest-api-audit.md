@@ -184,12 +184,12 @@ Consumers can extend it in three ways:
 | ------------------------ | ---------------------------------------- | ------------------------------------------------------------------------------------- |
 | `extend.openapiHandlers` | `packages/github-api/src/index.ts`       | Add or replace OpenAPI operation handlers with store and actor-helper access.         |
 | `extend.extendRouter`    | `packages/github-api/src/extend-api.ts`  | Add Express routes or middleware after actor middleware runs.                         |
-| `extend.extendStore`     | `packages/github-api/src/store/index.ts` | Add schema slices, actions, and selectors to support richer scripted behavior.        |
+| `extend.extendStore`     | `packages/github-api/src/store/index.ts` | Add schema slices, actions, and selectors to support richer scripted behaviour.       |
 
 Current limitations of that extension model:
 
 - There is no built-in package API to replace the GraphQL handler directly.
-- Base GitHub actions are empty, so mutating REST behavior must be added by
+- Base GitHub actions are empty, so mutating REST behaviour must be added by
   consumers.
 
 Actor-aware extension handlers should call `requireRestUserActor()` from
@@ -198,7 +198,7 @@ Actor-aware extension handlers should call `requireRestUserActor()` from
 headers. Built-in REST handlers, caller OpenAPI overrides, and caller Express
 routes all see the same middleware-attached request actor context.
 
-## Store and Modeling Constraints
+## Store and Modelling Constraints
 
 The current store model is enough for a thin set of repository and installation
 flows, but it is not a close model of the GitHub REST domain.
@@ -254,7 +254,7 @@ Relative to the GHES 3.20 REST documentation, `packages/github-api` is:
 The best practical description is:
 
 > Broad stub coverage is available through the loaded OpenAPI schema, but
-> built-in scriptable GitHub behavior is limited to a small
+> built-in scriptable GitHub behaviour is limited to a small
 > repository/installations/user slice with simulator-controlled request actor
 > selection.
 

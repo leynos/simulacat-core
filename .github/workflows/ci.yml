@@ -36,6 +36,22 @@ jobs:
       - name: Use uv
         uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
 
+      - name: Install Rust for Merman
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # master
+        with:
+          toolchain: '1.95.0'
+
+      - name: Install Markdown diagram tooling
+        run: |
+          uv tool install nixie-cli==1.1.0
+          cargo +1.95.0 install merman-cli --version '=0.7.0' --locked
+
+      - name: Spelling
+        run: make spelling
+
+      - name: Mermaid diagrams
+        run: make nixie
+
       - name: Install dependencies
         run: bun install --frozen-lockfile
 

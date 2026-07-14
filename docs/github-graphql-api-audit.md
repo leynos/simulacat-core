@@ -116,7 +116,7 @@ This means the GraphQL layer is somewhat scriptable if your use case is:
 
 ### 4. A lot of the schema is only "mocked" in the loosest sense
 
-Large parts of the GraphQL surface are not actually modeled:
+Large parts of the GraphQL surface are not actually modelled:
 
 - `Organization.teams(...)` always returns an empty connection
 - `Organization.membersWithRole(...)` always returns an empty connection
@@ -155,7 +155,7 @@ graph embedded inside a very large schema.
 
 ### Nested fields with real scripting
 
-| Type field                                             | Status           | Source of behavior                           |
+| Type field                                             | Status           | Source of behaviour                          |
 | ------------------------------------------------------ | ---------------- | -------------------------------------------- |
 | `User.organizations(...)`                              | Scriptable       | Uses `user.organizations` ids from store.    |
 | `Organization.repositories(...)` via `RepositoryOwner` | Scriptable       | Filters repos by owner login.                |
@@ -179,7 +179,7 @@ graph embedded inside a very large schema.
 | `Repository.object(expression)`     | Effectively unimplemented | No explicit blob/object resolver in the GraphQL layer. |
 | Mutations broadly                   | Unimplemented             | No mutation resolvers exist.                           |
 
-## Public Schema vs Runtime Behavior
+## Public Schema vs Runtime Behaviour
 
 Relative to `https://docs.github.com/public/fpt/schema.docs.graphql`, the
 package falls into four buckets:

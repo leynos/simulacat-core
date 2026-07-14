@@ -678,7 +678,7 @@ If generated GraphQL resolver types change unexpectedly, do not revert blindly.
 Inspect the generator input and decide whether the diff is required for this
 task. If it is unrelated, stop and ask for direction.
 
-## Artifacts and notes
+## Artefacts and notes
 
 Wyvern team findings used in this draft:
 
