@@ -118,7 +118,7 @@ escalation, not workarounds.
 - Property tests using `fast-check` are required if the implementation adds
   any new parsing or token-like invariants over a range of inputs. A
   middleware that delegates to an already-property-tested parser does not
-  require a new property test; do require one if a new normalisation rule
+  require a new property test; do require one if a new normalization rule
   appears.
 - A LemmaScript proof is required only if the implementation introduces a new
   business axiom whose correctness cannot be adequately expressed with
@@ -175,7 +175,7 @@ escalation, not workarounds.
   metric instead.
 - Dependency: if a new runtime dependency is needed, stop. If a new
   development dependency is needed, stop unless the user approves it.
-- Authorisation: if a route cannot be made actor-aware without implementing
+- Authorization: if a route cannot be made actor-aware without implementing
   permission enforcement, leave that enforcement deferred and document the
   limitation. Do not expand the task into full auth.
 - Tests: if the same quality gate still fails after three focused
@@ -491,7 +491,7 @@ escalation, not workarounds.
 
 These references are signposts. Simulacat Core remains explicit that this
 slice provides simulator actor selection, not full GitHub authentication
-or authorisation.
+or authorization.
 
 ## Context and orientation
 
@@ -838,7 +838,7 @@ sequentially with `tee` logs; review the logs; run
 - If `coderabbit review --agent` reports concerns, address them in the
   same stage before progressing.
 
-## Artifacts and notes
+## Artefacts and notes
 
 Capture relevant evidence inline as work progresses. Examples to include:
 

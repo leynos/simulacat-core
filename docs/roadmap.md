@@ -51,7 +51,7 @@ This step answers whether repository, branch, and ref data can coexist under
 GitHub-like owner namespaces. Its outcome informs every later selector and
 mutation task. See docs/architecture.md §State model, docs/api-reference.md
 §Exported fixture schemas, and docs/github-rest-api-audit.md §Store and
-Modeling Constraints.
+Modelling Constraints.
 
 - [x] 1.1.1. Re-key repositories and refs by canonical identifiers.
   - Carries legacy task label `1.1.1`.
@@ -74,7 +74,7 @@ This step answers whether authenticated GitHub concepts can be represented
 without fixed store shortcuts. Its outcome informs `/user`, GraphQL `viewer`,
 permissions, team administration, and protected-branch behaviour. See
 docs/api-reference.md §Capability matrix, docs/github-rest-api-audit.md §Store
-and Modeling Constraints, and docs/github-graphql-api-audit.md §Explicit
+and Modelling Constraints, and docs/github-graphql-api-audit.md §Explicit
 Coverage.
 
 - [x] 1.2.1. Add request-scoped actor resolution.
@@ -123,7 +123,7 @@ real GitHub client libraries without downstream response patching. Its outcome
 informs the label workflow, simulacat adoption, and the capability matrix. See
 docs/architecture.md §GitHub client compatibility, docs/api-reference.md
 §Exported fixture schemas, and docs/github-rest-api-audit.md §Store and
-Modeling Constraints.
+Modelling Constraints.
 
 - [ ] 1.4.1. Derive REST URLs from the inbound request host and API root.
   - Requires 1.1.2.
@@ -244,7 +244,7 @@ docs/api-reference.md §Capability matrix.
 
 This step answers how much issue state must exist before write-side issue
 collaboration can wait. Its outcome informs phase 8 and the capability matrix.
-See docs/github-graphql-api-audit.md §Public Schema vs Runtime Behavior and
+See docs/github-graphql-api-audit.md §Public Schema vs Runtime Behaviour and
 docs/api-reference.md §GraphQL fields.
 
 - [ ] 2.3.1. Implement the GraphQL issue visibility subset.
@@ -359,7 +359,7 @@ docs/api-reference.md §Capability matrix.
 This step answers how much permission modelling is needed for administration
 without building a broad matrix prematurely. Its outcome informs team
 membership, protected branches, and actor-aware handlers. See
-docs/github-rest-api-audit.md §Store and Modeling Constraints and
+docs/github-rest-api-audit.md §Store and Modelling Constraints and
 docs/github-graphql-api-audit.md §Recommended Follow-Ups.
 
 - [ ] 4.3.1. Deliver the minimum viable permission lattice.
@@ -537,7 +537,7 @@ resolution and webhook payloads. See docs/github-graphql-api-audit.md
 
 This step answers whether conversation state can be represented independently
 of raw comment lists. Its outcome informs protected-branch conversation gates.
-See docs/github-graphql-api-audit.md §Public Schema vs Runtime Behavior.
+See docs/github-graphql-api-audit.md §Public Schema vs Runtime Behaviour.
 
 - [ ] 7.2.1. Add review thread grouping and resolution.
   - Carries legacy task label `4.2.2`.
@@ -588,7 +588,7 @@ docs/api-reference.md §Capability matrix and docs/github-rest-api-audit.md
 This step answers whether common issue collaboration state can be scripted
 without broad timeline work. Its outcome informs the timeline and notification
 model. See docs/github-rest-api-audit.md §What Is Stubbed But Not Really Mocked
-and docs/github-graphql-api-audit.md §Public Schema vs Runtime Behavior.
+and docs/github-graphql-api-audit.md §Public Schema vs Runtime Behaviour.
 
 - [ ] 8.2.1. Add issue comments and reactions.
   - Carries part of legacy task labels `2.2.2` and `2.2.3`.

@@ -18,6 +18,7 @@ Prefer the Makefile targets where available:
 - `make check-fmt`
 - `make lint`
 - `make markdownlint`
+- `make spelling`
 - `make test`
 - `make all`
 - `make build`
@@ -29,9 +30,18 @@ The normal contributor gate is:
 3. `bun check:types`
 4. `bun test`
 
-`make all` runs `check-fmt`, `typecheck`, `lint`, and `test` in the
+`make all` runs `check-fmt`, `typecheck`, `lint`, `test`, and `spelling` in the
 repository's preferred order. The `lint` target runs the `biomejs` and
 `oxlint` sub-targets.
+
+### Spelling policy
+
+Run `make spelling` to enforce en-GB-oxendict spelling in tracked Markdown
+prose. The generated `typos.toml` starts from the shared estate dictionary and
+applies the narrow repository policy in `typos.local.toml`. Edit the local
+policy, then run `make spelling-config` rather than changing generated entries
+by hand. The focused shared config builder refreshes its untracked dictionary
+cache only when the authoritative copy is newer.
 
 The following diagram summarizes the current Makefile quality-gate flow:
 
@@ -43,6 +53,7 @@ flowchart LR
   make_all --> typecheck["typecheck (bun run check:types)"]
   make_all --> lint[lint]
   make_all --> test["test (bun run test)"]
+  make_all --> spelling["spelling (shared en-GB-oxendict policy)"]
 
   lint --> biomejs["biomejs (bun run lint)"]
   lint --> oxlint["oxlint (bunx oxlint .)"]
@@ -55,9 +66,9 @@ flowchart LR
 ```
 
 Caption: The `make all` target runs format checking, type-checking, linting,
-and tests. Linting is delegated to the `biomejs` and `oxlint` sub-targets;
-Oxlint now owns the syntax-aware maintainability and JSDoc gates that were
-previously prototyped outside the Makefile.
+tests, and spelling. Linting is delegated to the `biomejs` and `oxlint`
+sub-targets; Oxlint now owns the syntax-aware maintainability and JSDoc gates
+that were previously prototyped outside the Makefile.
 
 ## Linting rules
 
@@ -161,13 +172,13 @@ JSDoc checker suppression:
 ```
 
 The package publishes an ESM library surface, but the build intentionally keeps
-`dist/index.cjs` because `bin/start.cjs` requires that artifact to start the
+`dist/index.cjs` because `bin/start.cjs` requires that artefact to start the
 simulator under plain Node without a transpilation step.
 
 ### Running the simulator directly
 
 The simulator can be started directly from the CLI entry point after the build
-artifacts exist:
+artefacts exist:
 
 ```bash
 node bin/start.cjs

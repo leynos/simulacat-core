@@ -1,0 +1,25 @@
+# Repository-specific identifiers, quotations and immutable schemas.
+
+schema = 1
+
+[oxford]
+stems = []
+
+[words]
+accepted = []
+
+[words.corrections]
+
+[patterns]
+ignore = [
+  # Changelog link labels use abbreviated Git commit identifiers.
+  '\[[0-9a-f]{7}\]',
+]
+
+[files]
+exclude = [
+  # These upstream GitHub schemas are immutable external contracts.
+  "schema/api.github.com.json",
+  "schema/schema.docs-enterprise.graphql",
+  "schema/schema.docs.graphql",
+]
