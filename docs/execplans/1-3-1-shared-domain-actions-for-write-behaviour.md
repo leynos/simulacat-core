@@ -96,7 +96,7 @@ Stop and escalate when any of these is breached:
   The Dafny/Lean toolchain needed by the optional LemmaScript proof (see Risks
   and "Optional proof milestone") is itself a tolerance breach: it must be
   explicitly approved before being added to any gate, and must remain an
-  additive, separately-gated artifact if approved.
+  additive, separately-gated artefact if approved.
 - starfx semantics: if dispatching a thunk and awaiting it does **not**
   reliably settle the store update before a subsequent read in the same process
   (see Risk R1), stop after two remediation attempts and escalate with the
@@ -779,7 +779,7 @@ breach** and must be approved before being attempted. Therefore:
   in Stage B (idempotence, determinism, purity, whitelist safety, cross-owner
   isolation). This is sufficient for the roadmap success criterion.
 - If the maintainer approves the toolchain, add the proof as an **additive,
-  separately-gated** artifact: annotate `src/store/actions/repository.ts` (or a
+  separately-gated** artefact: annotate `src/store/actions/repository.ts` (or a
   proof-only mirror) with `//@ ensures`/`//@ requires` and run
   `npx lsc gen --backend=dafny` / `npx lsc check --backend=dafny`, keeping the
   generated `.dfy.gen`/`.dfy` under a `proofs/` path with its own make target —
@@ -797,7 +797,7 @@ destructive operations are involved; no migrations, no data deletion. Reverting
 is a `git revert`/branch reset away because work is committed in small,
 gated increments.
 
-## Artifacts and notes
+## Artefacts and notes
 
 - OpenAPI `repos/update` request body exposes: `name, description, homepage,
   private, visibility, security_and_analysis, has_issues, has_projects,

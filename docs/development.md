@@ -254,7 +254,6 @@ surfaces for refs, commits, issues, and pull requests. Do not expand it into
 reviews, labels, timelines, mergeability, checks, or actor-aware permissions
 without updating the relevant roadmap item and design documentation.
 
-
 ### Shared write actions
 
 Shared write behaviour belongs under `src/store/actions/`. Keep the pure
