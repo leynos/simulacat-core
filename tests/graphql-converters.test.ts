@@ -7,7 +7,7 @@ import type {BaseUrls} from '../src/http/request-url.ts';
 import type {ExtendedSimulationStore} from '../src/store/index.ts';
 
 const baseUrls: BaseUrls = {
-  apiBaseUrl: 'http://localhost:3300',
+  apiBaseUrl: 'http://localhost:3300/api/v3',
   webBaseUrl: 'http://localhost:3300'
 };
 

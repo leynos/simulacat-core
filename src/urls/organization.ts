@@ -26,7 +26,7 @@ export type OrganizationUrlPayload = Omit<GitHubOrganization, OrganizationUrlFie
 
 const organizationUrlBuilders = {
   url: (organization, baseUrls) => apiUrl(baseUrls, `/orgs/${organization.login}`),
-  html_url: (organization, baseUrls) => webUrl(baseUrls, `/orgs/${organization.login}`),
+  html_url: (organization, baseUrls) => webUrl(baseUrls, `/${organization.login}`),
   repos_url: (organization, baseUrls) => apiUrl(baseUrls, `/orgs/${organization.login}/repos`),
   events_url: (organization, baseUrls) => apiUrl(baseUrls, `/orgs/${organization.login}/events`),
   hooks_url: (organization, baseUrls) => apiUrl(baseUrls, `/orgs/${organization.login}/hooks`),

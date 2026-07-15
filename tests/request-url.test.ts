@@ -5,8 +5,8 @@ import {buildBaseUrls, buildUrl, normalizeApiRoot} from '../src/http/request-url
 
 const safeHost = fc
   .tuple(
-    fc.stringMatching(/^[A-Za-z][A-Za-z0-9-]{0,12}$/),
-    fc.stringMatching(/^[A-Za-z0-9][A-Za-z0-9-]{0,12}$/),
+    fc.stringMatching(/^[A-Za-z](?:[A-Za-z0-9-]{0,11}[A-Za-z0-9])?$/),
+    fc.stringMatching(/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,11}[A-Za-z0-9])?$/),
     fc.option(fc.integer({min: 1, max: 65_535}), {nil: undefined})
   )
   .map(([first, second, port]) => {
@@ -99,21 +99,15 @@ describe('buildBaseUrls', () => {
 
 describe('buildBaseUrls validation', () => {
   it('throws a greppable error when no host can be determined', () => {
-    expect(() => buildBaseUrls(requestOrigin(''), '/')).toThrow(
-      'SIMULACAT: cannot derive base URL; request Host header missing'
-    );
+    expect(() => buildBaseUrls(requestOrigin(''), '/')).toThrow('SIMULACAT: cannot derive base URL');
   });
 
   it('throws the greppable error when fallback URL is malformed', () => {
-    expect(() => buildBaseUrls(requestOrigin(''), '/', 'not a url')).toThrow(
-      'SIMULACAT: cannot derive base URL; request Host header missing'
-    );
+    expect(() => buildBaseUrls(requestOrigin(''), '/', 'not a url')).toThrow('SIMULACAT: cannot derive base URL');
   });
 
   it('throws the greppable error when request protocol is unsupported', () => {
-    expect(() => buildBaseUrls(requestOrigin('example.test', 'ftp'), '/')).toThrow(
-      'SIMULACAT: cannot derive base URL; request Host header missing'
-    );
+    expect(() => buildBaseUrls(requestOrigin('example.test', 'ftp'), '/')).toThrow('SIMULACAT: cannot derive base URL');
   });
 
   it.each([
@@ -121,7 +115,7 @@ describe('buildBaseUrls validation', () => {
     [null]
   ])('throws the greppable error when raw request origin %p is invalid', (origin) => {
     expect(() => buildBaseUrls(origin as unknown as Parameters<typeof buildBaseUrls>[0], '/')).toThrow(
-      'SIMULACAT: cannot derive base URL; request Host header missing'
+      'SIMULACAT: cannot derive base URL'
     );
   });
 
@@ -130,9 +124,7 @@ describe('buildBaseUrls validation', () => {
     'mailto:octo@example.test',
     'file:///tmp/root'
   ])('throws the greppable error when fallback URL %p has no HTTP origin', (fallbackBaseUrl) => {
-    expect(() => buildBaseUrls(requestOrigin(''), '/', fallbackBaseUrl)).toThrow(
-      'SIMULACAT: cannot derive base URL; request Host header missing'
-    );
+    expect(() => buildBaseUrls(requestOrigin(''), '/', fallbackBaseUrl)).toThrow('SIMULACAT: cannot derive base URL');
   });
 
   it('creates parseable API URLs without duplicate path separators for generated hosts and roots', () => {

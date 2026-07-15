@@ -43,9 +43,10 @@ not synthesize simulator-host URLs while parsing fixtures.
 
 Request-derived URL policy is split across two layers:
 
-- `src/http/request-url.ts` normalizes `apiUrl`, derives API and web base URLs
-  from a request origin, and falls back to `SIMULACAT_GITHUB_API_URL` only when
-  the request has no usable HTTP(S) host.
+- `src/http/request-url.ts` normalises the configured `apiUrl` (including its
+  API root), derives API and web base URLs from a request origin, and falls back
+  to `SIMULACAT_GITHUB_API_URL` only when the request has no usable HTTP(S)
+  host.
 - `src/urls/` contains pure per-entity projectors for repository,
   organization, branch, ref, commit, issue, and pull request payloads.
 

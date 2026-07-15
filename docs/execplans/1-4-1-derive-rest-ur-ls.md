@@ -5,7 +5,7 @@ This ExecPlan (execution plan) is a living document. The sections
 `Decision Log`, and `Outcomes & Retrospective` must be kept up to date as work
 proceeds.
 
-Status: IN PROGRESS
+Status: COMPLETE
 
 Roadmap item: 1.4.1 (see `docs/roadmap.md` §1.4 "Make GitHub client payloads
 contract-tested"). Requires 1.1.2 (first-class early entities), which is

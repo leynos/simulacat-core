@@ -11,7 +11,7 @@ export type RequestOrigin = {protocol: string; host: string};
 /** API and web URL bases used when projecting stored entities to wire payloads. */
 export type BaseUrls = {apiBaseUrl: string; webBaseUrl: string};
 
-const missingHostMessage = 'SIMULACAT: cannot derive base URL; request Host header missing';
+const missingHostMessage = 'SIMULACAT: cannot derive base URL';
 const httpProtocols = new Set(['http:', 'https:']);
 
 /** Removes duplicate slashes from an API-root path. */

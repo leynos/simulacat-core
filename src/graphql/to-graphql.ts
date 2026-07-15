@@ -25,12 +25,10 @@ type ConverterMap = {
   [T in keyof DataSchemas]: GraphqlConverter<T>;
 };
 
-/** Raises the existing unhandled-typename error after logging the rejected entity. */
-function throwUnhandledTypename(__typename: string, entity: unknown): never {
-  console.error(`toGraphql: unhandled __typename ${__typename}`, {
-    entity
-  });
-  throw new Error(`toGraphql: unhandled __typename ${__typename} for entity ${JSON.stringify(entity)}`);
+/** Raises an unhandled-typename error without exposing the rejected entity. */
+function throwUnhandledTypename(__typename: string): never {
+  console.error(`toGraphql: unhandled __typename ${__typename}`);
+  throw new Error(`toGraphql: unhandled __typename ${__typename}`);
 }
 
 /** Adapts entity-specific converters to a uniform request-bound dispatch shape. */
@@ -65,7 +63,7 @@ export const makeToGraphql = (simulationStore: ExtendedSimulationStore, baseUrls
   ): GraphQLData[T] => {
     const converter = converters[__typename] as GraphqlConverter<T> | undefined;
     if (!converter) {
-      return throwUnhandledTypename(__typename, entity);
+      return throwUnhandledTypename(__typename);
     }
 
     return converter(entity);

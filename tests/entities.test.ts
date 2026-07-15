@@ -53,6 +53,16 @@ const buildGithubInitialStore = (options: BuildGithubInitialStoreOptions = {}) =
   ...(options.storeOverrides ?? {})
 });
 
+const organizationLegacyUserUrlFields = [
+  'followers_url',
+  'following_url',
+  'gists_url',
+  'starred_url',
+  'subscriptions_url',
+  'organizations_url',
+  'received_events_url'
+] as const;
+
 const parseGithubInitialStore = (options: BuildGithubInitialStoreOptions = {}) =>
   githubInitialStoreSchema.parse(buildGithubInitialStore(options));
 
@@ -328,7 +338,7 @@ describe('githubOrganizationSchema', () => {
       login: 'test-org'
     });
 
-    expectFieldsAbsent(organization, organizationUrlFields);
+    expectFieldsAbsent(organization, [...organizationUrlFields, ...organizationLegacyUserUrlFields]);
   });
 
   it('preserves caller-supplied organization URL overrides', () => {

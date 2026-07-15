@@ -82,7 +82,7 @@ export const extendRouter =
           protocol: request.protocol,
           host: request.headers.host ?? ''
         },
-        '/',
+        apiRoot,
         fallbackBaseUrl
       );
       return response.status(200).json(projectRefUrls(item, baseUrls));

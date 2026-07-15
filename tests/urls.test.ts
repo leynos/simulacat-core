@@ -49,8 +49,8 @@ const organizationLegacyUserUrlFields = [
 
 const safeHost = fc
   .tuple(
-    fc.stringMatching(/^[A-Za-z][A-Za-z0-9-]{0,12}$/),
-    fc.stringMatching(/^[A-Za-z0-9][A-Za-z0-9-]{0,12}$/),
+    fc.stringMatching(/^[A-Za-z](?:[A-Za-z0-9-]{0,11}[A-Za-z0-9])?$/),
+    fc.stringMatching(/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,11}[A-Za-z0-9])?$/),
     fc.option(fc.integer({min: 1, max: 65_535}), {nil: undefined})
   )
   .map(([first, second, port]) => {
@@ -205,9 +205,9 @@ describe('projectRepositoryUrls', () => {
       trees_url: `${baseUrls.apiBaseUrl}/repos/${fullName}/git/trees{/sha}`,
       git_url: `git://github.com/${fullName}.git`,
       ssh_url: `git@github.com:${fullName}.git`,
-      clone_url: `https://github.com/${fullName}.git`,
-      mirror_url: `git://github.com/${fullName}`,
-      svn_url: `https://github.com/${fullName}`
+      clone_url: `${baseUrls.webBaseUrl}/${fullName}.git`,
+      mirror_url: `${baseUrls.webBaseUrl}/${fullName}`,
+      svn_url: `${baseUrls.webBaseUrl}/${fullName}`
     });
   });
 
@@ -246,7 +246,7 @@ describe('non-repository URL projectors', () => {
     });
     expect(projectOrganizationUrls(sparseOrganization(), baseUrls)).toMatchObject({
       url: `${baseUrls.apiBaseUrl}/orgs/${owner}`,
-      html_url: `${baseUrls.webBaseUrl}/orgs/${owner}`,
+      html_url: `${baseUrls.webBaseUrl}/${owner}`,
       members_url: `${baseUrls.apiBaseUrl}/orgs/${owner}/members{/member}`,
       avatar_url: 'https://avatars.githubusercontent.com/u/4242?v=4'
     });

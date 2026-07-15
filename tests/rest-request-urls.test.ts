@@ -81,7 +81,10 @@ const fixture: InitialState = {
       encoding: 'string'
     }
   ],
-  refs: [{owner: 'lovely-org', repo: 'awesome-repo', qualifiedName: 'main', object: {sha: 'commit-a'}}],
+  refs: [
+    {owner: 'lovely-org', repo: 'awesome-repo', qualifiedName: 'main', object: {sha: 'commit-a'}},
+    {owner: 'lovely-org', repo: 'awesome-repo', qualifiedName: 'feature/request-urls', object: {sha: 'commit-a'}}
+  ],
   commits: [{owner: 'lovely-org', repo: 'awesome-repo', sha: 'commit-a', commit: {message: 'Initial commit'}}],
   issues: [{owner: 'lovely-org', repo: 'awesome-repo', number: 1, title: 'Request URL issue'}],
   pullRequests: [
@@ -137,9 +140,9 @@ describe('request-scoped REST URLs', () => {
       expect(repository.contents_url).toBe(`${apiBaseUrl}/repos/lovely-org/awesome-repo/contents/{+path}`);
       expect(repository.git_commits_url).toBe(`${apiBaseUrl}/repos/lovely-org/awesome-repo/git/commits{/sha}`);
       expect(repository.owner.url).toBe(`${apiBaseUrl}/orgs/lovely-org`);
-      expect(repository.owner.html_url).toBe(`${origin}/orgs/lovely-org`);
+      expect(repository.owner.html_url).toBe(`${origin}/lovely-org`);
       expect(repository.owner.followers_url).toBe(`${apiBaseUrl}/users/lovely-org/followers`);
-      expect(repository.clone_url).toBe('https://github.com/lovely-org/awesome-repo.git');
+      expect(repository.clone_url).toBe(`${origin}/lovely-org/awesome-repo.git`);
     });
   });
 
@@ -170,6 +173,16 @@ describe('request-scoped REST URLs', () => {
     });
   });
 
+  it('derives configured API-root URLs from the slash-ref shim', async () => {
+    await withServer('/api/v3', async (origin) => {
+      const apiBaseUrl = `${origin}/api/v3`;
+      const ref = await fetchJson<RefPayload>(`${origin}/repos/lovely-org/awesome-repo/git/ref/feature/request-urls`);
+
+      expect(ref.url).toBe(`${apiBaseUrl}/repos/lovely-org/awesome-repo/git/refs/heads/feature/request-urls`);
+      expect(ref.object.url).toBe(`${apiBaseUrl}/repos/lovely-org/awesome-repo/git/commits/commit-a`);
+    });
+  });
+
   it.each(requestUrlCases)('derives organization membership URLs from apiRoot $apiRoot', async ({
     apiRoot,
     rootPath
@@ -182,7 +195,7 @@ describe('request-scoped REST URLs', () => {
 
       expect(membership.organization_url).toBe(`${apiBaseUrl}/orgs/lovely-org`);
       expect(membership.organization.url).toBe(`${apiBaseUrl}/orgs/lovely-org`);
-      expect(membership.organization.html_url).toBe(`${origin}/orgs/lovely-org`);
+      expect(membership.organization.html_url).toBe(`${origin}/lovely-org`);
       expect(membership.organization.repos_url).toBe(`${apiBaseUrl}/orgs/lovely-org/repos`);
     });
   });
