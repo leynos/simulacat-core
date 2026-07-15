@@ -21,8 +21,11 @@ const refObjectApiPath = (objectType: GitHubRef['object']['type']): string => {
   }
 };
 
+/** Encodes ref segments without changing Git's slash-separated ref structure. */
+const encodeRefPath = (ref: string): string => ref.split('/').map(encodeURIComponent).join('/');
+
 const refUrlBuilders = {
-  url: (ref, baseUrls) => apiUrl(baseUrls, `/repos/${ref.owner}/${ref.repo}/git/${ref.ref}`)
+  url: (ref, baseUrls) => apiUrl(baseUrls, `/repos/${ref.owner}/${ref.repo}/git/${encodeRefPath(ref.ref)}`)
 } satisfies Record<RefUrlField, (ref: RefUrlPayload, baseUrls: BaseUrls) => string>;
 
 export const refUrlFieldClassifications: UrlFieldClassification<RefUrlField | 'object.url'>[] = [
@@ -32,6 +35,20 @@ export const refUrlFieldClassifications: UrlFieldClassification<RefUrlField | 'o
 
 /**
  * Projects missing Git ref URL fields from request-scoped base URLs.
+ *
+ * @example
+ * ```ts
+ * const ref = {
+ *   owner: 'octo',
+ *   repo: 'demo',
+ *   ref: 'refs/heads/feature#42',
+ *   object: {type: 'commit', sha: 'abc123'}
+ * } as RefUrlPayload;
+ * const baseUrls = {apiBaseUrl: 'https://api.example.test/api/v3', webBaseUrl: 'https://example.test'};
+ * projectRefUrls(ref, baseUrls);
+ * // {url: 'https://api.example.test/api/v3/repos/octo/demo/git/refs/heads/feature%2342',
+ * //  object: {type: 'commit', sha: 'abc123', url: 'https://api.example.test/api/v3/repos/octo/demo/git/commits/abc123'}}
+ * ```
  *
  * @param ref Stored Git ref entity with optional URL overrides.
  * @param baseUrls Request-derived API and web bases.

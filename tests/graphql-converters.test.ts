@@ -1,10 +1,17 @@
 /** @file Unit tests for GraphQL repository conversion helpers. */
 import {describe, expect, it} from 'bun:test';
-import {convertCommitToGraphql} from '../src/graphql/converters/early-entities.ts';
+import {
+  convertCommitToGraphql,
+  convertIssueToGraphql,
+  convertPullRequestToGraphql
+} from '../src/graphql/converters/early-entities.ts';
 import {convertRepositoryToGraphql} from '../src/graphql/converters/repository.ts';
 import type {DataSchemas, ToGraphqlDispatcher} from '../src/graphql/to-graphql-shapes.ts';
 import type {BaseUrls} from '../src/http/request-url.ts';
 import type {ExtendedSimulationStore} from '../src/store/index.ts';
+import {buildIssueFixture, buildPullRequestFixture} from '../src/store/builders.ts';
+import {projectIssueUrls} from '../src/urls/issue.ts';
+import {projectPullRequestUrls} from '../src/urls/pull-request.ts';
 
 const baseUrls: BaseUrls = {
   apiBaseUrl: 'http://localhost:3300/api/v3',
@@ -124,5 +131,52 @@ describe('convertCommitToGraphql', () => {
     expect(commitShape.messageHeadline).toBe('Headline');
     expect(commitShape.messageBody).toBe('\nBody');
     expect(commitShape.repository.id).toBe(Buffer.from('Repository:test-org/test-repo').toString('base64'));
+  });
+});
+
+describe('issue and pull request GraphQL URL conversion', () => {
+  const repositoryStore = {
+    store: {getState: () => ({})},
+    selectors: {
+      getRepository: () => ({owner: 'test-org', name: 'test-repo'}),
+      resolvePullRequestRelations: () => ({})
+    }
+  } as unknown as ExtendedSimulationStore;
+
+  it('projects issue URLs from the web base despite an explicit REST URL', () => {
+    const issue = buildIssueFixture({
+      owner: 'test-org',
+      repo: 'test-repo',
+      number: 42,
+      title: 'URL projection',
+      url: 'https://override.example.test/api/v3/repos/test-org/test-repo/issues/42'
+    });
+
+    expect(projectIssueUrls(issue, baseUrls).html_url).toBe('http://localhost:3300/test-org/test-repo/issues/42');
+    expect(convertIssueToGraphql(repositoryStore, issue, baseUrls)['url']).toBe(
+      'http://localhost:3300/test-org/test-repo/issues/42'
+    );
+  });
+
+  it('projects pull request URLs and permalinks from the web base despite an explicit REST URL', () => {
+    const pullRequest = buildPullRequestFixture({
+      owner: 'test-org',
+      repo: 'test-repo',
+      number: 42,
+      title: 'URL projection',
+      base: {ref: 'main', sha: 'base-sha'},
+      head: {ref: 'feature/url-projection', sha: 'head-sha'},
+      url: 'https://override.example.test/api/v3/repos/test-org/test-repo/pulls/42'
+    });
+    const toGraphql = (() => {
+      throw new Error('ref conversion is not exercised in this test');
+    }) as ToGraphqlDispatcher;
+    const graphqlPullRequest = convertPullRequestToGraphql(repositoryStore, pullRequest, toGraphql, baseUrls);
+
+    expect(projectPullRequestUrls(pullRequest, baseUrls).html_url).toBe(
+      'http://localhost:3300/test-org/test-repo/pull/42'
+    );
+    expect(graphqlPullRequest['url']).toBe('http://localhost:3300/test-org/test-repo/pull/42');
+    expect(graphqlPullRequest['permalink']).toBe('http://localhost:3300/test-org/test-repo/pull/42');
   });
 });

@@ -212,9 +212,9 @@ Notable constraints:
   API fields are projected from the inbound request host plus the configured API
   root. Web-facing GraphQL links use the same request host without the API root.
   Explicit fixture URL overrides are preserved.
-- External repository fields such as `git_url`, `ssh_url`, and `homepage` are
-  not rewritten to the simulator host unless a caller explicitly seeds them
-  that way.
+- External repository fields such as `git_url`, `ssh_url`, `mirror_url`, and
+  `homepage` are not rewritten to the simulator host unless a caller explicitly
+  seeds them that way.
 - Authentication and authorization are intentionally not enforced.
 
 These constraints reduce the realism of any attempt to script broader GitHub

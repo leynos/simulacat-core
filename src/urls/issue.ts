@@ -23,6 +23,16 @@ export const issueUrlFieldClassifications: UrlFieldClassification<IssueUrlField>
 /**
  * Projects missing issue URL fields from request-scoped base URLs.
  *
+ * @example
+ * ```ts
+ * const issue = {owner: 'octo', repo: 'demo', number: 42} as IssueUrlPayload;
+ * const baseUrls = {apiBaseUrl: 'https://api.example.test/api/v3', webBaseUrl: 'https://example.test'};
+ * projectIssueUrls(issue, baseUrls);
+ * // {url: 'https://api.example.test/api/v3/repos/octo/demo/issues/42',
+ * //  html_url: 'https://example.test/octo/demo/issues/42',
+ * //  repository_url: 'https://api.example.test/api/v3/repos/octo/demo'}
+ * ```
+ *
  * @param issue Stored issue entity with optional URL overrides.
  * @param baseUrls Request-derived API and web bases.
  * @returns Issue payload with URL fields populated.

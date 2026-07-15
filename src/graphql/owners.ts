@@ -62,7 +62,7 @@ export function toGithubRepositoryOwner(
   toGraphql: ToGraphqlDispatcher,
   baseUrls: BaseUrls
 ): Pick<GraphQLData['User'], 'avatarUrl' | 'login' | 'repositories' | 'resourcePath' | 'url'> {
-  const resourcePath = 'organizations' in entity ? `/${entity.login}` : `/orgs/${entity.login}`;
+  const resourcePath = `/${entity.login}`;
 
   return {
     login: entity.login,

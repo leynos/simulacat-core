@@ -205,7 +205,7 @@ Stop and escalate when any of these is reached.
   collection, and top-level payload aliases are fixed. Final
   `coderabbit review --agent` reports `findings: 0`.
 - [x] Milestone 2 — per-entity URL projection policy (`src/urls/*`).
-- [ ] 2026-06-25T02:23:11+02:00 — Milestone 3 started. The next red step is
+- [x] 2026-06-25T02:23:11+02:00 — Milestone 3 started. The next red step is
   to change `tests/entities.test.ts` so parsed store entities are
   host-agnostic: URL fields must be absent unless the caller explicitly seeded
   overrides, while non-URL defaults such as IDs, keys, timestamps, users, and

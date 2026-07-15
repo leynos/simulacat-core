@@ -43,8 +43,8 @@ export const repositoryApiUrlFields = [
   'trees_url'
 ] as const;
 
-export const repositoryWebUrlFields = ['html_url', 'clone_url', 'mirror_url', 'svn_url'] as const;
-export const repositoryExternalUrlFields = ['git_url', 'ssh_url'] as const;
+export const repositoryWebUrlFields = ['html_url', 'clone_url', 'svn_url'] as const;
+export const repositoryExternalUrlFields = ['git_url', 'ssh_url', 'mirror_url'] as const;
 export const repositoryUrlFields = [
   ...repositoryApiUrlFields,
   ...repositoryWebUrlFields,
@@ -104,7 +104,7 @@ const repositoryUrlBuilders = {
   git_url: (repository) => `git://github.com/${repository.full_name}.git`,
   ssh_url: (repository) => `git@github.com:${repository.full_name}.git`,
   clone_url: (repository, baseUrls) => `${webUrl(baseUrls, webPath(repository))}.git`,
-  mirror_url: (repository, baseUrls) => webUrl(baseUrls, webPath(repository)),
+  mirror_url: (repository) => `git://github.com/${repository.full_name}`,
   svn_url: (repository, baseUrls) => webUrl(baseUrls, webPath(repository))
 } satisfies Record<RepositoryUrlField, (repository: RepositoryUrlPayload, baseUrls: BaseUrls) => string | null>;
 
@@ -116,6 +116,14 @@ export const repositoryUrlFieldClassifications: UrlFieldClassification<Repositor
 
 /**
  * Projects missing repository URL fields from request-scoped base URLs.
+ *
+ * @example
+ * ```ts
+ * const repository = {full_name: 'octo/demo'} as RepositoryUrlPayload;
+ * const baseUrls = {apiBaseUrl: 'https://api.example.test/api/v3', webBaseUrl: 'https://example.test'};
+ * projectRepositoryUrls(repository, baseUrls).html_url;
+ * // 'https://example.test/octo/demo'
+ * ```
  *
  * @param repository Stored repository entity with optional URL overrides.
  * @param baseUrls Request-derived API and web bases.

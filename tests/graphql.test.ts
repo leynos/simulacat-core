@@ -352,7 +352,7 @@ const expectRepositoryGraphqlUrls = ({origin, repository}: RequestScopedGraphqlA
   const repositoryPath = `${requestScopedGraphqlFixture.owner}/${requestScopedGraphqlFixture.repositoryName}`;
 
   expect(repository.url).toBe(`${origin}/${repositoryPath}`);
-  expect(repository.owner.url).toBe(`${origin}/orgs/${requestScopedGraphqlFixture.owner}`);
+  expect(repository.owner.url).toBe(`${origin}/${requestScopedGraphqlFixture.owner}`);
   expect(repository.repositoryTopics.nodes).toEqual([
     {url: `${origin}/${repositoryPath}/topics/${requestScopedGraphqlFixture.topic}`}
   ]);

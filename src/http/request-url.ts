@@ -84,6 +84,9 @@ const parseAbsoluteUrl = (value: string): URL | undefined => {
 /** Keeps base derivation on schemes that have a network host and origin. */
 const isHttpUrl = (url: URL): boolean => httpProtocols.has(url.protocol) && url.host !== '';
 
+/** Rejects URL components that are not valid in an HTTP Host header. */
+const containsUrlComponents = (host: string): boolean => /[@/?#\\]/u.test(host);
+
 /** Builds an origin URL from request protocol and host. */
 const originFromRequest = (origin: RequestOrigin): URL | undefined => {
   if (!isRecord(origin)) return undefined;
@@ -92,6 +95,7 @@ const originFromRequest = (origin: RequestOrigin): URL | undefined => {
   if (!isString(host)) return undefined;
   const trimmedHost = host.trim();
   if (trimmedHost === '') return undefined;
+  if (containsUrlComponents(trimmedHost)) return undefined;
   const parsedUrl = parseAbsoluteUrl(`${normalizeProtocol(protocol)}://${trimmedHost}`);
   if (!parsedUrl) return undefined;
   if (!isHttpUrl(parsedUrl)) return undefined;

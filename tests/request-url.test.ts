@@ -73,6 +73,18 @@ describe('buildBaseUrls', () => {
     });
   });
 
+  it.each([
+    'octocat@example.test',
+    'example.test/path',
+    'example.test?query',
+    'example.test#fragment'
+  ])('uses the fallback origin when the request host contains URL components: %p', (host) => {
+    expect(buildBaseUrls(requestOrigin(host), '/', 'https://fallback.example.test/root')).toEqual({
+      apiBaseUrl: 'https://fallback.example.test',
+      webBaseUrl: 'https://fallback.example.test'
+    });
+  });
+
   it('uses the fallback origin when raw request origin fields are not strings', () => {
     expect(
       buildBaseUrls(

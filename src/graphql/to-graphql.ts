@@ -51,6 +51,13 @@ function makeConverterMap(
 /**
  * Builds a request-bound dispatcher for stored GraphQL entities.
  *
+ * @example
+ * ```ts
+ * const toGraphql = makeToGraphql(simulationStore, baseUrls);
+ * const user = simulationStore.schema.users.selectTableAsList(simulationStore.store.getState())[0]!;
+ * const graphqlUser = toGraphql(simulationStore, 'User', user);
+ * ```
+ *
  * @param simulationStore Store and selectors used by conversion helpers.
  * @param baseUrls Request-derived API and web bases for URL projection.
  * @returns Dispatcher that recursively converts stored entities.

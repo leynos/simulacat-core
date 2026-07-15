@@ -117,8 +117,8 @@ const sparseCommit = () => {
 };
 
 /** Builds a Git ref fixture with top-level and nested URL fields removed. */
-const sparseRef = () => {
-  const ref = buildRefFixture({owner, repo, qualifiedName: 'main', object: {type: 'commit', sha}});
+const sparseRef = (qualifiedName = 'main') => {
+  const ref = buildRefFixture({owner, repo, qualifiedName, object: {type: 'commit', sha}});
   return {
     ...omitFields(ref, refUrlFields),
     object: omitFields(ref.object, ['url'])
@@ -206,7 +206,7 @@ describe('projectRepositoryUrls', () => {
       git_url: `git://github.com/${fullName}.git`,
       ssh_url: `git@github.com:${fullName}.git`,
       clone_url: `${baseUrls.webBaseUrl}/${fullName}.git`,
-      mirror_url: `${baseUrls.webBaseUrl}/${fullName}`,
+      mirror_url: `git://github.com/${fullName}`,
       svn_url: `${baseUrls.webBaseUrl}/${fullName}`
     });
   });
@@ -356,6 +356,27 @@ describe('URL projector properties', () => {
         }
       }),
       {seed: 1_414_102}
+    );
+  });
+
+  it('encodes reserved characters in Git refs without encoding ref separators', () => {
+    const projected = projectRefUrls(sparseRef('feature#42'), baseUrls);
+
+    expect(projected.url).toBe(`${baseUrls.apiBaseUrl}/repos/${fullName}/git/refs/heads/feature%2342`);
+  });
+
+  it('encodes valid Git ref names without changing ref separators', () => {
+    const validRefName = fc.stringMatching(/^[A-Za-z0-9](?:[A-Za-z0-9._#-]{0,12}[A-Za-z0-9])?$/);
+
+    fc.assert(
+      fc.property(validRefName, (qualifiedName) => {
+        const ref = sparseRef(qualifiedName);
+        const projected = projectRefUrls(ref, baseUrls);
+
+        const encodedRef = ref.ref.split('/').map(encodeURIComponent).join('/');
+        expect(projected.url).toBe(`${baseUrls.apiBaseUrl}/repos/${fullName}/git/${encodedRef}`);
+      }),
+      {seed: 1_414_103}
     );
   });
 });
