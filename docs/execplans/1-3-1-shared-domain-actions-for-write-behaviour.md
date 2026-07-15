@@ -28,7 +28,7 @@ value through **two independent read surfaces** — a REST read
 (`query { repository(owner, name) { description } }`) — because all three paths
 agree on one piece of store state written by one action.
 
-You can see it working by starting a simulator, patching a repository's
+The behaviour can be observed by starting a simulator, patching a repository's
 `description`, and then reading that same `description` back through both REST
 and GraphQL. The acceptance tests below assert exactly this round trip.
 
@@ -843,6 +843,16 @@ explicitly intended.
 
 ## Revision note
 
+- 2026-07-15 — Addressed review feedback after re-verifying each report against
+  the live branch. The REST response now shapes an already-resolved repository
+  through the unscoped joined selector, preserving user-owned repository reads
+  and writes; both behavioural and Gherkin coverage now exercise that path.
+  PATCH input is validated with Zod, GraphQL description assertions share one
+  helper, and scenario servers close in an `After` hook. The public action
+  surface has compile-time assertions, while bounded PATCH/GET outcome metrics
+  and optional diagnostic logs cover the new write boundary. The markdownlint
+  pin was intentionally unchanged because `Makefile`, `package.json`, and
+  `bun.lock` already resolve `markdownlint-cli2` at 0.22.1.
 - 2026-06-17 — Initial draft, then revised after a Logisphere design review.
   What changed: added an application-layer use case
   (`updateRepositoryUseCase`) and a thunk factory (`createEntityUpdateThunk`)

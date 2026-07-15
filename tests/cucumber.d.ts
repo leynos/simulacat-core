@@ -8,7 +8,10 @@
 type StepDefinition<State> = (state: State, args: string[], data?: unknown) => State | Promise<State>;
 type HookDefinition<State> = (state: State) => State | Promise<State>;
 type StepRegistrar<State> = (pattern: string | RegExp, fn: StepDefinition<State>) => void;
-type HookRegistrar<State> = (fn: HookDefinition<State>) => void;
+type HookRegistrar<State> = {
+  (fn: HookDefinition<State>): void;
+  (options: {tags: string}, fn: HookDefinition<State>): void;
+};
 
 /**
  * Loads feature files that match a glob pattern from the optional working

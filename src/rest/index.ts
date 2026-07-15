@@ -28,6 +28,9 @@ import {blobAsBase64, commitStatusResponse, gitTrees, normalizeGitRefPath} from 
 import {buildUpdateRepositoryCommand} from '../store/actions/repository.ts';
 import {updateRepositoryUseCase} from '../store/actions/repository-use-case.ts';
 
+import type {GitHubRepository} from '../store/entities.ts';
+import {observeRepositoryWrite} from '../store/repository-observability.ts';
+
 /** REST handler callback shape supplied by the foundation simulator. */
 type SimulationHandler = SimulationHandlers[string];
 
@@ -166,9 +169,17 @@ const handlers =
           // GET /repos/{owner}/{repo}
           'repos/get': async (context: Ctx, _request: Req, response: Res) => {
             const {owner, repo} = context.request.params;
-            if (!requireRepository(owner, repo, response)) return;
-            const shapedRepository = shapeRepository(owner, repo);
-            if (!shapedRepository) return response.status(404).json(notFound);
+            const repository = requireRepository(owner, repo, response);
+            if (!repository) {
+              observeRepositoryWrite({operation: 'get', outcome: 'not-found', reason: 'missing-repository'});
+              return;
+            }
+            const shapedRepository = shapeRepository(repository);
+            if (!shapedRepository) {
+              observeRepositoryWrite({operation: 'get', outcome: 'not-found', reason: 'unshaped-repository'});
+              return response.status(404).json(notFound);
+            }
+            observeRepositoryWrite({operation: 'get', outcome: 'success'});
             return response.status(200).json(shapedRepository);
           },
           // PATCH /repos/{owner}/{repo}
@@ -176,9 +187,16 @@ const handlers =
             const {owner, repo} = context.request.params;
             const command = buildUpdateRepositoryCommand({owner, name: repo, body: request.body});
             const result = await updateRepositoryUseCase(simulationStore, command);
-            if (!result.ok) return response.status(404).json(notFound);
-            const shapedRepository = shapeRepository(owner, repo);
-            if (!shapedRepository) return response.status(404).json(notFound);
+            if (!result.ok) {
+              observeRepositoryWrite({operation: 'patch', outcome: 'not-found', reason: 'missing-repository'});
+              return response.status(404).json(notFound);
+            }
+            const shapedRepository = shapeRepository(result.repository);
+            if (!shapedRepository) {
+              observeRepositoryWrite({operation: 'patch', outcome: 'not-found', reason: 'unshaped-repository'});
+              return response.status(404).json(notFound);
+            }
+            observeRepositoryWrite({operation: 'patch', outcome: 'success'});
             return response.status(200).json(shapedRepository);
           },
           // L#29067 /repos/{owner}/{repo}/branches

@@ -1,6 +1,7 @@
 /** @file Step definitions for shared repository write behaviour. */
 import {expect} from 'bun:test';
 import {withState} from './cucumber.js';
+import {fetchGraphQLDescription} from './repository-description-helper.ts';
 import {simulation} from '../src/index.ts';
 
 type SimulationServer = Awaited<ReturnType<ReturnType<typeof simulation>['listen']>>;
@@ -11,18 +12,7 @@ type ScenarioState = {
   response?: Response;
 };
 
-type GraphQLDescriptionResponse = {
-  data?: {
-    repository?: {
-      description?: string;
-    };
-  };
-  errors?: Array<{message: string}>;
-};
-
-const gql = String.raw;
-
-const {Given, When, Then} = withState<ScenarioState>();
+const {After, Given, When, Then} = withState<ScenarioState>();
 
 /** Reads a positional Cucumber step argument. */
 const requireStepArg = (args: string[], index: number): string => {
@@ -53,6 +43,27 @@ Given('a write-capable simulator seeded with organization {string} and repositor
   }).listen(0);
 
   return {...state, server, baseUrl: `http://127.0.0.1:${server.port}`};
+});
+
+Given('a write-capable simulator seeded with user {string} and repository {string}', async (state, args) => {
+  const owner = requireStepArg(args, 0);
+  const name = requireStepArg(args, 1);
+  const server = await simulation({
+    initialState: {
+      users: [{login: owner, organizations: []}],
+      organizations: [],
+      repositories: [{owner, name, description: 'Original description'}],
+      branches: [],
+      blobs: []
+    }
+  }).listen(0);
+
+  return {...state, server, baseUrl: `http://127.0.0.1:${server.port}`};
+});
+
+After({tags: '@shared-domain-writes'}, async (state) => {
+  await state.server?.ensureClose();
+  return state;
 });
 
 When('the client PATCHes repository {string} with description {string}', async (state, args) => {
@@ -87,21 +98,7 @@ Then('GraphQL repository {string} has description {string}', async (state, args)
   expect(state.baseUrl).toBeDefined();
   const {owner, name} = parseFullName(requireStepArg(args, 0));
   const expectedDescription = requireStepArg(args, 1);
-  const response = await fetch(`${state.baseUrl}/graphql`, {
-    method: 'POST',
-    headers: {'content-type': 'application/json'},
-    body: JSON.stringify({
-      query: gql`
-        query RepositoryDescription($owner: String!, $name: String!) {
-          repository(owner: $owner, name: $name) {
-            description
-          }
-        }
-      `,
-      variables: {owner, name}
-    })
-  });
-  const body = (await response.json()) as GraphQLDescriptionResponse;
+  const body = await fetchGraphQLDescription(state.baseUrl ?? '', owner, name);
 
   expect(body.errors).toBeUndefined();
   expect(body.data?.repository?.description).toBe(expectedDescription);

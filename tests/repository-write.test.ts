@@ -1,6 +1,11 @@
 /** @file Integration tests for repository writes through shared actions. */
-import {afterAll, beforeAll, describe, expect, it} from 'bun:test';
+import {afterAll, beforeAll, beforeEach, describe, expect, it} from 'bun:test';
 import {simulation, type InitialState} from '../src/index.ts';
+import {
+  getRepositoryWriteObservabilityMetrics,
+  resetRepositoryWriteObservabilityCounters
+} from '../src/store/repository-observability.ts';
+import {fetchGraphQLDescription} from './repository-description-helper.ts';
 
 type SimulationServer = Awaited<ReturnType<ReturnType<typeof simulation>['listen']>>;
 
@@ -11,49 +16,21 @@ type RepositoryResponse = {
   private?: boolean;
 };
 
-type GraphQLRepositoryDescription = {
-  data?: {
-    repository?: {
-      description?: string;
-    };
-  };
-  errors?: Array<{message: string}>;
-};
-
 const fixtureState: InitialState = {
-  users: [],
+  users: [{login: 'octocat', organizations: []}],
   organizations: [{login: 'acme'}],
-  repositories: [{owner: 'acme', name: 'awesome-repo', description: 'Original description'}],
+  repositories: [
+    {owner: 'acme', name: 'awesome-repo', description: 'Original description'},
+    {owner: 'octocat', name: 'personal-repo', description: 'Original user description'}
+  ],
   branches: [],
   blobs: []
 };
-
-const gql = String.raw;
 
 /** Fetches JSON and preserves the HTTP status for assertions. */
 const fetchJson = async <T>(url: string, init?: RequestInit): Promise<{status: number; body: T}> => {
   const response = await fetch(url, init);
   return {status: response.status, body: (await response.json()) as T};
-};
-
-/** Queries GraphQL for the repository description demonstrator field. */
-const fetchGraphQLDescription = async (baseUrl: string): Promise<GraphQLRepositoryDescription> => {
-  const response = await fetch(`${baseUrl}/graphql`, {
-    method: 'POST',
-    headers: {'content-type': 'application/json'},
-    body: JSON.stringify({
-      query: gql`
-        query RepositoryDescription($owner: String!, $name: String!) {
-          repository(owner: $owner, name: $name) {
-            description
-          }
-        }
-      `,
-      variables: {owner: 'acme', name: 'awesome-repo'}
-    })
-  });
-
-  return (await response.json()) as GraphQLRepositoryDescription;
 };
 
 describe('repository writes through shared actions', () => {
@@ -67,6 +44,10 @@ describe('repository writes through shared actions', () => {
 
   afterAll(async () => {
     await server.ensureClose();
+  });
+
+  beforeEach(() => {
+    resetRepositoryWriteObservabilityCounters();
   });
 
   it('makes one repository description write visible through REST and GraphQL reads', async () => {
@@ -84,7 +65,7 @@ describe('repository writes through shared actions', () => {
     });
     const get = await fetchJson<RepositoryResponse>(`${baseUrl}/repos/acme/awesome-repo`);
     const list = await fetchJson<RepositoryResponse[]>(`${baseUrl}/orgs/acme/repos`);
-    const graphql = await fetchGraphQLDescription(baseUrl);
+    const graphql = await fetchGraphQLDescription(baseUrl, 'acme', 'awesome-repo');
 
     expect(patch.status).toBe(200);
     expect(patch.body).toEqual(
@@ -101,5 +82,31 @@ describe('repository writes through shared actions', () => {
     expect(list.body).toEqual([expect.objectContaining({description: 'Patched via shared action'})]);
     expect(graphql.errors).toBeUndefined();
     expect(graphql.data?.repository?.description).toBe('Patched via shared action');
+  });
+
+  it('round-trips a user-owned repository through PATCH, GET, and GraphQL', async () => {
+    const patch = await fetchJson<RepositoryResponse>(`${baseUrl}/repos/octocat/personal-repo`, {
+      method: 'PATCH',
+      headers: {
+        authorization: 'Bearer local-token',
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({description: 'Patched user repository'})
+    });
+    const get = await fetchJson<RepositoryResponse>(`${baseUrl}/repos/octocat/personal-repo`);
+    const graphql = await fetchGraphQLDescription(baseUrl, 'octocat', 'personal-repo');
+
+    expect(patch.status).toBe(200);
+    expect(patch.body.description).toBe('Patched user repository');
+    expect(get.status).toBe(200);
+    expect(get.body.description).toBe('Patched user repository');
+    expect(graphql.errors).toBeUndefined();
+    expect(graphql.data?.repository?.description).toBe('Patched user repository');
+    expect(getRepositoryWriteObservabilityMetrics()).toContain(
+      'simulacat_repository_write_observations_total{operation="patch",outcome="success",reason=""} 1'
+    );
+    expect(getRepositoryWriteObservabilityMetrics()).toContain(
+      'simulacat_repository_write_observations_total{operation="get",outcome="success",reason=""} 1'
+    );
   });
 });
