@@ -292,7 +292,7 @@ Stop and escalate when any of these is reached.
   builders should "derive REST URLs from the inbound request host and
   configured API root … preserve explicitly seeded URL fields"; and
   `docs/api-reference.md` describes repository `url` as a "Derived simulator
-  URL". `docs/github-rest-api-audit.md` §"Store and Modeling Constraints" still
+  URL". `docs/github-rest-api-audit.md` §"Store and Modelling Constraints" still
   records the live constraint: "Generated repository, organization, and
   installation URLs assume `localhost:3300`." Impact: this plan aligns code with
   documented intent and updates the audit note.
@@ -403,7 +403,7 @@ Stop and escalate when any of these is reached.
   graph `github3.py` cannot navigate. Date/Author: 2026-06-18, leynos (scope
   confirmation) + planning agent.
 - Decision D-2: per-entity projector design (data-driven template tables +
-  pure `projectXUrls` functions) over a generic "absolutise the whole payload"
+  pure `projectXUrls` functions) over a generic "absolutize the whole payload"
   walker. Rationale: a fidelity-focused test double benefits from explicit,
   greppable, per-entity URL shapes that are unit-testable in isolation; the
   generic walker trades that for DRY but spreads URL-key policy into a fragile
@@ -427,7 +427,7 @@ Stop and escalate when any of these is reached.
   panel (Telefono).
 - Decision D-6: no per-request URL caching. Rationale: ~35 string
   concatenations per repository payload are negligible against JSON
-  serialisation and HTTP for short-lived random-port test servers; caching keyed
+  serialization and HTTP for short-lived random-port test servers; caching keyed
   on host adds invalidation risk for no observable benefit. Date/Author:
   2026-06-18, expert panel (Buzzy Bee).
 - Decision D-7: base resolution layers request host first, then an optional
@@ -567,7 +567,7 @@ Stop and escalate when any of these is reached.
   §"Extension seams", §"Repository label slice".
 - `docs/api-reference.md` §"Exported fixture schemas" (repository/issue/PR
   schema tables), §"Capability matrix", §"REST endpoints".
-- `docs/github-rest-api-audit.md` §"Store and Modeling Constraints" (the
+- `docs/github-rest-api-audit.md` §"Store and Modelling Constraints" (the
   `localhost:3300` constraint this plan removes).
 - `docs/development.md` §"Testing expectations" and the linting-rules section
   (thresholds in Constraint 7).
@@ -614,7 +614,7 @@ How a request becomes a response today:
   (`simulationStore.selectors.*`) and send them as JSON. Three helpers already
   derive host per request — `blobAsBase64`, `gitTrees`, `commitStatusResponse`
   in `src/rest/utils.ts` receive `host: ${request.protocol}://${request.headers.host}`.
-  This is the pattern to generalise.
+  This is the pattern to generalize.
 - GraphQL. `createHandler(simulationStore)` in `src/graphql/handler.ts` builds a
   Yoga server. Its `context({request})` parses the request actor into
   `GraphQLContext` (`src/graphql/resolvers.ts`). Resolvers call the module-level
@@ -654,7 +654,7 @@ Where stored URLs are read (all to be routed through projection):
 
 Field host classification (the central policy, defined once in Milestone 2):
 
-- API-host fields — derived from `apiBaseUrl` (= origin + normalised API root),
+- API-host fields — derived from `apiBaseUrl` (= origin + normalized API root),
   carrying their RFC 6570 templates verbatim. Repository: `url`, `archive_url`,
   `assignees_url`, `blobs_url`, `branches_url`, `collaborators_url`,
   `comments_url`, `commits_url`, `compare_url`, `contents_url`,
@@ -724,10 +724,10 @@ Create `src/http/request-url.ts` (new file, < 200 lines). Define:
 export type RequestOrigin = {protocol: string; host: string};
 export type BaseUrls = {apiBaseUrl: string; webBaseUrl: string};
 
-/** Normalises an API root to '' or '/segment' form (no trailing slash). */
+/** Normalizes an API root to '' or '/segment' form (no trailing slash). */
 export const normalizeApiRoot = (apiRoot: string): string => { /* ... */ };
 
-/** Joins a normalised base and a path with exactly one separating slash. */
+/** Joins a normalized base and a path with exactly one separating slash. */
 export const buildUrl = (base: string, path: string): string => { /* ... */ };
 
 /** Derives API and web base URLs; throws when no host can be determined. */
@@ -818,7 +818,7 @@ Validation: `bun test tests/urls.test.ts` — red before, green after.
 
 Edit each entity schema so the `.transform()` keeps non-URL derivations
 (`id`, `node_id`, `full_name`, `closed_at`, default `user`, etc.) but **stops
-synthesising host URLs**. URL fields remain optional in the schema and are
+synthesizing host URLs**. URL fields remain optional in the schema and are
 stored only when the caller supplied them.
 
 - `src/store/entities/repository.ts`: remove the `host` constant and the ~40
@@ -885,7 +885,7 @@ Validation: `bun test tests/entities.test.ts tests/urls.test.ts` green;
 Tests: rewrite `tests/rest-utils.test.ts` to pass an explicit injected
 `apiBaseUrl` and assert full URLs equal `${injectedBase}/...` (exact, not
 `toContain`). Add `tests/rest-request-urls.test.ts`: start the server with
-`listen(0)`, parametrise over `apiRoot ∈ {'/', '/api/v3'}`, and for each of
+`listen(0)`, parametrize over `apiRoot ∈ {'/', '/api/v3'}`, and for each of
 repository, issue, pull request, commit, ref, branch, and org-membership assert
 that `url`, `html_url`, and the templated `*_url` fields contain the actual
 bound port and host. Add a navigation hop test: fetch a repository, expand its
@@ -944,7 +944,7 @@ green.
   now implemented and point to `src/http/request-url.ts` and `src/urls/`.
 - `docs/api-reference.md`: confirm the repository/issue/PR URL rows describe
   request-derived URLs and document the override and `apiRoot` behaviour.
-- `docs/github-rest-api-audit.md` §"Store and Modeling Constraints": replace the
+- `docs/github-rest-api-audit.md` §"Store and Modelling Constraints": replace the
   "URLs assume `localhost:3300`" constraint with the new request-derived
   behaviour and the external-field exceptions.
 - `docs/development.md`: document the URL-policy modules and the

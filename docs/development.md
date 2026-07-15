@@ -34,7 +34,6 @@ The normal contributor gate is:
 repository's preferred order. The `lint` target runs the `biomejs` and
 `oxlint` sub-targets.
 
-
 ## URL derivation
 
 The GitHub store is host-agnostic. Entity schemas preserve caller-supplied URL
@@ -43,7 +42,7 @@ not synthesize simulator-host URLs while parsing fixtures.
 
 Request-derived URL policy is split across two layers:
 
-- `src/http/request-url.ts` normalises the configured `apiUrl` (including its
+- `src/http/request-url.ts` normalizes the configured `apiUrl` (including its
   API root), derives API and web base URLs from a request origin, and falls back
   to `SIMULACAT_GITHUB_API_URL` only when the request has no usable HTTP(S)
   host.
