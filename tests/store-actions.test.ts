@@ -118,6 +118,42 @@ describe('repository write action reducer', () => {
   });
 });
 
+describe('repository write action reducer runtime validation', () => {
+  it('ignores runtime-invalid writable-field values without mutating the source repository', () => {
+    const current = repositoryFixture();
+    const snapshot = structuredClone(current);
+    const updated = applyRepositoryUpdate(current, {
+      owner: current.owner,
+      name: current.name,
+      changes: {
+        description: 'Valid description',
+        homepage: 'https://valid.example.test'
+      }
+    });
+
+    expect(updated).toMatchObject({
+      description: 'Valid description',
+      homepage: 'https://valid.example.test'
+    });
+
+    for (const invalidValue of [null, 42, {}]) {
+      const invalidUpdated = applyRepositoryUpdate(current, {
+        owner: current.owner,
+        name: current.name,
+        changes: {
+          description: invalidValue,
+          homepage: invalidValue
+        } as unknown as UpdateRepositoryCommand['changes']
+      });
+
+      expect(invalidUpdated.description).toBe(current.description);
+      expect(invalidUpdated.homepage).toBe(current.homepage);
+    }
+
+    expect(current).toEqual(snapshot);
+  });
+});
+
 describe('repository write action dispatch', () => {
   it('dispatches updates through the store without touching other owners', async () => {
     const server = await simulation({initialState}).listen(0);

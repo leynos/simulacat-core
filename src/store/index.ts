@@ -54,14 +54,18 @@ type ExtendSelectors = typeof inputSelectors;
 export type GitHubSchema = ReturnType<ExtendedSchema>;
 export type GitHubActions = ReturnType<ExtendActions>;
 export type GitHubSelectors = ReturnType<ExtendSelectors>;
+
+/** Caller-supplied store action extensions. */
 export type GitHubActionExtensions = Record<string, unknown>;
 
 export type ExtendedSimulationStore = SimulationStore<GitHubSchema, GitHubActions, GitHubSelectors>;
 
-// Public type for consumers of this package to declare the shape of an
-// `extendStore` argument. This wires the foundation `ExtendStoreConfig`
-// generics to the concrete GitHub schema/actions/selectors types so callers
-// get accurate typing when they provide schema/actions/selectors extensions.
+/**
+ * Public type for consumers of this package to declare the shape of an
+ * `extendStore` argument. This wires the foundation `ExtendStoreConfig`
+ * generics to the concrete GitHub schema/actions/selectors types so callers
+ * get accurate typing when they provide schema/actions/selectors extensions.
+ */
 export type GitHubExtendStoreInput = Omit<
   ExtendStoreConfig<GitHubSchema, GitHubActions & GitHubActionExtensions, GitHubSelectors>,
   'schema'

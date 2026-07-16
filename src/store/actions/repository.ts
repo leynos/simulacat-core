@@ -50,7 +50,7 @@ export const applyRepositoryUpdate = (
     ...current,
     ...Object.fromEntries(
       Object.entries(command.changes).filter(
-        ([field, value]) => isRepositoryWritableField(field) && value !== undefined
+        ([field, value]) => isRepositoryWritableField(field) && typeof value === 'string'
       )
     )
   };
