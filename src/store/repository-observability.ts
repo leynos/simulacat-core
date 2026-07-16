@@ -1,6 +1,15 @@
-/** @file Repository write observability counters and optional diagnostic logs. */
+/**
+ * @file Repository write observability counters and optional diagnostic logs.
+ *
+ * Counters are process-local and use synchronous, no-`await` read-modify-write
+ * operations. They are atomic with respect to JavaScript callbacks in the
+ * current single-event-loop Bun/Node runtime, but are not shared across
+ * processes. A Worker-thread or shared-memory runtime would need a redesign
+ * with `worker_threads`, `SharedArrayBuffer`, or another shared-memory
+ * primitive; see [GitHub issue #14](https://github.com/leynos/simulacat-core/issues/14).
+ */
 
-type RepositoryWriteOperation = 'get' | 'patch';
+type RepositoryWriteOperation = 'patch';
 type RepositoryWriteOutcome = 'not-found' | 'success';
 
 type RepositoryWriteObservation = {
@@ -22,13 +31,13 @@ const escapePrometheusLabel = (value: string): string => {
 };
 
 /**
- * Records a bounded repository read or write outcome.
+ * Records a bounded repository write outcome.
  *
  * @param observation Operation outcome to count and optionally log.
  * @example
  * ```ts
  * observeRepositoryWrite({operation: 'patch', outcome: 'success'});
- * // Increments the matching in-process counter.
+ * // Increments the matching process-local counter.
  * ```
  */
 export const observeRepositoryWrite = (observation: RepositoryWriteObservation): void => {
@@ -53,7 +62,7 @@ export const observeRepositoryWrite = (observation: RepositoryWriteObservation):
  */
 export const getRepositoryWriteObservabilityMetrics = (): string => {
   const lines = [
-    '# HELP simulacat_repository_write_observations_total Repository write and read-after-write observations.',
+    '# HELP simulacat_repository_write_observations_total Repository write observations.',
     '# TYPE simulacat_repository_write_observations_total counter'
   ];
 

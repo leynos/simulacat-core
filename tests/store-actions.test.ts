@@ -227,3 +227,41 @@ describe('repository write action dispatch', () => {
     }
   });
 });
+
+describe('repository write action direct runtime payloads', () => {
+  it('ignores runtime-invalid public action payloads without touching either repository', async () => {
+    const server = await simulation({initialState}).listen(0);
+    try {
+      const stateBefore = server.simulationStore.store.getState();
+      const targetBefore = structuredClone(
+        server.simulationStore.selectors.getRepository(stateBefore, 'acme', 'awesome-repo')
+      );
+      const unrelatedBefore = structuredClone(
+        server.simulationStore.selectors.getRepository(stateBefore, 'globex', 'awesome-repo')
+      );
+
+      await Promise.all(
+        [null, 42, {}].map((invalidValue) =>
+          server.simulationStore.store.dispatch(
+            server.simulationStore.actions.updateRepository({
+              owner: 'acme',
+              name: 'awesome-repo',
+              changes: {
+                description: invalidValue,
+                homepage: invalidValue
+              } as unknown as UpdateRepositoryCommand['changes']
+            })
+          )
+        )
+      );
+
+      const stateAfter = server.simulationStore.store.getState();
+      expect(server.simulationStore.selectors.getRepository(stateAfter, 'acme', 'awesome-repo')).toEqual(targetBefore);
+      expect(server.simulationStore.selectors.getRepository(stateAfter, 'globex', 'awesome-repo')).toEqual(
+        unrelatedBefore
+      );
+    } finally {
+      await server.ensureClose();
+    }
+  });
+});

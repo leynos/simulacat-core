@@ -9,7 +9,7 @@ simulacat_actor_observations_total{event="rest-resolution",actor_kind="anonymous
 simulacat_actor_observations_total{event="rest-selected",actor_kind="anonymous",outcome="selected",source="",reason=""} 1
 # HELP simulacat_url_derivation_observations_total Request-derived URL observations.
 # TYPE simulacat_url_derivation_observations_total counter
-# HELP simulacat_repository_write_observations_total Repository write and read-after-write observations.
+# HELP simulacat_repository_write_observations_total Repository write observations.
 # TYPE simulacat_repository_write_observations_total counter
 "
 `;

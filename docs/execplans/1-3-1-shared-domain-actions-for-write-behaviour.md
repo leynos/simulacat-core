@@ -786,7 +786,7 @@ breach** and must be approved before being attempted. Therefore:
 - If the maintainer approves the toolchain, add the proof as an **additive,
   separately-gated** artefact: annotate `src/store/actions/repository.ts` (or a
   proof-only mirror) with `//@ ensures`/`//@ requires` and run
-  `npx lsc gen --backend=dafny` / `npx lsc check --backend=dafny`, keeping the
+  `bunx lsc gen --backend=dafny` / `bunx lsc check --backend=dafny`, keeping the
   generated `.dfy.gen`/`.dfy` under a `proofs/` path with its own make target —
   never in the default `make all` path until the team decides otherwise.
 - If approval is withheld, record in the Decision Log that fast-check property

@@ -17,6 +17,13 @@ type RepositoryResponse = {
   private?: boolean;
 };
 
+type ValidationErrorResponse = {
+  err: Array<{
+    instancePath: string;
+    message: string;
+  }>;
+};
+
 const fixtureState: InitialState = {
   users: [{login: 'octocat', organizations: []}],
   organizations: [{login: 'acme'}],
@@ -106,8 +113,44 @@ describe('repository writes through shared actions', () => {
     expect(getRepositoryWriteObservabilityMetrics()).toContain(
       'simulacat_repository_write_observations_total{operation="patch",outcome="success",reason=""} 1'
     );
-    expect(getRepositoryWriteObservabilityMetrics()).toContain(
-      'simulacat_repository_write_observations_total{operation="get",outcome="success",reason=""} 1'
+  });
+});
+
+describe('repository PATCH malformed payloads', () => {
+  let server: SimulationServer;
+  let baseUrl: string;
+
+  beforeAll(async () => {
+    server = await simulation({initialState: fixtureState}).listen(0);
+    baseUrl = `http://localhost:${server.port}`;
+  });
+
+  afterAll(async () => {
+    await server.ensureClose();
+  });
+
+  it('keeps persisted writable fields when PATCH values are malformed', async () => {
+    const before = await fetchJson<RepositoryResponse>(`${baseUrl}/repos/acme/awesome-repo`);
+    const patch = await fetchJson<ValidationErrorResponse>(`${baseUrl}/repos/acme/awesome-repo`, {
+      method: 'PATCH',
+      headers: {
+        authorization: 'Bearer local-token',
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({description: null, homepage: {invalid: true}})
+    });
+    const after = await fetchJson<RepositoryResponse>(`${baseUrl}/repos/acme/awesome-repo`);
+
+    expect(before.status).toBe(200);
+    expect(patch.status).toBe(400);
+    expect(patch.body.err).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({instancePath: '/requestBody/description', message: 'must be string'})
+      ])
+    );
+    expect(after.status).toBe(200);
+    expect(after.body).toEqual(
+      expect.objectContaining({description: before.body.description, homepage: before.body.homepage})
     );
   });
 });
@@ -125,5 +168,30 @@ describe('repository write observability', () => {
     });
 
     expect(getRepositoryWriteObservabilityMetrics()).toContain('reason="request.\\"path\\"\\\\line\\nmore"');
+  });
+
+  it('counts concurrent PATCH observations in the process-local event loop', async () => {
+    await Promise.all(
+      Array.from({length: 3}, async () => {
+        observeRepositoryWrite({operation: 'patch', outcome: 'success'});
+      })
+    );
+
+    expect(getRepositoryWriteObservabilityMetrics()).toContain(
+      'simulacat_repository_write_observations_total{operation="patch",outcome="success",reason=""} 3'
+    );
+  });
+
+  it('removes stale observations on reset and restarts subsequent counts at one', () => {
+    observeRepositoryWrite({operation: 'patch', outcome: 'success'});
+    resetRepositoryWriteObservabilityCounters();
+
+    expect(getRepositoryWriteObservabilityMetrics()).not.toContain('operation="patch"');
+
+    observeRepositoryWrite({operation: 'patch', outcome: 'success'});
+
+    expect(getRepositoryWriteObservabilityMetrics()).toContain(
+      'simulacat_repository_write_observations_total{operation="patch",outcome="success",reason=""} 1'
+    );
   });
 });

@@ -171,16 +171,11 @@ const handlers =
           'repos/get': async (context: Ctx, _request: Req, response: Res) => {
             const {owner, repo} = context.request.params;
             const repository = requireRepository(owner, repo, response);
-            if (!repository) {
-              observeRepositoryWrite({operation: 'get', outcome: 'not-found', reason: 'missing-repository'});
-              return;
-            }
+            if (!repository) return;
             const shapedRepository = shapeRepository(repository);
             if (!shapedRepository) {
-              observeRepositoryWrite({operation: 'get', outcome: 'not-found', reason: 'unshaped-repository'});
               return response.status(404).json(notFound);
             }
-            observeRepositoryWrite({operation: 'get', outcome: 'success'});
             return response.status(200).json(shapedRepository);
           },
           // PATCH /repos/{owner}/{repo}

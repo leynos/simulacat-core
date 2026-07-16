@@ -74,6 +74,9 @@ state store, then exposes that state through REST and GraphQL surfaces.
   parsing happens in the adapter layer before commands reach reducers, and
   adapters and REST handlers call use cases rather than mutating store tables
   locally.
+- `src/store/repository-observability.ts`
+  Maintains process-local counters for repository PATCH/write outcomes. Read
+  handlers do not record these observations.
 - `src/store/entities/shared.ts`
   Defines `githubEntityPermissionSchema`.
 - `src/store/index.ts`

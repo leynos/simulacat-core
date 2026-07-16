@@ -15,8 +15,8 @@ export type BuildUpdateRepositoryCommandInput = {
 };
 
 const repositoryPatchBodyShape = Object.fromEntries(
-  REPOSITORY_WRITABLE_FIELDS.map((field) => [field, z.string().optional()])
-) as Record<RepositoryWritableField, z.ZodOptional<z.ZodString>>;
+  REPOSITORY_WRITABLE_FIELDS.map((field) => [field, z.string().optional().catch(undefined)])
+) as Record<RepositoryWritableField, z.ZodCatch<z.ZodOptional<z.ZodString>>>;
 
 const repositoryPatchBodySchema = z.object(repositoryPatchBodyShape).passthrough();
 
@@ -43,7 +43,7 @@ export const buildUpdateRepositoryCommand = (input: BuildUpdateRepositoryCommand
   if (parsedBody.success) {
     for (const field of REPOSITORY_WRITABLE_FIELDS) {
       const value = parsedBody.data[field];
-      if (isRepositoryWritableField(field) && value !== undefined) changes[field] = value;
+      if (isRepositoryWritableField(field) && typeof value === 'string') changes[field] = value;
     }
   }
 
