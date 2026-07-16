@@ -3,6 +3,8 @@ import {IssueState, PullRequestState} from '../../__generated__/resolvers-types.
 import type {GitHubRepository} from '../../store/entities.ts';
 import type {ExtendedSimulationStore} from '../../store/index.ts';
 import {repositoryNodeId} from '../../store/keys.ts';
+import type {BaseUrls} from '../../http/request-url.ts';
+import {projectCommitUrls, projectIssueUrls, projectPullRequestUrls} from '../../urls/index.ts';
 import type {DataSchemas, GraphQLData, ToGraphqlDispatcher} from '../to-graphql-shapes.ts';
 
 type MinimalRepositoryRef = {
@@ -66,11 +68,13 @@ const splitRefName = (qualifiedName: string) => {
  *
  * @param simulationStore Simulation store used for resolving the repository.
  * @param commit Commit fixture to convert.
+ * @param baseUrls Request-derived API and web bases for URL projection.
  * @returns The GraphQL commit object.
  */
 export function convertCommitToGraphql(
   simulationStore: ExtendedSimulationStore,
-  commit: DataSchemas['Commit']
+  commit: DataSchemas['Commit'],
+  baseUrls: BaseUrls
 ): GraphQLData['Commit'] {
   const repository = simulationStore.selectors.getRepository(
     simulationStore.store.getState(),
@@ -81,6 +85,7 @@ export function convertCommitToGraphql(
   const messageHeadline = messageParts[0] ?? commit.commit.message;
   const messageBody = messageParts.slice(1).join('\n');
   const repositoryRef = wrapRepository(repository);
+  const projectedCommit = projectCommitUrls(commit, baseUrls);
 
   return {
     __typename: 'Commit',
@@ -100,8 +105,8 @@ export function convertCommitToGraphql(
     },
     repository: repositoryRef,
     resourcePath: `/${commit.owner}/${commit.repo}/commit/${commit.sha}`,
-    url: commit.html_url,
-    commitUrl: commit.html_url
+    url: projectedCommit.html_url,
+    commitUrl: projectedCommit.html_url
   };
 }
 
@@ -142,12 +147,16 @@ export function convertRefToGraphql(
  *
  * @param simulationStore Simulation store used for resolving relations.
  * @param issue Issue fixture to convert.
+ * @param baseUrls Request-derived API and web bases for URL projection.
  * @returns The GraphQL issue object.
  */
 export function convertIssueToGraphql(
   simulationStore: ExtendedSimulationStore,
-  issue: DataSchemas['Issue']
+  issue: DataSchemas['Issue'],
+  baseUrls: BaseUrls
 ): GraphQLData['Issue'] {
+  const projectedIssue = projectIssueUrls(issue, baseUrls);
+
   return {
     __typename: 'Issue',
     id: issue.node_id,
@@ -161,7 +170,7 @@ export function convertIssueToGraphql(
     closed: issue.state === 'closed',
     closedAt: issue.closed_at,
     state: issue.state === 'open' ? IssueState.Open : IssueState.Closed,
-    url: issue.html_url,
+    url: projectedIssue.html_url,
     resourcePath: `/${issue.owner}/${issue.repo}/issues/${issue.number}`,
     repository: wrapRepository(
       simulationStore.selectors.getRepository(simulationStore.store.getState(), issue.owner, issue.repo)
@@ -175,15 +184,18 @@ export function convertIssueToGraphql(
  * @param simulationStore Simulation store used for resolving relations.
  * @param pullRequest Pull request fixture to convert.
  * @param toGraphql Dispatcher used for related-entity conversions.
+ * @param baseUrls Request-derived API and web bases for URL projection.
  * @returns The GraphQL pull request object.
  */
 export function convertPullRequestToGraphql(
   simulationStore: ExtendedSimulationStore,
   pullRequest: DataSchemas['PullRequest'],
-  toGraphql: ToGraphqlDispatcher
+  toGraphql: ToGraphqlDispatcher,
+  baseUrls: BaseUrls
 ): GraphQLData['PullRequest'] {
   const state = simulationStore.store.getState();
   const relations = simulationStore.selectors.resolvePullRequestRelations(state, pullRequest);
+  const projectedPullRequest = projectPullRequestUrls(pullRequest, baseUrls);
 
   return {
     __typename: 'PullRequest',
@@ -207,8 +219,8 @@ export function convertPullRequestToGraphql(
     headRefOid: pullRequest.head.sha,
     baseRef: relations.baseRef ? toGraphql(simulationStore, 'Ref', relations.baseRef) : undefined,
     headRef: relations.headRef ? toGraphql(simulationStore, 'Ref', relations.headRef) : undefined,
-    url: pullRequest.html_url,
-    permalink: pullRequest.html_url,
+    url: projectedPullRequest.html_url,
+    permalink: projectedPullRequest.html_url,
     resourcePath: `/${pullRequest.owner}/${pullRequest.repo}/pull/${pullRequest.number}`,
     repository: wrapRepository(simulationStore.selectors.getRepository(state, pullRequest.owner, pullRequest.repo))
   };

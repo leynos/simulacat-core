@@ -1,5 +1,13 @@
 # Changelog
 
+## \[0.6.5]
+
+### Enhancements for [0.6.5]
+
+- [#19](https://github.com/leynos/simulacat-core/pull/19) Derive REST and
+  GraphQL payload URLs from the request host and configured API root, while
+  preserving explicitly seeded fixture URL overrides.
+
 ## \[0.6.4]
 
 - [`86957dd`](https://github.com/thefrontside/simulacrum/commit/86957dd0e8ecd8a6bc536fd289df5e393c1774e3)

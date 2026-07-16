@@ -22,19 +22,6 @@ const defaultRefPrefix = (objectType: RefObjectType) => {
   return objectType === 'tag' ? 'refs/tags/' : 'refs/heads/';
 };
 
-const gitObjectApiPath = (objectType: RefObjectType) => {
-  switch (objectType) {
-    case 'commit':
-      return 'commits';
-    case 'tag':
-      return 'tags';
-    default: {
-      const exhaustive: never = objectType;
-      throw new Error(`Unsupported ref object type: ${exhaustive}`);
-    }
-  }
-};
-
 /**
  * Validates and normalizes a minimal Git ref fixture.
  *
@@ -46,9 +33,7 @@ const gitObjectApiPath = (objectType: RefObjectType) => {
  * input `qualifiedName` when both are provided. The `ref` value is prefixed
  * through `defaultRefPrefix(ref.object.type)` when it is not already fully
  * qualified, `node_id` is synthesized as Base64 of
- * `Ref:${refStoreKey({owner, repo, qualifiedName})}`, and missing `url` and
- * `object.url` fields are synthesized from owner, repo, qualified ref, object
- * SHA, and `gitObjectApiPath(ref.object.type)`.
+ * `Ref:${refStoreKey({owner, repo, qualifiedName})}`.
  *
  * @returns The normalized `GitHubRef` shape used by the store and adapters.
  */
@@ -71,7 +56,6 @@ export const githubRefSchema = z
     const fullRef = qualifiedName.startsWith('refs/')
       ? qualifiedName
       : `${defaultRefPrefix(ref.object.type)}${qualifiedName}`;
-    const objectApiPath = gitObjectApiPath(ref.object.type);
 
     return {
       ...ref,
@@ -79,14 +63,7 @@ export const githubRefSchema = z
       ref: fullRef,
       node_id:
         ref.node_id ??
-        Buffer.from(`Ref:${refStoreKey({owner: ref.owner, repo: ref.repo, qualifiedName})}`).toString('base64'),
-      url: ref.url ?? `https://api.github.com/repos/${ref.owner}/${ref.repo}/git/ref/${fullRef.replace(/^refs\//, '')}`,
-      object: {
-        ...ref.object,
-        url:
-          ref.object.url ??
-          `https://api.github.com/repos/${ref.owner}/${ref.repo}/git/${objectApiPath}/${ref.object.sha}`
-      }
+        Buffer.from(`Ref:${refStoreKey({owner: ref.owner, repo: ref.repo, qualifiedName})}`).toString('base64')
     };
   });
 

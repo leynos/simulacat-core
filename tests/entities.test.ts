@@ -2,6 +2,7 @@
 import {beforeEach, describe, expect, it} from 'bun:test';
 import {
   githubAppInstallationSchema,
+  githubBranchSchema,
   convertObjByKey,
   convertInitialStateToStoreState,
   githubBlobSchema,
@@ -11,9 +12,19 @@ import {
   githubOrganizationSchema,
   githubPullRequestSchema,
   githubRefSchema,
+  githubRepositorySchema,
   githubUserSchema
 } from '../src/store/entities.ts';
 import {resetNextRepositoryId} from '../src/store/entities/repository.ts';
+import {
+  branchUrlFields,
+  commitUrlFields,
+  issueUrlFields,
+  organizationUrlFields,
+  pullRequestUrlFields,
+  refUrlFields,
+  repositoryUrlFields
+} from '../src/urls/index.ts';
 
 type GitHubInitialStoreFixture = {
   users: Array<Record<string, unknown>>;
@@ -42,10 +53,27 @@ const buildGithubInitialStore = (options: BuildGithubInitialStoreOptions = {}) =
   ...(options.storeOverrides ?? {})
 });
 
+const organizationLegacyUserUrlFields = [
+  'followers_url',
+  'following_url',
+  'gists_url',
+  'starred_url',
+  'subscriptions_url',
+  'organizations_url',
+  'received_events_url'
+] as const;
+
 const parseGithubInitialStore = (options: BuildGithubInitialStoreOptions = {}) =>
   githubInitialStoreSchema.parse(buildGithubInitialStore(options));
 
 type StoreState = ReturnType<typeof convertInitialStateToStoreState>;
+
+/** Expects every named URL field to be absent from a sparse stored entity. */
+const expectFieldsAbsent = (value: object, fields: readonly string[]) => {
+  for (const field of fields) {
+    expect(value).not.toHaveProperty(field);
+  }
+};
 
 const requireStoreState = (store: StoreState) => {
   if (!store) {
@@ -129,7 +157,7 @@ describe('githubBlobSchema', () => {
 
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: legacy early entity schema suite kept intact for coverage.
 describe('early entity schemas', () => {
-  it('normalizes commit parents precedence and synthesizes parent URLs', () => {
+  it('normalizes commit parents precedence without synthesizing parent URLs', () => {
     const commit = githubCommitSchema.parse({
       owner: 'test-org',
       repo: 'test-repo',
@@ -141,12 +169,12 @@ describe('early entity schemas', () => {
     });
 
     expect(commit.parents.map((parent) => parent.sha)).toEqual(['parent-top-1', 'parent-top-2']);
-    expect(commit.parents[0]?.url).toBe('https://api.github.com/repos/test-org/test-repo/git/commits/parent-top-1');
+    expect(commit.parents[0]).not.toHaveProperty('url');
     expect(commit.parents[1]?.url).toBe('https://example.test/parent-top-2');
     expect(commit.commit.parents).toEqual(commit.parents);
   });
 
-  it('normalizes ref prefixes, precedence, and object URLs', () => {
+  it('normalizes ref prefixes and precedence without synthesizing object URLs', () => {
     const branchRef = githubRefSchema.parse({
       owner: 'test-org',
       repo: 'test-repo',
@@ -163,10 +191,10 @@ describe('early entity schemas', () => {
 
     expect(branchRef.qualifiedName).toBe('main');
     expect(branchRef.ref).toBe('refs/heads/main');
-    expect(branchRef.object.url).toBe('https://api.github.com/repos/test-org/test-repo/git/commits/commit-sha');
+    expect(branchRef.object).not.toHaveProperty('url');
     expect(tagRef.qualifiedName).toBe('v1.0.0');
     expect(tagRef.ref).toBe('refs/tags/v1.0.0');
-    expect(tagRef.object.url).toBe('https://api.github.com/repos/test-org/test-repo/git/tags/tag-sha');
+    expect(tagRef.object).not.toHaveProperty('url');
   });
 
   it('uses deterministic commit defaults', () => {
@@ -208,9 +236,10 @@ describe('early entity schemas', () => {
 
     expect(commit.commit.tree.sha).toBe('abc123');
     expect(ref.ref).toBe('refs/heads/main');
-    expect(issue.html_url).toBe('https://github.com/test-org/test-repo/issues/2');
+    expectFieldsAbsent(issue, issueUrlFields);
     expect(pullRequest.base.owner).toBe('test-org');
     expect(pullRequest.issue_number).toBe(3);
+    expectFieldsAbsent(pullRequest, pullRequestUrlFields);
   });
 
   it('clears stale closure timestamps for open issues and pull requests', () => {
@@ -304,26 +333,23 @@ describe('githubOrganizationSchema', () => {
     expect(() => githubOrganizationSchema.parse({login: '   '})).toThrow('login must be a non-empty string');
   });
 
-  it('derives related URLs from the provided organization URL base', () => {
+  it('keeps the store host-agnostic when URL fields are omitted', () => {
     const organization = githubOrganizationSchema.parse({
-      login: 'test-org',
-      url: 'https://api.example.test/api/v3/orgs/test-org'
+      login: 'test-org'
     });
 
-    expect(organization.url).toBe('https://api.example.test/api/v3/orgs/test-org');
-    expect(organization.repos_url).toBe('https://api.example.test/api/v3/orgs/test-org/repos');
-    expect(organization.followers_url).toBe('https://api.example.test/api/v3/users/test-org/followers');
-    expect(organization.members_url).toBe('https://api.example.test/api/v3/orgs/test-org/members{/member}');
+    expectFieldsAbsent(organization, [...organizationUrlFields, ...organizationLegacyUserUrlFields]);
   });
 
-  it('preserves caller-supplied related URLs', () => {
+  it('preserves caller-supplied organization URL overrides', () => {
     const organization = githubOrganizationSchema.parse({
       login: 'test-org',
-      url: 'https://api.example.test/orgs/test-org',
+      url: 'https://api.example.test/api/v3/orgs/test-org',
       html_url: 'https://example.test/orgs/test-org',
       members_url: 'https://example.test/custom-members{/member}'
     });
 
+    expect(organization.url).toBe('https://api.example.test/api/v3/orgs/test-org');
     expect(organization.html_url).toBe('https://example.test/orgs/test-org');
     expect(organization.members_url).toBe('https://example.test/custom-members{/member}');
   });
@@ -490,8 +516,54 @@ describe('initialState schema transforms', () => {
       throw new Error('expected seeded repository to be present');
     }
     expect(repository.full_name).toBe('test-org/test-repo');
-    expect(repository.url).toContain('/repos/test-org/test-repo');
+    expectFieldsAbsent(repository, repositoryUrlFields);
     expect(repository.visibility).toBe('public');
+  });
+
+  it('preserves caller-supplied repository URL overrides', () => {
+    const repository = githubRepositorySchema.parse({
+      owner: 'test-org',
+      name: 'test-repo',
+      permissions: {},
+      html_url: 'https://example.test/custom/repo',
+      mirror_url: null,
+      homepage: null
+    });
+
+    expect(repository.html_url).toBe('https://example.test/custom/repo');
+    expect(repository.mirror_url).toBeNull();
+    expect(repository.homepage).toBeNull();
+  });
+
+  it('keeps parsed early entities host-agnostic when URL fields are omitted', () => {
+    const commit = githubCommitSchema.parse({owner: 'test-org', repo: 'test-repo', sha: 'abc123'});
+    const ref = githubRefSchema.parse({
+      owner: 'test-org',
+      repo: 'test-repo',
+      qualifiedName: 'main',
+      object: {sha: 'abc123'}
+    });
+    const branch = githubBranchSchema.parse({owner: 'test-org', repo: 'test-repo', name: 'main'});
+    const issue = githubIssueSchema.parse({owner: 'test-org', repo: 'test-repo', number: 2, title: 'Bug'});
+    const pullRequest = githubPullRequestSchema.parse({
+      owner: 'test-org',
+      repo: 'test-repo',
+      number: 3,
+      title: 'Patch',
+      base: {ref: 'main', sha: 'abc123'},
+      head: {ref: 'feature/ref-safe', sha: 'def456'}
+    });
+
+    expectFieldsAbsent(commit, commitUrlFields);
+    expect(commit.commit.tree).not.toHaveProperty('url');
+    expect(commit.commit.parents).toEqual([]);
+    expect(commit.parents).toEqual([]);
+    expectFieldsAbsent(ref, refUrlFields);
+    expect(ref.object).not.toHaveProperty('url');
+    expectFieldsAbsent(branch, branchUrlFields);
+    expect(branch.commit).not.toHaveProperty('url');
+    expectFieldsAbsent(issue, issueUrlFields);
+    expectFieldsAbsent(pullRequest, pullRequestUrlFields);
   });
 
   it('preserves caller-supplied repository and organization ids', () => {
@@ -530,8 +602,8 @@ describe('initialState schema transforms', () => {
     expect(firstRepository.id).not.toBe(secondRepository.id);
     expect(firstRepository.full_name).toBe('test-org/test-repo');
     expect(secondRepository.full_name).toBe('test-org/second-repo');
-    expect(firstRepository.url).toContain('/repos/test-org/test-repo');
-    expect(secondRepository.url).toContain('/repos/test-org/second-repo');
+    expectFieldsAbsent(firstRepository, repositoryUrlFields);
+    expectFieldsAbsent(secondRepository, repositoryUrlFields);
   });
 
   it('rejects duplicate keyed entities instead of overwriting them', () => {

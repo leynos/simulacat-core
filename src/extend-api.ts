@@ -8,10 +8,13 @@
 import type {createFoundationSimulationServer} from '@simulacrum/foundation-simulator';
 import {stringify} from 'querystring';
 import {createHandler} from './graphql/handler.ts';
+import {buildBaseUrls} from './http/request-url.ts';
+import {getUrlObservabilityMetrics, makeUrlObservationContext} from './http/url-observability.ts';
 import {requestActorMiddleware} from './middleware/request-actor.ts';
 import {normalizeGitRefPath} from './rest/utils.ts';
 import {getActorObservabilityMetrics} from './store/actors.ts';
 import type {ExtendedSimulationStore} from './store/index.ts';
+import {projectRefUrls} from './urls/ref.ts';
 
 /**
  * The `extendRouter` callback shape expected by
@@ -37,6 +40,7 @@ const notFound = {message: 'Not Found'};
  * ```
  *
  * @param extend Optional caller hook that can register extra routes.
+ * @param apiRoot Configured API root used by built-in GraphQL URL projection.
  * @returns A foundation `extendRouter` callback that installs built-in routes
  * before exposing the router to the caller hook.
  */
@@ -44,7 +48,8 @@ export const extendRouter =
   (
     extend:
       | ((router: Parameters<FoundationExtendRouter>[0], simulationStore: ExtendedSimulationStore) => void)
-      | undefined
+      | undefined,
+    apiRoot = '/'
   ) =>
   (router: Parameters<FoundationExtendRouter>[0], simulationStore: ExtendedSimulationStore) => {
     // Why: extension routes and built-in OpenAPI handlers must see the same request-scoped actor context.
@@ -59,10 +64,12 @@ export const extendRouter =
     });
 
     router.get('/metrics', (_, response) => {
-      response.type('text/plain; version=0.0.4; charset=utf-8').send(getActorObservabilityMetrics());
+      response
+        .type('text/plain; version=0.0.4; charset=utf-8')
+        .send(`${getActorObservabilityMetrics()}${getUrlObservabilityMetrics()}`);
     });
 
-    router.use('/graphql', createHandler(simulationStore));
+    router.use('/graphql', createHandler(simulationStore, apiRoot));
 
     router.get('/repos/:owner/:repo/git/ref/*ref', (request, response) => {
       const {owner, repo, ref} = request.params as {owner: string; repo: string; ref: string[]};
@@ -72,7 +79,17 @@ export const extendRouter =
       const item = repository ? simulationStore.selectors.getRef(state, {owner, repo, qualifiedName}) : undefined;
 
       if (!item) return response.status(404).json(notFound);
-      return response.status(200).json(item);
+      const {SIMULACAT_GITHUB_API_URL: fallbackBaseUrl} = process.env;
+      const baseUrls = buildBaseUrls(
+        {
+          protocol: request.protocol,
+          host: request.headers.host ?? ''
+        },
+        apiRoot,
+        fallbackBaseUrl,
+        makeUrlObservationContext('rest', request.simulacatActor?.observationContext?.requestId)
+      );
+      return response.status(200).json(projectRefUrls(item, baseUrls));
     });
 
     router.get(['/login/oauth/authorize'], (request, response) => {

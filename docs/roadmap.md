@@ -125,7 +125,7 @@ docs/architecture.md §GitHub client compatibility, docs/api-reference.md
 §Exported fixture schemas, and docs/github-rest-api-audit.md §Store and
 Modelling Constraints.
 
-- [ ] 1.4.1. Derive REST URLs from the inbound request host and API root.
+- [x] 1.4.1. Derive REST URLs from the inbound request host and API root.
   - Requires 1.1.2.
   - Replace fixed `localhost:3300` repository and related payload URLs with
     request-aware URL generation for routed REST responses.

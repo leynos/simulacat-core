@@ -4,6 +4,8 @@
 import {describe, expect, it} from 'bun:test';
 import {blobAsBase64, commitStatusResponse, gitTrees} from '../src/rest/utils.ts';
 
+const apiBaseUrl = 'http://localhost:3300/api/v3';
+
 describe('blobAsBase64', () => {
   it('encodes string blobs as base64 content responses', () => {
     const payload = blobAsBase64({
@@ -15,7 +17,7 @@ describe('blobAsBase64', () => {
         content: 'hello world',
         encoding: 'string'
       },
-      host: 'http://localhost:3300',
+      apiBaseUrl,
       owner: 'lovely-org',
       repo: 'awesome-repo',
       ref: 'README.md'
@@ -25,7 +27,7 @@ describe('blobAsBase64', () => {
       expect.objectContaining({
         content: Buffer.from('hello world').toString('base64'),
         encoding: 'base64',
-        url: 'http://localhost:3300/repos/lovely-org/awesome-repo/contents/README.md'
+        url: `${apiBaseUrl}/repos/lovely-org/awesome-repo/contents/README.md`
       })
     );
   });
@@ -40,7 +42,7 @@ describe('blobAsBase64', () => {
         content: 'aGVsbG8=',
         encoding: 'base64'
       },
-      host: 'http://localhost:3300',
+      apiBaseUrl,
       owner: 'lovely-org',
       repo: 'awesome-repo',
       ref: 'abc123'
@@ -60,14 +62,14 @@ describe('blobAsBase64', () => {
         content: 'hello world',
         encoding: 'string'
       },
-      host: 'http://localhost:3300',
+      apiBaseUrl,
       owner: 'lovely-org',
       repo: 'awesome-repo',
       ref: 'abc123',
       kind: 'git-blob'
     });
 
-    expect(payload.url).toBe('http://localhost:3300/repos/lovely-org/awesome-repo/git/blobs/abc123');
+    expect(payload.url).toBe(`${apiBaseUrl}/repos/lovely-org/awesome-repo/git/blobs/abc123`);
     expect(payload.sha).toBe('abc123');
     expect(payload.size).toBe(11);
   });
@@ -81,14 +83,14 @@ describe('blobAsBase64', () => {
         content: 'hello world',
         encoding: 'string'
       },
-      host: 'http://localhost:3300',
+      apiBaseUrl,
       owner: 'lovely-org',
       repo: 'awesome-repo',
       ref: 'README.md'
     });
 
     expect(payload.sha).toBe('README.md');
-    expect(payload.url).toBe('http://localhost:3300/repos/lovely-org/awesome-repo/contents/README.md');
+    expect(payload.url).toBe(`${apiBaseUrl}/repos/lovely-org/awesome-repo/contents/README.md`);
   });
 });
 
@@ -105,7 +107,7 @@ describe('gitTrees', () => {
           encoding: 'string'
         }
       ],
-      host: 'http://localhost:3300',
+      apiBaseUrl,
       owner: 'lovely-org',
       repo: 'awesome-repo',
       ref: 'tree-sha'
@@ -114,13 +116,13 @@ describe('gitTrees', () => {
     expect(payload).toEqual(
       expect.objectContaining({
         sha: 'tree-sha',
-        url: 'http://localhost:3300/repos/lovely-org/awesome-repo/git/trees/tree-sha',
+        url: `${apiBaseUrl}/repos/lovely-org/awesome-repo/git/trees/tree-sha`,
         truncated: false,
         tree: [
           expect.objectContaining({
             path: 'README.md',
             sha: 'abc123',
-            url: 'http://localhost:3300/repos/lovely-org/awesome-repo/git/blobs/abc123'
+            url: `${apiBaseUrl}/repos/lovely-org/awesome-repo/git/blobs/abc123`
           })
         ]
       })
@@ -138,7 +140,7 @@ describe('gitTrees', () => {
           encoding: 'base64'
         }
       ],
-      host: 'http://localhost:3300',
+      apiBaseUrl,
       owner: 'lovely-org',
       repo: 'awesome-repo',
       ref: 'tree-sha'
@@ -148,7 +150,7 @@ describe('gitTrees', () => {
       expect.objectContaining({
         path: 'blob-sha',
         sha: 'blob-sha',
-        url: 'http://localhost:3300/repos/lovely-org/awesome-repo/git/blobs/blob-sha'
+        url: `${apiBaseUrl}/repos/lovely-org/awesome-repo/git/blobs/blob-sha`
       })
     ]);
   });
@@ -157,7 +159,7 @@ describe('gitTrees', () => {
 describe('commitStatusResponse', () => {
   it('injects owner, repo, and ref into the combined status payload', () => {
     const payload = commitStatusResponse({
-      host: 'http://localhost:3300',
+      apiBaseUrl,
       owner: 'lovely-org',
       repo: 'awesome-repo',
       ref: 'main'
@@ -166,6 +168,7 @@ describe('commitStatusResponse', () => {
     expect(payload.sha).toBe('main');
     expect(payload.total_count).toBe(0);
     expect(payload.repository.full_name).toBe('lovely-org/awesome-repo');
-    expect(payload.repository.trees_url).toContain('/repos/lovely-org/awesome-repo/git/trees');
+    expect(payload.repository.trees_url).toBe(`${apiBaseUrl}/repos/lovely-org/awesome-repo/git/trees{/sha}`);
+    expect(payload.repository.archive_url).toBe(`${apiBaseUrl}/repos/lovely-org/awesome-repo/{archive_format}{/ref}`);
   });
 });

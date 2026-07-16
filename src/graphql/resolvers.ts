@@ -12,11 +12,12 @@
 import type {PageArgs} from './relay.ts';
 import {applyRelayPagination} from './relay.ts';
 import type {Resolvers} from '../__generated__/resolvers-types.ts';
-import {toGraphql, deriveOwner} from './to-graphql.ts';
+import {makeToGraphql, deriveOwner} from './to-graphql.ts';
 import {assert} from 'assert-ts';
 import type {ExtendedSimulationStore} from '../store/index.ts';
 import type {RequestActorParseResult, RequestActor, SimulacatRequestActor} from '../store/actors.ts';
 import {requireGraphQLUserActor} from './actor-context.ts';
+import type {BaseUrls} from '../http/request-url.ts';
 
 /**
  * GraphQL resolver context populated by the Yoga context function.
@@ -34,6 +35,7 @@ import {requireGraphQLUserActor} from './actor-context.ts';
  * ```
  */
 export type GraphQLContext = {
+  baseUrls: BaseUrls;
   requestActor: RequestActor;
   requestActorContext: SimulacatRequestActor;
   requestActorParseResult: RequestActorParseResult;
@@ -79,26 +81,30 @@ export function createResolvers(simulationStore: ExtendedSimulationStore): Resol
         if ('failure' in result) {
           throw new AuthenticationError('Authentication required');
         }
+        const toGraphql = makeToGraphql(simulationStore, context.baseUrls);
         return toGraphql(simulationStore, 'User', result.user);
       },
-      user(_: unknown, {login}: {login: string}) {
+      user(_: unknown, {login}: {login: string}, context: GraphQLContext) {
         const user = simulationStore.schema.users
           .selectTableAsList(simulationStore.store.getState())
           .find((u) => u.login === login);
         assert(!!user, `no user found for ${login}`);
+        const toGraphql = makeToGraphql(simulationStore, context.baseUrls);
         return toGraphql(simulationStore, 'User', user);
       },
-      organization(_: unknown, {login}: {login: string}) {
+      organization(_: unknown, {login}: {login: string}, context: GraphQLContext) {
         const orgs = simulationStore.schema.organizations.selectTableAsList(simulationStore.store.getState());
         const [org] = orgs.filter((o) => o.login === login);
         assert(!!org, `no organization found for ${login}`);
+        const toGraphql = makeToGraphql(simulationStore, context.baseUrls);
         return toGraphql(simulationStore, 'Organization', org);
       },
-      organizations(pageArgs: PageArgs) {
+      organizations(_root: unknown, pageArgs: PageArgs, context: GraphQLContext) {
         const orgs = simulationStore.schema.organizations.selectTableAsList(simulationStore.store.getState());
+        const toGraphql = makeToGraphql(simulationStore, context.baseUrls);
         return applyRelayPagination(orgs, pageArgs, (org) => toGraphql(simulationStore, 'Organization', org));
       },
-      repository(_root: unknown, {owner, name}: {owner: string; name: string}) {
+      repository(_root: unknown, {owner, name}: {owner: string; name: string}, context: GraphQLContext) {
         const state = simulationStore.store.getState();
         const repo =
           simulationStore.selectors.getRepository(state, owner, name) ??
@@ -110,10 +116,11 @@ export function createResolvers(simulationStore: ExtendedSimulationStore): Resol
                 r.full_name.toLowerCase() === `${owner}/${name}`.toLowerCase()
             );
         assert(!!repo, `no repository found for ${name}`);
+        const toGraphql = makeToGraphql(simulationStore, context.baseUrls);
         return toGraphql(simulationStore, 'Repository', repo);
       },
-      repositoryOwner(_root: unknown, {login}: {login: string}) {
-        return deriveOwner(simulationStore, login);
+      repositoryOwner(_root: unknown, {login}: {login: string}, context: GraphQLContext) {
+        return deriveOwner(simulationStore, login, context.baseUrls);
       }
     }
     // The generated `Resolvers` signatures do not line up exactly with the

@@ -73,7 +73,7 @@ export const simulation = (args: GitHubSimulatorArgs = {}): FoundationSimulator<
     port: 3300, // default port
     simulationContextPage: '/simulation',
     extendStore: extendStoreConfig,
-    extendRouter: extendRouter(args?.extend?.extendRouter),
+    extendRouter: extendRouter(args?.extend?.extendRouter, args?.apiUrl ?? '/'),
     openapi: openapi(
       parsedInitialState,
       args?.apiUrl ?? '/',
