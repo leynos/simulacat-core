@@ -132,7 +132,6 @@ Seeded refs, commits, issues, and pull requests are visible through the
 documented REST endpoints and through repository GraphQL fields such as
 `defaultBranchRef`, `ref`, `issues`, and `pullRequests`.
 
-
 ## Updating repository metadata
 
 `PATCH /repos/{owner}/{repo}` writes repository metadata through the shared

@@ -78,7 +78,6 @@ The package exports the schemas needed to validate and build seeded state:
 - `buildIssueFixture`
 - `buildPullRequestFixture`
 
-
 ## Exported write action helpers
 
 Shared write helpers are exported for extension authors and downstream tests
