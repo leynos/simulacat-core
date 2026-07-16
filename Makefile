@@ -1,6 +1,6 @@
 .PHONY: all check-fmt typecheck lint biomejs oxlint test build clean generate markdownlint nixie spelling spelling-config spelling-phrase-check spelling-helper-test
 
-MDLINT ?= bunx --package markdownlint-cli2@0.22.1 markdownlint-cli2
+MDLINT ?= bunx --package markdownlint-cli2@0.23.0 markdownlint-cli2
 XARGS_R := $(shell if xargs --help 2>&1 | grep -q '\\-r'; then printf -- '-r'; fi)
 UV ?= uv
 UV_ENV = UV_CACHE_DIR=.uv-cache UV_TOOL_DIR=.uv-tools
