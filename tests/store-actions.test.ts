@@ -172,7 +172,7 @@ describe('repository write action dispatch', () => {
     }
   });
 
-  it('serializes concurrent updates for one repository and preserves other repositories', async () => {
+  it('preserves concurrent update changes and other repositories', async () => {
     const server = await simulation({initialState}).listen(0);
     try {
       await Promise.all([

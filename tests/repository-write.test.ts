@@ -114,6 +114,7 @@ describe('repository writes through shared actions', () => {
     expect(metricsAfterPatch).toContain(
       'simulacat_repository_write_observations_total{operation="patch",outcome="success",reason=""} 1'
     );
+    expect(metricsAfterPatch).not.toContain('operation="get"');
     expect(getRepositoryWriteObservabilityMetrics()).toBe(metricsAfterPatch);
   });
 });
