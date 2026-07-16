@@ -38,6 +38,7 @@ const parentSha = '1234567890abcdef';
 const treeSha = 'tree-sha';
 const hostileOwner = 'owner/?#%@';
 const hostileRepository = 'repository/?#%@';
+const expectedPath = `${encodeURIComponent(hostileOwner)}/${encodeURIComponent(hostileRepository)}`;
 const hostileSha = 'sha/?#%@';
 const hostileBranch = 'branch/?#%@';
 const baseUrls = buildBaseUrls({protocol: 'https', host: 'sim.example.test:8443'}, '/api/v3');
@@ -151,6 +152,16 @@ const collectUrlStrings = (value: unknown): string[] => {
   if (Array.isArray(value)) return value.flatMap(collectUrlStrings);
   if (typeof value !== 'object' || value === null) return [];
   return Object.values(value).flatMap(collectUrlStrings);
+};
+
+/** Verifies request-host URLs have no query or fragment. */
+const expectRequestHostUrlsWithoutQueryOrFragment = (values: readonly (string | null | undefined)[]): void => {
+  for (const value of values) {
+    const parsed = new URL(value ?? '');
+    expect(parsed.host).toBe('sim.example.test:8443');
+    expect(parsed.search).toBe('');
+    expect(parsed.hash).toBe('');
+  }
 };
 
 /** Expands the small URI-template subset emitted by current fixture URLs. */
@@ -393,7 +404,6 @@ describe('Git ref URL encoding properties', () => {
 
 describe('hostile fixture URL projection', () => {
   it('treats hostile fixture identifiers as path data in every projector', () => {
-    const expectedPath = `${encodeURIComponent(hostileOwner)}/${encodeURIComponent(hostileRepository)}`;
     const repository = projectRepositoryUrls(
       {
         ...sparseRepository(),
@@ -456,14 +466,7 @@ describe('hostile fixture URL projection', () => {
       branch.protection_url,
       branch.commit.url
     ];
-
-    for (const value of projectedUrls) {
-      const parsed = new URL(value ?? '');
-      expect(parsed.host).toBe('sim.example.test:8443');
-      expect(parsed.search).toBe('');
-      expect(parsed.hash).toBe('');
-    }
-
+    expectRequestHostUrlsWithoutQueryOrFragment(projectedUrls);
     expect(repository.url).toBe(`${baseUrls.apiBaseUrl}/repos/${expectedPath}`);
     expect(repository.git_url).toBe(`git://github.com/${expectedPath}.git`);
     expect(organization.url).toBe(`${baseUrls.apiBaseUrl}/orgs/${encodeURIComponent(hostileOwner)}`);
