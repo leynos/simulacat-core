@@ -25,11 +25,12 @@ import {getSchema, type SchemaFile} from '../utils.ts';
 import {requireRestUserActor} from './actor-context.ts';
 import {blobAsBase64, commitStatusResponse, gitTrees, normalizeGitRefPath} from './utils.ts';
 
-import {buildUpdateRepositoryCommand} from '../store/actions/repository.ts';
 import {updateRepositoryUseCase} from '../store/actions/repository-use-case.ts';
 
 import type {GitHubRepository} from '../store/entities.ts';
 import {observeRepositoryWrite} from '../store/repository-observability.ts';
+
+import {buildUpdateRepositoryCommand} from './repository-patch.ts';
 
 /** REST handler callback shape supplied by the foundation simulator. */
 type SimulationHandler = SimulationHandlers[string];

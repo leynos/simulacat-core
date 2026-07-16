@@ -1,5 +1,4 @@
 /** @file Pure repository write policy for shared store actions. */
-import {z} from 'zod';
 import type {GitHubRepository} from '../entities.ts';
 
 /** Repository fields this roadmap slice may mutate. */
@@ -15,21 +14,7 @@ export type UpdateRepositoryCommand = {
   changes: Partial<Record<RepositoryWritableField, string | undefined>>;
 };
 
-/** Input accepted when building an update command from an adapter body. */
-export type BuildUpdateRepositoryCommandInput = {
-  owner: string;
-  name: string;
-  body: unknown;
-};
-
 const repositoryWritableFieldSet = new Set<string>(REPOSITORY_WRITABLE_FIELDS);
-
-const repositoryPatchBodySchema = z
-  .object({
-    description: z.string().optional(),
-    homepage: z.string().optional()
-  })
-  .passthrough();
 
 /**
  * Returns true when a field is accepted by repository write policy.
@@ -39,41 +24,6 @@ const repositoryPatchBodySchema = z
  */
 export const isRepositoryWritableField = (field: string): field is RepositoryWritableField => {
   return repositoryWritableFieldSet.has(field);
-};
-
-/**
- * Builds a repository update command from an untrusted adapter body.
- *
- * @example
- * ```ts
- * buildUpdateRepositoryCommand({
- *   owner: 'acme',
- *   name: 'widgets',
- *   body: {description: 'New', private: true}
- * });
- * // {owner: 'acme', name: 'widgets', changes: {description: 'New'}}
- * ```
- *
- * @param input Repository coordinates and raw request body.
- * @returns A command containing only supported string changes.
- */
-export const buildUpdateRepositoryCommand = (input: BuildUpdateRepositoryCommandInput): UpdateRepositoryCommand => {
-  const changes: UpdateRepositoryCommand['changes'] = {};
-  const parsedBody = repositoryPatchBodySchema.safeParse(input.body);
-
-  if (parsedBody.success) {
-    const writableValues = {
-      description: parsedBody.data.description,
-      homepage: parsedBody.data.homepage
-    };
-    for (const [field, value] of Object.entries(writableValues)) {
-      if (isRepositoryWritableField(field) && value !== undefined) {
-        changes[field] = value;
-      }
-    }
-  }
-
-  return {owner: input.owner, name: input.name, changes};
 };
 
 /**

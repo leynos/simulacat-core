@@ -136,6 +136,46 @@ describe('repository write action dispatch', () => {
     }
   });
 
+  it('serializes concurrent updates for one repository without blocking other repositories', async () => {
+    const server = await simulation({initialState}).listen(0);
+    try {
+      await Promise.all([
+        server.simulationStore.store.dispatch(
+          server.simulationStore.actions.updateRepository({
+            owner: 'acme',
+            name: 'awesome-repo',
+            changes: {description: 'Concurrent description'}
+          })
+        ),
+        server.simulationStore.store.dispatch(
+          server.simulationStore.actions.updateRepository({
+            owner: 'acme',
+            name: 'awesome-repo',
+            changes: {homepage: 'https://concurrent.example.test'}
+          })
+        ),
+        server.simulationStore.store.dispatch(
+          server.simulationStore.actions.updateRepository({
+            owner: 'globex',
+            name: 'awesome-repo',
+            changes: {description: 'Independent description'}
+          })
+        )
+      ]);
+      const state = server.simulationStore.store.getState();
+
+      expect(server.simulationStore.selectors.getRepository(state, 'acme', 'awesome-repo')).toMatchObject({
+        description: 'Concurrent description',
+        homepage: 'https://concurrent.example.test'
+      });
+      expect(server.simulationStore.selectors.getRepository(state, 'globex', 'awesome-repo')).toMatchObject({
+        description: 'Independent description'
+      });
+    } finally {
+      await server.ensureClose();
+    }
+  });
+
   it('reports not-found updates through the shared use case', async () => {
     const server = await simulation({initialState}).listen(0);
     try {

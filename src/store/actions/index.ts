@@ -1,5 +1,17 @@
 /** @file Shared store action adapters for domain write behaviour. */
-import {select, type AnyState, type Operation, type StoreUpdater, type TableOutput, type createThunks} from 'starfx';
+import {
+  each,
+  select,
+  spawn,
+  useActions,
+  type Action,
+  type AnyState,
+  type Operation,
+  type StoreUpdater,
+  type Supervisor,
+  type TableOutput,
+  type createThunks
+} from 'starfx';
 import type {GitHubRepository} from '../entities.ts';
 import {repositoryStoreKey} from '../keys.ts';
 import {applyRepositoryUpdate, type UpdateRepositoryCommand} from './repository.ts';
@@ -21,6 +33,43 @@ type EntityUpdateThunkArgs<Command, Entity extends AnyState, State extends AnySt
   table: EntityTable<Entity, State>;
   keyOf: (command: Command) => string;
   reduce: (current: Entity, command: Command) => Entity;
+};
+
+type EntityUpdateAction<Command> = Action & {
+  payload: {
+    options: Command;
+  };
+};
+
+type EntityUpdateOperation = Parameters<Supervisor>[1];
+
+/** Drains one entity's queued updates in first-in-first-out order. */
+const processEntityUpdateQueue = (queues: Map<string, Action[]>, id: string, operation: EntityUpdateOperation) =>
+  function* () {
+    const queue = queues.get(id);
+    while (queue?.length) {
+      const action = queue.shift();
+      if (action) yield* operation(action);
+    }
+    queues.delete(id);
+  };
+
+/** Creates a supervisor that serializes updates for each entity key. */
+const createEntityUpdateSupervisor = <Command>(keyOf: (command: Command) => string): Supervisor => {
+  return function* superviseEntityUpdates(pattern, operation) {
+    const queues = new Map<string, Action[]>();
+    const actions = useActions(pattern);
+
+    for (const action of yield* each(actions)) {
+      const id = keyOf((action as EntityUpdateAction<Command>).payload.options);
+      const queue = queues.get(id) ?? [];
+      queue.push(action);
+      queues.set(id, queue);
+
+      if (queue.length === 1) yield* spawn(processEntityUpdateQueue(queues, id, operation));
+      yield* each.next();
+    }
+  };
 };
 
 /** Store action inputs required by the built-in domain action set. */
@@ -55,16 +104,20 @@ export const createEntityUpdateThunk = <Command, Entity extends AnyState, State 
 ) => {
   const {name, thunks, update, table, keyOf, reduce} = args;
 
-  return thunks.create<Command>(name, function* updateEntity(ctx, next) {
-    const id = keyOf(ctx.payload);
-    const current = yield* select(table.selectById, {id});
+  return thunks.create<Command>(
+    name,
+    {supervisor: createEntityUpdateSupervisor(keyOf)},
+    function* updateEntity(ctx, next) {
+      const id = keyOf(ctx.payload);
+      const current = yield* select(table.selectById, {id});
 
-    if (current) {
-      yield* update(table.add({[id]: reduce(current, ctx.payload)}));
+      if (current) {
+        yield* update(table.add({[id]: reduce(current, ctx.payload)}));
+      }
+
+      yield* next();
     }
-
-    yield* next();
-  });
+  );
 };
 
 /**

@@ -5,7 +5,7 @@ This ExecPlan (execution plan) is a living document. The sections
 `Decision Log`, and `Outcomes & Retrospective` must be kept up to date as work
 proceeds.
 
-Status: IN PROGRESS
+Status: COMPLETE
 
 Roadmap item: `1.3.1` (legacy task label `1.3.1`). See `docs/roadmap.md`
 §1.3.1. Requires roadmap steps 1.1 and 1.2, which are already complete.
@@ -56,9 +56,11 @@ escalation, not a workaround.
   only the whitelisted descriptive fields, ignoring the rest for now.
 - Domain purity. The pure reducer module
   (`src/store/actions/repository.ts`) must not import starfx,
-  `@simulacrum/foundation-simulator`, express, zod, faker, or any I/O. It
-  depends only on the `GitHubRepository` *type* and pure key helpers. This is
-  the domain/policy core; the starfx thunk is its driven adapter. (See
+  `@simulacrum/foundation-simulator`, express, faker, or any I/O. Zod parsing
+  belongs in the REST or use-case adapter before the command reaches the
+  reducer. It depends only on the `GitHubRepository` *type* and pure key
+  helpers. This is the domain/policy core; the starfx thunk is its driven
+  adapter. (See
   `$hexagonal-architecture`: protect the boundary through module purity, do not
   transplant a parallel `src/domain` tree against the repository's existing
   `src/store` colocation convention.)
@@ -160,8 +162,9 @@ Stop and escalate when any of these is breached:
       `repos/get` handlers.
 - [x] (Stage D) Refactor, documentation, JSDoc, and gate clean-up; CodeRabbit
       review; mark roadmap 1.3.1 done.
-- [ ] (Optional) LemmaScript proof of the reducer idempotence/determinism
-      axioms, only if the Dafny/Lean toolchain dependency is approved.
+- [ ] (Optional, non-blocking) LemmaScript proof of the reducer
+      idempotence/determinism axioms, only if the Dafny/Lean toolchain
+      dependency is approved.
 
 ## Surprises & discoveries
 
@@ -433,7 +436,7 @@ export function applyRepositoryUpdate(
 ): GitHubRepository;
 
 /** Extracts a command from a raw REST request body, keeping only whitelisted
- * string fields. Pure. */
+ * string fields. This adapter-facing parser is separate from the pure reducer. */
 export function buildUpdateRepositoryCommand(
   owner: string,
   name: string,
@@ -514,7 +517,8 @@ shared shaping helper:
   PATCH response, the GET response, and the list response are byte-for-byte the
   same shape). This is the single REST serialization point for a repository.
 - `'repos/update'` — `PATCH /repos/{owner}/{repo}`: guards with
-  `requireRepository`; builds a command with `buildUpdateRepositoryCommand`;
+  `requireRepository`; builds a command with the adapter-facing
+  `buildUpdateRepositoryCommand`;
   calls `updateRepositoryUseCase(simulationStore, command)`; on `not-found`
   responds `404` (shared `notFound`); on success responds `200` with
   `shapeRepository(getState(), owner, repo)` — i.e. the **persisted,
@@ -610,14 +614,15 @@ modules do not yet exist.
 
 Stage C — implementation (minimal change to pass the red tests).
 
-1. Add `src/store/actions/repository.ts` — the pure reducer, command type,
-   whitelist, and `buildUpdateRepositoryCommand`. No framework imports.
+1. Add `src/store/actions/repository.ts` — the pure reducer, command type, and
+   whitelist with no framework imports. Add `src/rest/repository-patch.ts` for
+   Zod request parsing and command construction.
 2. Add `src/store/actions/index.ts` — `createEntityUpdateThunk` (the reuse
    seam) and `buildDomainActions`, which builds `updateRepository` from the
    factory. Inside the factory thunk: read `current` from
    `slice.selectById(store.getState(), {id: keyOf(command)})`; if absent,
    complete without writing; else
-   `yield* schema.update(slice.set({[key]: reducer(current, command)}))`.
+   `yield* schema.update(slice.add({[key]: reducer(current, command)}))`.
 3. Add `src/store/actions/dispatch.ts` — `dispatchWrite`.
 4. Add `src/store/actions/repository-use-case.ts` — `updateRepositoryUseCase`
    (guard → dispatch via `dispatchWrite` → re-select → return persisted
@@ -626,10 +631,10 @@ Stage C — implementation (minimal change to pass the red tests).
    `buildDomainActions(args)`. Run `make typecheck` immediately (Risk R5).
 6. Edit `src/rest/index.ts` — add the `shapeRepository` helper and the
    `'repos/update'` and `'repos/get'` handlers as specified in Interfaces. The
-   handlers stay tiny (parse params/body, call the use case, shape the result);
-   orchestration lives in the use case, not the route. Prefer small extracted
-   helpers over complexity suppressions to stay within the maintainability
-   gates.
+   handlers stay tiny (parse params/body, parse the request body with Zod,
+   call the use case, shape the result); orchestration lives in the use case,
+   not the route. Prefer small extracted helpers over complexity suppressions
+   to stay within the maintainability gates.
 7. Export the new public types/functions from `src/index.ts` that a consumer or
    later slice would reasonably need (`UpdateRepositoryCommand`,
    `applyRepositoryUpdate`, `createEntityUpdateThunk`). Keep exports additive.
@@ -788,6 +793,8 @@ breach** and must be approved before being attempted. Therefore:
   tests are the chosen substitute and why (no Dafny/Lean dependency in the gate
   for a single descriptive-field reducer).
 
+This proof remains optional and non-blocking for plan completion.
+
 ## Idempotence and recovery
 
 All steps are re-runnable. The new modules and handlers are additive; re-running
@@ -843,6 +850,10 @@ explicitly intended.
 
 ## Revision note
 
+- 2026-07-16 — Completed the final review follow-up. Zod PATCH parsing moved
+  into the REST adapter, keyed action supervision serializes same-entity
+  read-modify-write flows, and repository metrics now preserve escaped,
+  period-containing reasons. The optional proof milestone remains non-blocking.
 - 2026-07-15 — Addressed review feedback after re-verifying each report against
   the live branch. The REST response now shapes an already-resolved repository
   through the unscoped joined selector, preserving user-owned repository reads

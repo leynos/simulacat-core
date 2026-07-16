@@ -3,6 +3,7 @@ import {afterAll, beforeAll, beforeEach, describe, expect, it} from 'bun:test';
 import {simulation, type InitialState} from '../src/index.ts';
 import {
   getRepositoryWriteObservabilityMetrics,
+  observeRepositoryWrite,
   resetRepositoryWriteObservabilityCounters
 } from '../src/store/repository-observability.ts';
 import {fetchGraphQLDescription} from './repository-description-helper.ts';
@@ -108,5 +109,21 @@ describe('repository writes through shared actions', () => {
     expect(getRepositoryWriteObservabilityMetrics()).toContain(
       'simulacat_repository_write_observations_total{operation="get",outcome="success",reason=""} 1'
     );
+  });
+});
+
+describe('repository write observability', () => {
+  beforeEach(() => {
+    resetRepositoryWriteObservabilityCounters();
+  });
+
+  it('escapes multi-segment repository observation reasons in Prometheus output', () => {
+    observeRepositoryWrite({
+      operation: 'patch',
+      outcome: 'not-found',
+      reason: 'request."path"\\line\nmore'
+    });
+
+    expect(getRepositoryWriteObservabilityMetrics()).toContain('reason="request.\\"path\\"\\\\line\\nmore"');
   });
 });

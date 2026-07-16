@@ -70,15 +70,18 @@ state store, then exposes that state through REST and GraphQL surfaces.
 - `src/store/actions/`
   Contains shared write reducers, starfx thunk adapters, dispatch helpers, and
   application use cases. Pure reducer modules such as
-  `src/store/actions/repository.ts` stay framework-free; adapters and REST
-  handlers call use cases rather than mutating store tables locally.
+  `src/store/actions/repository.ts` stay framework-free; Zod request-body
+  parsing happens in the adapter layer before commands reach reducers, and
+  adapters and REST handlers call use cases rather than mutating store tables
+  locally.
 - `src/store/entities/shared.ts`
   Defines `githubEntityPermissionSchema`.
 - `src/store/index.ts`
   Base schema slices plus selectors for installations, repositories, and blob
   lookups.
 - `src/rest/index.ts`
-  OpenAPI operation handlers for the current REST surface.
+  OpenAPI operation handlers for the current REST surface. Write handlers
+  parse and validate request bodies before calling shared action use cases.
 - `src/rest/utils.ts`
   Small payload builders shared by the REST handlers.
 - `src/graphql/handler.ts`

@@ -238,6 +238,9 @@ Changes to behaviour should come with a targeted regression test.
 - Repository-owned entity invariants should use property tests with
   `fast-check` when the behaviour covers a range of owners, repositories, refs,
   SHAs, numbers, or ordering combinations.
+- Write-path adapter tests should cover request-body parsing and command
+  construction separately from pure reducer tests so Zod stays at the
+  boundary.
 - REST and GraphQL integration tests start local simulator servers. In
   restricted sandboxes these tests may need elevated local port-binding
   permission; do not run them in parallel with other gates.
@@ -258,10 +261,11 @@ without updating the relevant roadmap item and design documentation.
 
 Shared write behaviour belongs under `src/store/actions/`. Keep the pure
 domain reducer in an entity-specific module that imports only types and pure
-helpers; put starfx-specific thunk construction in the adapter module and call
-an application use case from REST or GraphQL adapters. Route handlers should
-validate lookup conditions, build commands, call the use case, and shape the
-response.
+helpers; parse request bodies with Zod in the adapter layer before building
+commands, put starfx-specific thunk construction in the adapter module, and
+call an application use case from REST or GraphQL adapters. Route handlers
+should validate lookup conditions, build commands, call the use case, and
+shape the response.
 
 When updating table entities, prefer preserving operations such as table `add`
 for whole-entity upserts. `set` replaces the entire table and should only be

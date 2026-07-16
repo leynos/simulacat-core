@@ -2,7 +2,7 @@
 import {expect} from 'bun:test';
 import {withState} from './cucumber.js';
 import {fetchGraphQLDescription} from './repository-description-helper.ts';
-import {simulation} from '../src/index.ts';
+import {simulation, type InitialState} from '../src/index.ts';
 
 type SimulationServer = Awaited<ReturnType<ReturnType<typeof simulation>['listen']>>;
 
@@ -29,13 +29,16 @@ const parseFullName = (fullName: string): {owner: string; name: string} => {
   return {owner, name};
 };
 
-Given('a write-capable simulator seeded with organization {string} and repository {string}', async (state, args) => {
-  const owner = requireStepArg(args, 0);
-  const name = requireStepArg(args, 1);
+/** Starts a simulator with one repository and a caller-selected owner shape. */
+const seedWriteCapableSimulator = async (
+  state: ScenarioState,
+  owner: string,
+  name: string,
+  seed: Pick<InitialState, 'organizations' | 'users'>
+): Promise<ScenarioState> => {
   const server = await simulation({
     initialState: {
-      users: [],
-      organizations: [{login: owner}],
+      ...seed,
       repositories: [{owner, name, description: 'Original description'}],
       branches: [],
       blobs: []
@@ -43,22 +46,21 @@ Given('a write-capable simulator seeded with organization {string} and repositor
   }).listen(0);
 
   return {...state, server, baseUrl: `http://127.0.0.1:${server.port}`};
+};
+
+Given('a write-capable simulator seeded with organization {string} and repository {string}', async (state, args) => {
+  const owner = requireStepArg(args, 0);
+  const name = requireStepArg(args, 1);
+  return seedWriteCapableSimulator(state, owner, name, {users: [], organizations: [{login: owner}]});
 });
 
 Given('a write-capable simulator seeded with user {string} and repository {string}', async (state, args) => {
   const owner = requireStepArg(args, 0);
   const name = requireStepArg(args, 1);
-  const server = await simulation({
-    initialState: {
-      users: [{login: owner, organizations: []}],
-      organizations: [],
-      repositories: [{owner, name, description: 'Original description'}],
-      branches: [],
-      blobs: []
-    }
-  }).listen(0);
-
-  return {...state, server, baseUrl: `http://127.0.0.1:${server.port}`};
+  return seedWriteCapableSimulator(state, owner, name, {
+    users: [{login: owner, organizations: []}],
+    organizations: []
+  });
 });
 
 After({tags: '@shared-domain-writes'}, async (state) => {

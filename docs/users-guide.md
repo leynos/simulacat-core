@@ -137,9 +137,10 @@ documented REST endpoints and through repository GraphQL fields such as
 
 `PATCH /repos/{owner}/{repo}` writes repository metadata through the shared
 store action path. The current demonstrator intentionally persists only
-`description` and `homepage`; policy and visibility fields such as `private`,
-merge strategy settings, and `default_branch` are accepted by the request body
-but ignored until the repository settings roadmap slice implements them.
+`description` and `homepage`; policy and visibility fields such as
+`visibility`, merge strategy settings, and `default_branch` are accepted by
+the request body but ignored until the repository settings roadmap slice
+implements them.
 
 ```typescript
 const response = await fetch(`${baseUrl}/repos/acme/awesome-repo`, {
@@ -151,14 +152,14 @@ const response = await fetch(`${baseUrl}/repos/acme/awesome-repo`, {
   body: JSON.stringify({
     description: 'Patched via shared action',
     homepage: 'https://docs.example.test',
-    private: true
+    visibility: 'private'
   })
 });
 
 const repository = await response.json();
 repository.description; // 'Patched via shared action'
 repository.homepage; // 'https://docs.example.test'
-repository.private; // still the seeded/default value
+repository.visibility; // still the seeded/default value
 ```
 
 The same persisted value is visible through `GET /repos/{owner}/{repo}`,
