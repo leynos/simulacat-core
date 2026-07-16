@@ -101,6 +101,7 @@ describe('repository writes through shared actions', () => {
       },
       body: JSON.stringify({description: 'Patched user repository'})
     });
+    const metricsAfterPatch = getRepositoryWriteObservabilityMetrics();
     const get = await fetchJson<RepositoryResponse>(`${baseUrl}/repos/octocat/personal-repo`);
     const graphql = await fetchGraphQLDescription(baseUrl, 'octocat', 'personal-repo');
 
@@ -110,9 +111,10 @@ describe('repository writes through shared actions', () => {
     expect(get.body.description).toBe('Patched user repository');
     expect(graphql.errors).toBeUndefined();
     expect(graphql.data?.repository?.description).toBe('Patched user repository');
-    expect(getRepositoryWriteObservabilityMetrics()).toContain(
+    expect(metricsAfterPatch).toContain(
       'simulacat_repository_write_observations_total{operation="patch",outcome="success",reason=""} 1'
     );
+    expect(getRepositoryWriteObservabilityMetrics()).toBe(metricsAfterPatch);
   });
 });
 

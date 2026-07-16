@@ -62,4 +62,14 @@ describe('repository PATCH parsing', () => {
       changes: {description: 'Updated description'}
     });
   });
+
+  it('rejects malformed PATCH body shapes without changing repository coordinates', () => {
+    for (const body of [null, [], 'not-an-object', 42]) {
+      expect(buildUpdateRepositoryCommand({owner: 'acme', name: 'awesome-repo', body})).toEqual({
+        owner: 'acme',
+        name: 'awesome-repo',
+        changes: {}
+      });
+    }
+  });
 });

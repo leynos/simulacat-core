@@ -18,6 +18,7 @@ type RepositoryWriteObservation = {
   reason?: string;
 };
 
+/** Process-local, single-event-loop state; see GitHub issue #14 for worker-thread escalation. */
 const repositoryWriteCounters: Record<string, number> = {};
 
 /** Builds a stable key for one bounded observation. */

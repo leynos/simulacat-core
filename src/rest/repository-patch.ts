@@ -1,7 +1,6 @@
 /** @file REST request parsing for the repository metadata PATCH endpoint. */
 import {z} from 'zod';
 import {
-  isRepositoryWritableField,
   REPOSITORY_WRITABLE_FIELDS,
   type RepositoryWritableField,
   type UpdateRepositoryCommand
@@ -43,7 +42,7 @@ export const buildUpdateRepositoryCommand = (input: BuildUpdateRepositoryCommand
   if (parsedBody.success) {
     for (const field of REPOSITORY_WRITABLE_FIELDS) {
       const value = parsedBody.data[field];
-      if (isRepositoryWritableField(field) && typeof value === 'string') changes[field] = value;
+      if (typeof value === 'string') changes[field] = value;
     }
   }
 
