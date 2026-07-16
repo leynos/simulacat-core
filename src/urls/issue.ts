@@ -1,7 +1,15 @@
 /** @file Request-scoped URL projection for issue payloads. */
 import type {BaseUrls} from '../http/request-url.ts';
 import type {GitHubIssue} from '../store/entities/issue.ts';
-import {apiUrl, classifyUrlFields, projectDerivedFields, webUrl, type UrlFieldClassification} from './shared.ts';
+import {
+  apiUrl,
+  classifyUrlFields,
+  projectDerivedFields,
+  repositoryPath,
+  urlPathSegment,
+  webUrl,
+  type UrlFieldClassification
+} from './shared.ts';
 
 export const issueApiUrlFields = ['url', 'repository_url'] as const;
 export const issueWebUrlFields = ['html_url'] as const;
@@ -10,9 +18,11 @@ export type IssueUrlField = (typeof issueUrlFields)[number];
 export type IssueUrlPayload = Omit<GitHubIssue, IssueUrlField> & Partial<Record<IssueUrlField, string | undefined>>;
 
 const issueUrlBuilders = {
-  url: (issue, baseUrls) => apiUrl(baseUrls, `/repos/${issue.owner}/${issue.repo}/issues/${issue.number}`),
-  html_url: (issue, baseUrls) => webUrl(baseUrls, `/${issue.owner}/${issue.repo}/issues/${issue.number}`),
-  repository_url: (issue, baseUrls) => apiUrl(baseUrls, `/repos/${issue.owner}/${issue.repo}`)
+  url: (issue, baseUrls) =>
+    apiUrl(baseUrls, `/repos/${repositoryPath(issue.owner, issue.repo)}/issues/${urlPathSegment(issue.number)}`),
+  html_url: (issue, baseUrls) =>
+    webUrl(baseUrls, `/${repositoryPath(issue.owner, issue.repo)}/issues/${urlPathSegment(issue.number)}`),
+  repository_url: (issue, baseUrls) => apiUrl(baseUrls, `/repos/${repositoryPath(issue.owner, issue.repo)}`)
 } satisfies Record<IssueUrlField, (issue: IssueUrlPayload, baseUrls: BaseUrls) => string>;
 
 export const issueUrlFieldClassifications: UrlFieldClassification<IssueUrlField>[] = [

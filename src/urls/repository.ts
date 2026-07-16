@@ -1,7 +1,14 @@
 /** @file Request-scoped URL projection for repository payloads. */
 import type {BaseUrls} from '../http/request-url.ts';
 import type {GitHubRepository} from '../store/entities/repository.ts';
-import {apiUrl, classifyUrlFields, projectDerivedFields, webUrl, type UrlFieldClassification} from './shared.ts';
+import {
+  apiUrl,
+  classifyUrlFields,
+  projectDerivedFields,
+  repositoryPath,
+  webUrl,
+  type UrlFieldClassification
+} from './shared.ts';
 
 export const repositoryApiUrlFields = [
   'url',
@@ -56,10 +63,10 @@ export type RepositoryUrlPayload = Omit<GitHubRepository, RepositoryUrlField> &
   Partial<Record<RepositoryUrlField, string | null | undefined>>;
 
 /** Builds the repository API path shared by derived fields. */
-const apiPath = (repository: RepositoryUrlPayload) => `/repos/${repository.full_name}`;
+const apiPath = (repository: RepositoryUrlPayload) => `/repos/${repositoryPath(repository.owner, repository.name)}`;
 
 /** Builds the GitHub web path for a repository. */
-const webPath = (repository: RepositoryUrlPayload) => `/${repository.full_name}`;
+const webPath = (repository: RepositoryUrlPayload) => `/${repositoryPath(repository.owner, repository.name)}`;
 
 const repositoryUrlBuilders = {
   url: (repository, baseUrls) => apiUrl(baseUrls, apiPath(repository)),
@@ -101,10 +108,10 @@ const repositoryUrlBuilders = {
   tags_url: (repository, baseUrls) => apiUrl(baseUrls, `${apiPath(repository)}/tags`),
   teams_url: (repository, baseUrls) => apiUrl(baseUrls, `${apiPath(repository)}/teams`),
   trees_url: (repository, baseUrls) => apiUrl(baseUrls, `${apiPath(repository)}/git/trees{/sha}`),
-  git_url: (repository) => `git://github.com/${repository.full_name}.git`,
-  ssh_url: (repository) => `git@github.com:${repository.full_name}.git`,
+  git_url: (repository) => `git://github.com/${repositoryPath(repository.owner, repository.name)}.git`,
+  ssh_url: (repository) => `git@github.com:${repositoryPath(repository.owner, repository.name)}.git`,
   clone_url: (repository, baseUrls) => `${webUrl(baseUrls, webPath(repository))}.git`,
-  mirror_url: (repository) => `git://github.com/${repository.full_name}`,
+  mirror_url: (repository) => `git://github.com/${repositoryPath(repository.owner, repository.name)}`,
   svn_url: (repository, baseUrls) => webUrl(baseUrls, webPath(repository))
 } satisfies Record<RepositoryUrlField, (repository: RepositoryUrlPayload, baseUrls: BaseUrls) => string | null>;
 

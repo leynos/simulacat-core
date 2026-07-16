@@ -1,7 +1,14 @@
 /** @file Request-scoped URL projection for organization payloads. */
 import type {BaseUrls} from '../http/request-url.ts';
 import type {GitHubOrganization} from '../store/entities/organization.ts';
-import {apiUrl, classifyUrlFields, projectDerivedFields, webUrl, type UrlFieldClassification} from './shared.ts';
+import {
+  apiUrl,
+  classifyUrlFields,
+  projectDerivedFields,
+  urlPathSegment,
+  webUrl,
+  type UrlFieldClassification
+} from './shared.ts';
 
 export const organizationApiUrlFields = [
   'url',
@@ -25,16 +32,17 @@ export type OrganizationUrlPayload = Omit<GitHubOrganization, OrganizationUrlFie
   Partial<Record<OrganizationUrlField, string | undefined>>;
 
 const organizationUrlBuilders = {
-  url: (organization, baseUrls) => apiUrl(baseUrls, `/orgs/${organization.login}`),
-  html_url: (organization, baseUrls) => webUrl(baseUrls, `/${organization.login}`),
-  repos_url: (organization, baseUrls) => apiUrl(baseUrls, `/orgs/${organization.login}/repos`),
-  events_url: (organization, baseUrls) => apiUrl(baseUrls, `/orgs/${organization.login}/events`),
-  hooks_url: (organization, baseUrls) => apiUrl(baseUrls, `/orgs/${organization.login}/hooks`),
-  issues_url: (organization, baseUrls) => apiUrl(baseUrls, `/orgs/${organization.login}/issues`),
-  members_url: (organization, baseUrls) => apiUrl(baseUrls, `/orgs/${organization.login}/members{/member}`),
+  url: (organization, baseUrls) => apiUrl(baseUrls, `/orgs/${urlPathSegment(organization.login)}`),
+  html_url: (organization, baseUrls) => webUrl(baseUrls, `/${urlPathSegment(organization.login)}`),
+  repos_url: (organization, baseUrls) => apiUrl(baseUrls, `/orgs/${urlPathSegment(organization.login)}/repos`),
+  events_url: (organization, baseUrls) => apiUrl(baseUrls, `/orgs/${urlPathSegment(organization.login)}/events`),
+  hooks_url: (organization, baseUrls) => apiUrl(baseUrls, `/orgs/${urlPathSegment(organization.login)}/hooks`),
+  issues_url: (organization, baseUrls) => apiUrl(baseUrls, `/orgs/${urlPathSegment(organization.login)}/issues`),
+  members_url: (organization, baseUrls) =>
+    apiUrl(baseUrls, `/orgs/${urlPathSegment(organization.login)}/members{/member}`),
   public_members_url: (organization, baseUrls) =>
-    apiUrl(baseUrls, `/orgs/${organization.login}/public_members{/member}`),
-  avatar_url: (organization) => `https://avatars.githubusercontent.com/u/${organization.id}?v=4`
+    apiUrl(baseUrls, `/orgs/${urlPathSegment(organization.login)}/public_members{/member}`),
+  avatar_url: (organization) => `https://avatars.githubusercontent.com/u/${urlPathSegment(organization.id)}?v=4`
 } satisfies Record<OrganizationUrlField, (organization: OrganizationUrlPayload, baseUrls: BaseUrls) => string>;
 
 export const organizationUrlFieldClassifications: UrlFieldClassification<OrganizationUrlField>[] = [

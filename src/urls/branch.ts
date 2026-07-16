@@ -1,7 +1,14 @@
 /** @file Request-scoped URL projection for branch payloads. */
 import type {BaseUrls} from '../http/request-url.ts';
 import type {GitHubBranch} from '../store/entities/branch.ts';
-import {apiUrl, classifyUrlFields, projectDerivedFields, type UrlFieldClassification} from './shared.ts';
+import {
+  apiUrl,
+  classifyUrlFields,
+  projectDerivedFields,
+  repositoryPath,
+  urlPathSegment,
+  type UrlFieldClassification
+} from './shared.ts';
 
 export const branchUrlFields = ['protection_url'] as const;
 export type BranchUrlField = (typeof branchUrlFields)[number];
@@ -9,7 +16,10 @@ export type BranchUrlPayload = Omit<GitHubBranch, BranchUrlField> & Partial<Reco
 
 const branchUrlBuilders = {
   protection_url: (branch, baseUrls) =>
-    apiUrl(baseUrls, `/repos/${branch.owner}/${branch.repo}/branches/${encodeURIComponent(branch.name)}/protection`)
+    apiUrl(
+      baseUrls,
+      `/repos/${repositoryPath(branch.owner, branch.repo)}/branches/${urlPathSegment(branch.name)}/protection`
+    )
 } satisfies Record<BranchUrlField, (branch: BranchUrlPayload, baseUrls: BaseUrls) => string>;
 
 export const branchUrlFieldClassifications: UrlFieldClassification<BranchUrlField | 'commit.url'>[] = [
@@ -32,7 +42,10 @@ export const projectBranchUrls = (branch: BranchUrlPayload, baseUrls: BaseUrls):
       ...projected.commit,
       url:
         projected.commit.url ??
-        apiUrl(baseUrls, `/repos/${branch.owner}/${branch.repo}/commits/${projected.commit.sha}`)
+        apiUrl(
+          baseUrls,
+          `/repos/${repositoryPath(branch.owner, branch.repo)}/commits/${urlPathSegment(projected.commit.sha)}`
+        )
     }
   };
 };

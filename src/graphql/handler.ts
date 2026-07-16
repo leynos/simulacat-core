@@ -10,6 +10,7 @@ import {createSchema, createYoga, processRegularResult} from 'graphql-yoga';
 import {isAsyncIterable} from '@graphql-tools/utils';
 import {createResolvers, type GraphQLContext} from './resolvers.ts';
 import {buildBaseUrls} from '../http/request-url.ts';
+import {makeUrlObservationContext} from '../http/url-observability.ts';
 import {buildActorContext} from '../store/actors.ts';
 import {getSchema} from '../utils.ts';
 import type {ExtendedSimulationStore} from '../store/index.ts';
@@ -67,21 +68,22 @@ export function createHandler(simulationStore: ExtendedSimulationStore, apiRoot 
       const requestActorContext = buildActorContext(headers);
       const requestUrl = new URL(request.url);
       const {SIMULACAT_GITHUB_API_URL: fallbackBaseUrl} = process.env;
+      const requestId = requestActorContext.observationContext?.requestId;
+      const baseUrls = buildBaseUrls(
+        {
+          protocol: requestUrl.protocol,
+          host: request.headers.get('host') ?? ''
+        },
+        apiRoot,
+        fallbackBaseUrl,
+        makeUrlObservationContext('graphql', requestId)
+      );
       return {
-        baseUrls: buildBaseUrls(
-          {
-            protocol: requestUrl.protocol,
-            host: request.headers.get('host') ?? ''
-          },
-          apiRoot,
-          fallbackBaseUrl
-        ),
+        baseUrls,
         requestActor: requestActorContext.actor,
         requestActorContext,
         requestActorParseResult: requestActorContext.parseResult,
-        ...(requestActorContext.observationContext?.requestId
-          ? {requestId: requestActorContext.observationContext.requestId}
-          : {})
+        ...(requestId ? {requestId} : {})
       };
     },
     plugins: [customMediaTypeParser]

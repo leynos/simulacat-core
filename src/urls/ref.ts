@@ -1,7 +1,15 @@
 /** @file Request-scoped URL projection for Git ref payloads. */
 import type {BaseUrls} from '../http/request-url.ts';
 import type {GitHubRef} from '../store/entities/ref.ts';
-import {apiUrl, classifyUrlFields, projectDerivedFields, type UrlFieldClassification} from './shared.ts';
+import {
+  apiUrl,
+  classifyUrlFields,
+  gitRefPath,
+  projectDerivedFields,
+  repositoryPath,
+  urlPathSegment,
+  type UrlFieldClassification
+} from './shared.ts';
 
 export const refUrlFields = ['url'] as const;
 export type RefUrlField = (typeof refUrlFields)[number];
@@ -21,11 +29,8 @@ const refObjectApiPath = (objectType: GitHubRef['object']['type']): string => {
   }
 };
 
-/** Encodes ref segments without changing Git's slash-separated ref structure. */
-const encodeRefPath = (ref: string): string => ref.split('/').map(encodeURIComponent).join('/');
-
 const refUrlBuilders = {
-  url: (ref, baseUrls) => apiUrl(baseUrls, `/repos/${ref.owner}/${ref.repo}/git/${encodeRefPath(ref.ref)}`)
+  url: (ref, baseUrls) => apiUrl(baseUrls, `/repos/${repositoryPath(ref.owner, ref.repo)}/git/${gitRefPath(ref.ref)}`)
 } satisfies Record<RefUrlField, (ref: RefUrlPayload, baseUrls: BaseUrls) => string>;
 
 export const refUrlFieldClassifications: UrlFieldClassification<RefUrlField | 'object.url'>[] = [
@@ -62,7 +67,10 @@ export const projectRefUrls = (ref: RefUrlPayload, baseUrls: BaseUrls): RefUrlPa
       ...projected.object,
       url:
         projected.object.url ??
-        apiUrl(baseUrls, `/repos/${ref.owner}/${ref.repo}/git/${refObjectApiPath(ref.object.type)}/${ref.object.sha}`)
+        apiUrl(
+          baseUrls,
+          `/repos/${repositoryPath(ref.owner, ref.repo)}/git/${refObjectApiPath(ref.object.type)}/${urlPathSegment(ref.object.sha)}`
+        )
     }
   };
 };

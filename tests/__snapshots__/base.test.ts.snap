@@ -7,5 +7,7 @@ simulacat_actor_observations_total{event="rest-authentication",actor_kind="anony
 simulacat_actor_observations_total{event="rest-parse",actor_kind="anonymous",outcome="default",source="default",reason=""} 2
 simulacat_actor_observations_total{event="rest-resolution",actor_kind="anonymous",outcome="anonymous",source="",reason=""} 1
 simulacat_actor_observations_total{event="rest-selected",actor_kind="anonymous",outcome="selected",source="",reason=""} 1
+# HELP simulacat_url_derivation_observations_total Request-derived URL observations.
+# TYPE simulacat_url_derivation_observations_total counter
 "
 `;

@@ -36,6 +36,10 @@ const fullName = `${owner}/${repo}`;
 const sha = 'abcdef1234567890';
 const parentSha = '1234567890abcdef';
 const treeSha = 'tree-sha';
+const hostileOwner = 'owner/?#%@';
+const hostileRepository = 'repository/?#%@';
+const hostileSha = 'sha/?#%@';
+const hostileBranch = 'branch/?#%@';
 const baseUrls = buildBaseUrls({protocol: 'https', host: 'sim.example.test:8443'}, '/api/v3');
 const organizationLegacyUserUrlFields = [
   'followers_url',
@@ -323,7 +327,9 @@ describe('URL projector properties', () => {
       expect(expandedUrl.host).toBe('sim.example.test:8443');
     }
   });
+});
 
+describe('request-host URL projector properties', () => {
   it('does not leak legacy hosts into derived API or web fields', () => {
     fc.assert(
       fc.property(safeHost, (host) => {
@@ -358,13 +364,17 @@ describe('URL projector properties', () => {
       {seed: 1_414_102}
     );
   });
+});
 
+describe('Git ref URL projector properties', () => {
   it('encodes reserved characters in Git refs without encoding ref separators', () => {
     const projected = projectRefUrls(sparseRef('feature#42'), baseUrls);
 
     expect(projected.url).toBe(`${baseUrls.apiBaseUrl}/repos/${fullName}/git/refs/heads/feature%2342`);
   });
+});
 
+describe('Git ref URL encoding properties', () => {
   it('encodes valid Git ref names without changing ref separators', () => {
     const validRefName = fc.stringMatching(/^[A-Za-z0-9](?:[A-Za-z0-9._#-]{0,12}[A-Za-z0-9])?$/);
 
@@ -378,5 +388,85 @@ describe('URL projector properties', () => {
       }),
       {seed: 1_414_103}
     );
+  });
+});
+
+describe('hostile fixture URL projection', () => {
+  it('treats hostile fixture identifiers as path data in every projector', () => {
+    const expectedPath = `${encodeURIComponent(hostileOwner)}/${encodeURIComponent(hostileRepository)}`;
+    const repository = projectRepositoryUrls(
+      {
+        ...sparseRepository(),
+        owner: hostileOwner,
+        name: hostileRepository,
+        full_name: `${hostileOwner}/${hostileRepository}`
+      },
+      baseUrls
+    );
+    const organization = projectOrganizationUrls({...sparseOrganization(), login: hostileOwner}, baseUrls);
+    const issue = projectIssueUrls({...sparseIssue(), owner: hostileOwner, repo: hostileRepository}, baseUrls);
+    const pullRequest = projectPullRequestUrls(
+      {...sparsePullRequest(), owner: hostileOwner, repo: hostileRepository},
+      baseUrls
+    );
+    const commit = projectCommitUrls(
+      {
+        ...sparseCommit(),
+        owner: hostileOwner,
+        repo: hostileRepository,
+        sha: hostileSha,
+        commit: {...sparseCommit().commit, tree: {sha: hostileSha}, parents: [{sha: hostileSha}]},
+        parents: [{sha: hostileSha}]
+      },
+      baseUrls
+    );
+    const ref = projectRefUrls(
+      {
+        ...sparseRef('feature/?#%@'),
+        owner: hostileOwner,
+        repo: hostileRepository,
+        object: {type: 'commit', sha: hostileSha}
+      },
+      baseUrls
+    );
+    const branch = projectBranchUrls(
+      {
+        ...sparseBranch(),
+        owner: hostileOwner,
+        repo: hostileRepository,
+        name: hostileBranch,
+        commit: {sha: hostileSha}
+      },
+      baseUrls
+    );
+    const projectedUrls = [
+      repository.url,
+      repository.html_url,
+      organization.url,
+      organization.html_url,
+      issue.url,
+      issue.html_url,
+      pullRequest.url,
+      pullRequest.html_url,
+      commit.url,
+      commit.html_url,
+      commit.commit.tree.url,
+      ref.url,
+      ref.object.url,
+      branch.protection_url,
+      branch.commit.url
+    ];
+
+    for (const value of projectedUrls) {
+      const parsed = new URL(value ?? '');
+      expect(parsed.host).toBe('sim.example.test:8443');
+      expect(parsed.search).toBe('');
+      expect(parsed.hash).toBe('');
+    }
+
+    expect(repository.url).toBe(`${baseUrls.apiBaseUrl}/repos/${expectedPath}`);
+    expect(repository.git_url).toBe(`git://github.com/${expectedPath}.git`);
+    expect(organization.url).toBe(`${baseUrls.apiBaseUrl}/orgs/${encodeURIComponent(hostileOwner)}`);
+    expect(ref.url).toBe(`${baseUrls.apiBaseUrl}/repos/${expectedPath}/git/refs/heads/feature/%3F%23%25%40`);
   });
 });

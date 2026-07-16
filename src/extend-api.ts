@@ -9,6 +9,7 @@ import type {createFoundationSimulationServer} from '@simulacrum/foundation-simu
 import {stringify} from 'querystring';
 import {createHandler} from './graphql/handler.ts';
 import {buildBaseUrls} from './http/request-url.ts';
+import {getUrlObservabilityMetrics, makeUrlObservationContext} from './http/url-observability.ts';
 import {requestActorMiddleware} from './middleware/request-actor.ts';
 import {normalizeGitRefPath} from './rest/utils.ts';
 import {getActorObservabilityMetrics} from './store/actors.ts';
@@ -63,7 +64,9 @@ export const extendRouter =
     });
 
     router.get('/metrics', (_, response) => {
-      response.type('text/plain; version=0.0.4; charset=utf-8').send(getActorObservabilityMetrics());
+      response
+        .type('text/plain; version=0.0.4; charset=utf-8')
+        .send(`${getActorObservabilityMetrics()}${getUrlObservabilityMetrics()}`);
     });
 
     router.use('/graphql', createHandler(simulationStore, apiRoot));
@@ -83,7 +86,8 @@ export const extendRouter =
           host: request.headers.host ?? ''
         },
         apiRoot,
-        fallbackBaseUrl
+        fallbackBaseUrl,
+        makeUrlObservationContext('rest', request.simulacatActor?.observationContext?.requestId)
       );
       return response.status(200).json(projectRefUrls(item, baseUrls));
     });

@@ -11,7 +11,7 @@ import {convertRepositoryConnection} from './connections.ts';
 import type {DataSchemas, GraphQLData, ToGraphqlDispatcher} from './to-graphql-shapes.ts';
 import type {BaseUrls} from '../http/request-url.ts';
 import type {ExtendedSimulationStore} from '../store/index.ts';
-import {webUrl} from '../urls/shared.ts';
+import {urlPathSegment, webUrl} from '../urls/shared.ts';
 
 /**
  * Resolves a login to the GraphQL Organization or User owner union member.
@@ -62,7 +62,7 @@ export function toGithubRepositoryOwner(
   toGraphql: ToGraphqlDispatcher,
   baseUrls: BaseUrls
 ): Pick<GraphQLData['User'], 'avatarUrl' | 'login' | 'repositories' | 'resourcePath' | 'url'> {
-  const resourcePath = `/${entity.login}`;
+  const resourcePath = `/${urlPathSegment(entity.login)}`;
 
   return {
     login: entity.login,

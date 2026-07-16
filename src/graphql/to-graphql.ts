@@ -17,6 +17,7 @@ import {
 import {deriveOwner as deriveOwnerFromStore} from './owners.ts';
 import type {DataSchemas, GraphQLData, ToGraphqlDispatcher} from './to-graphql-shapes.ts';
 import type {BaseUrls} from '../http/request-url.ts';
+import {observeUnhandledGraphqlTypename} from '../http/url-observability.ts';
 import type {ExtendedSimulationStore} from '../store/index.ts';
 
 type GraphqlConverter<T extends keyof DataSchemas> = (entity: DataSchemas[T]) => GraphQLData[T];
@@ -26,8 +27,8 @@ type ConverterMap = {
 };
 
 /** Raises an unhandled-typename error without exposing the rejected entity. */
-function throwUnhandledTypename(__typename: string): never {
-  console.error(`toGraphql: unhandled __typename ${__typename}`);
+function throwUnhandledTypename(baseUrls: BaseUrls, __typename: string): never {
+  observeUnhandledGraphqlTypename(baseUrls, __typename);
   throw new Error(`toGraphql: unhandled __typename ${__typename}`);
 }
 
@@ -70,7 +71,7 @@ export const makeToGraphql = (simulationStore: ExtendedSimulationStore, baseUrls
   ): GraphQLData[T] => {
     const converter = converters[__typename] as GraphqlConverter<T> | undefined;
     if (!converter) {
-      return throwUnhandledTypename(__typename);
+      return throwUnhandledTypename(baseUrls, __typename);
     }
 
     return converter(entity);

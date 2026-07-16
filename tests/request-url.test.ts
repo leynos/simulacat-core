@@ -2,6 +2,11 @@
 import {describe, expect, it} from 'bun:test';
 import fc from 'fast-check';
 import {buildBaseUrls, buildUrl, normalizeApiRoot} from '../src/http/request-url.ts';
+import {
+  getUrlObservabilityCounters,
+  getUrlObservabilityMetrics,
+  resetUrlObservabilityCounters
+} from '../src/http/url-observability.ts';
 
 const safeHost = fc
   .tuple(
@@ -42,6 +47,107 @@ describe('buildUrl', () => {
     ['http://localhost:3300/api/v3/', '/repos/acme/demo', 'http://localhost:3300/api/v3/repos/acme/demo']
   ])('joins %p and %p', (base, path, expected) => {
     expect(buildUrl(base, path)).toBe(expected);
+  });
+});
+
+describe('URL derivation observability', () => {
+  it('records bounded request-origin and fallback observations', () => {
+    resetUrlObservabilityCounters();
+
+    buildBaseUrls(requestOrigin('origin.example.test'), '/', undefined, {transport: 'rest', requestId: 'request-1'});
+    buildBaseUrls(requestOrigin('not a host'), '/', 'https://fallback.example.test', {
+      transport: 'rest',
+      requestId: 'request-2'
+    });
+
+    expect(getUrlObservabilityCounters()).toEqual({
+      'base-url.rest.fallback.invalid-host': 1,
+      'base-url.rest.request-origin.none': 1,
+      'request-host.rest.failure.invalid-host': 1
+    });
+  });
+
+  it('records total URL derivation failure before throwing', () => {
+    resetUrlObservabilityCounters();
+
+    expect(() => buildBaseUrls(requestOrigin(''), '/', undefined, {transport: 'rest'})).toThrow(
+      'SIMULACAT: cannot derive base URL'
+    );
+    expect(getUrlObservabilityCounters()).toEqual({
+      'base-url.rest.failure.missing-fallback': 1,
+      'request-host.rest.failure.missing-host': 1
+    });
+  });
+});
+
+describe('URL derivation diagnostics', () => {
+  it('emits request IDs only in enabled structured diagnostics', () => {
+    resetUrlObservabilityCounters();
+    const originalDebug = console.debug;
+    const {SIMULACAT_URL_OBSERVABILITY: originalEnabled} = process.env;
+    const lines: string[] = [];
+
+    console.debug = (message?: unknown) => {
+      lines.push(String(message));
+    };
+    Reflect.set(process.env, 'SIMULACAT_URL_OBSERVABILITY', 'true');
+    try {
+      buildBaseUrls(requestOrigin('diagnostic.example.test'), '/', undefined, {
+        transport: 'graphql',
+        requestId: 'request-3'
+      });
+    } finally {
+      console.debug = originalDebug;
+      if (originalEnabled === undefined) {
+        Reflect.deleteProperty(process.env, 'SIMULACAT_URL_OBSERVABILITY');
+      } else {
+        Reflect.set(process.env, 'SIMULACAT_URL_OBSERVABILITY', originalEnabled);
+      }
+    }
+
+    expect(JSON.parse(lines[0] ?? '{}')).toEqual(
+      expect.objectContaining({
+        component: 'simulacat.url',
+        event: 'base-url',
+        outcome: 'request-origin',
+        requestId: 'request-3',
+        transport: 'graphql'
+      })
+    );
+  });
+
+  it('keeps request identifiers and hosts out of Prometheus labels', () => {
+    resetUrlObservabilityCounters();
+    buildBaseUrls(requestOrigin('private.example.test'), '/', undefined, {
+      transport: 'rest',
+      requestId: 'request-private'
+    });
+
+    const metrics = getUrlObservabilityMetrics();
+    expect(metrics).toContain('# TYPE simulacat_url_derivation_observations_total counter');
+    expect(metrics).toContain('transport="rest"');
+    expect(metrics).not.toContain('request-private');
+    expect(metrics).not.toContain('private.example.test');
+  });
+
+  it('does not emit diagnostics when URL observability is disabled', () => {
+    resetUrlObservabilityCounters();
+    const originalDebug = console.debug;
+    const lines: string[] = [];
+
+    console.debug = (message?: unknown) => {
+      lines.push(String(message));
+    };
+    try {
+      buildBaseUrls(requestOrigin('quiet.example.test'), '/', undefined, {
+        transport: 'rest',
+        requestId: 'request-quiet'
+      });
+    } finally {
+      console.debug = originalDebug;
+    }
+
+    expect(lines).toEqual([]);
   });
 });
 

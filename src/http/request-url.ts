@@ -4,6 +4,13 @@
  * This module stays framework-neutral: REST and GraphQL adapters extract a
  * plain origin record from their request types before calling these helpers.
  */
+import {
+  observeBaseUrl,
+  observeRejectedRequestOrigin,
+  rememberBaseUrlObservationContext,
+  type UrlObservationContext,
+  type UrlObservationReason
+} from './url-observability.ts';
 
 /** Transport origin values extracted from an inbound request. */
 export type RequestOrigin = {protocol: string; host: string};
@@ -87,30 +94,55 @@ const isHttpUrl = (url: URL): boolean => httpProtocols.has(url.protocol) && url.
 /** Rejects URL components that are not valid in an HTTP Host header. */
 const containsUrlComponents = (host: string): boolean => /[@/?#\\]/u.test(host);
 
+type OriginAttempt = {url?: URL; reason: UrlObservationReason};
+
 /** Builds an origin URL from request protocol and host. */
-const originFromRequest = (origin: RequestOrigin): URL | undefined => {
-  if (!isRecord(origin)) return undefined;
+const originFromRequest = (origin: RequestOrigin): OriginAttempt => {
+  if (!isRecord(origin)) return {reason: 'invalid-host'};
   const {protocol, host} = origin;
-  if (!isString(protocol)) return undefined;
-  if (!isString(host)) return undefined;
+  if (!isString(protocol)) return {reason: 'invalid-protocol'};
+  if (!isString(host)) return {reason: 'invalid-host'};
   const trimmedHost = host.trim();
-  if (trimmedHost === '') return undefined;
-  if (containsUrlComponents(trimmedHost)) return undefined;
+  if (trimmedHost === '') return {reason: 'missing-host'};
+  if (containsUrlComponents(trimmedHost)) return {reason: 'invalid-host'};
   const parsedUrl = parseAbsoluteUrl(`${normalizeProtocol(protocol)}://${trimmedHost}`);
-  if (!parsedUrl) return undefined;
-  if (!isHttpUrl(parsedUrl)) return undefined;
-  return parsedUrl;
+  if (!parsedUrl) return {reason: 'invalid-host'};
+  if (!isHttpUrl(parsedUrl)) return {reason: 'invalid-protocol'};
+  return {url: parsedUrl, reason: 'none'};
 };
 
 /** Builds an origin URL from a configured fallback base URL. */
-const originFromFallback = (fallbackBaseUrl: string | undefined): URL | undefined => {
-  if (!isString(fallbackBaseUrl)) return undefined;
+const originFromFallback = (fallbackBaseUrl: string | undefined): OriginAttempt => {
+  if (!isString(fallbackBaseUrl)) return {reason: 'missing-fallback'};
   const trimmedFallback = fallbackBaseUrl.trim();
-  if (trimmedFallback === '') return undefined;
+  if (trimmedFallback === '') return {reason: 'missing-fallback'};
   const parsedUrl = parseAbsoluteUrl(trimmedFallback);
-  if (!parsedUrl) return undefined;
-  if (!isHttpUrl(parsedUrl)) return undefined;
-  return parsedUrl;
+  if (!parsedUrl) return {reason: 'invalid-fallback'};
+  if (!isHttpUrl(parsedUrl)) return {reason: 'invalid-fallback'};
+  return {url: parsedUrl, reason: 'none'};
+};
+
+/** Selects a request or fallback origin and records its bounded outcome. */
+const resolveOrigin = (
+  origin: RequestOrigin,
+  fallbackBaseUrl: string | undefined,
+  observationContext: UrlObservationContext
+): URL | undefined => {
+  const requestOrigin = originFromRequest(origin);
+  if (requestOrigin.url) {
+    observeBaseUrl(observationContext, 'request-origin', 'none');
+    return requestOrigin.url;
+  }
+
+  observeRejectedRequestOrigin(observationContext, requestOrigin.reason);
+  const fallbackOrigin = originFromFallback(fallbackBaseUrl);
+  if (fallbackOrigin.url) {
+    observeBaseUrl(observationContext, 'fallback', requestOrigin.reason);
+    return fallbackOrigin.url;
+  }
+
+  observeBaseUrl(observationContext, 'failure', fallbackOrigin.reason);
+  return undefined;
 };
 
 /**
@@ -125,18 +157,27 @@ const originFromFallback = (fallbackBaseUrl: string | undefined): URL | undefine
  * @param origin Transport origin values extracted by an adapter.
  * @param apiRoot Configured API root, such as `/` or `/api/v3`.
  * @param fallbackBaseUrl Optional absolute fallback used when request host is absent.
+ * @param observationContext Optional plain transport and request-id context for
+ * bounded observations. No framework request object is accepted here.
  * @returns Request-scoped API and web base URLs.
  * @throws {Error} When neither request host nor fallback base URL provides a host.
  */
-export const buildBaseUrls = (origin: RequestOrigin, apiRoot: string, fallbackBaseUrl?: string): BaseUrls => {
-  const originUrl = originFromRequest(origin) ?? originFromFallback(fallbackBaseUrl);
+export const buildBaseUrls = (
+  origin: RequestOrigin,
+  apiRoot: string,
+  fallbackBaseUrl?: string,
+  observationContext: UrlObservationContext = {transport: 'internal'}
+): BaseUrls => {
+  const originUrl = resolveOrigin(origin, fallbackBaseUrl, observationContext);
   if (!originUrl) throw new Error(missingHostMessage);
 
   const webBaseUrl = originUrl.origin;
   const apiBaseUrl = `${webBaseUrl}${normalizeApiRoot(apiRoot)}`;
 
-  return {
+  const baseUrls = {
     apiBaseUrl,
     webBaseUrl
   };
+  rememberBaseUrlObservationContext(baseUrls, observationContext);
+  return baseUrls;
 };

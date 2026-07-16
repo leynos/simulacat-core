@@ -9,6 +9,7 @@
 // biome-ignore-all lint/complexity/noExcessiveLinesPerFunction: Baseline route table predates the new length gate.
 import type {Document, SimulationHandlers} from '@simulacrum/foundation-simulator';
 import {buildBaseUrls, buildUrl, type BaseUrls} from '../http/request-url.ts';
+import {makeUrlObservationContext} from '../http/url-observability.ts';
 import type {ExtendedSimulationStore} from '../store/index.ts';
 import {
   projectBranchUrls,
@@ -19,6 +20,7 @@ import {
   projectRefUrls,
   projectRepositoryUrls
 } from '../urls/index.ts';
+import {urlPathSegment} from '../urls/shared.ts';
 import {getSchema, type SchemaFile} from '../utils.ts';
 import {requireRestUserActor} from './actor-context.ts';
 import {blobAsBase64, commitStatusResponse, gitTrees, normalizeGitRefPath} from './utils.ts';
@@ -69,7 +71,8 @@ const handlers =
           host: request.headers.host ?? ''
         },
         apiRoot,
-        fallbackBaseUrl
+        fallbackBaseUrl,
+        makeUrlObservationContext('rest', request.simulacatActor?.observationContext?.requestId)
       );
 
     const projectList = (items: unknown, baseUrls: BaseUrls, project?: RestProjector) => {
@@ -80,7 +83,7 @@ const handlers =
 
     const projectRepositoryOwnerResponse = (owner: any, baseUrls: BaseUrls) => {
       const projected = projectOrganizationUrls(owner, baseUrls);
-      const userPath = `/users/${projected.login}`;
+      const userPath = `/users/${urlPathSegment(projected.login)}`;
       return {
         ...projected,
         followers_url: projected.followers_url ?? buildUrl(baseUrls.apiBaseUrl, `${userPath}/followers`),
@@ -441,7 +444,7 @@ const handlers =
               .filter((organization) => result.user.organizations.includes(organization.login))
               .map((organization) => projectOrganizationUrls(organization, baseUrls))
               .map((organization) => ({
-                url: `${organization.url ?? ''}/memberships/${result.user.login}`,
+                url: `${organization.url ?? ''}/memberships/${urlPathSegment(result.user.login)}`,
                 state: 'active',
                 organization,
                 role: 'member',

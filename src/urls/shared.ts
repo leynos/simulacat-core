@@ -15,6 +15,34 @@ export type UrlFieldClassification<Field extends string = string> = {
 export type UrlBuilder<Entity extends object, Value> = (entity: Entity, baseUrls: BaseUrls) => Value;
 
 /**
+ * Encodes one concrete fixture-derived URL path segment.
+ *
+ * @param value Concrete path value from a fixture.
+ * @returns Percent-encoded URL path segment.
+ */
+export const urlPathSegment = (value: string | number): string => encodeURIComponent(String(value));
+
+/**
+ * Builds an encoded owner and repository path from separate fixture fields.
+ *
+ * @param owner Repository owner login or REST owner object.
+ * @param repository Repository name.
+ * @returns Encoded owner/repository path.
+ */
+export const repositoryPath = (owner: string | {login: string}, repository: string): string => {
+  const login = typeof owner === 'string' ? owner : owner.login;
+  return `${urlPathSegment(login)}/${urlPathSegment(repository)}`;
+};
+
+/**
+ * Encodes each Git ref segment without changing its slash-separated hierarchy.
+ *
+ * @param ref Qualified Git ref name.
+ * @returns Encoded Git ref path with separators preserved.
+ */
+export const gitRefPath = (ref: string): string => ref.split('/').map(urlPathSegment).join('/');
+
+/**
  * Describes a set of fields that share one host class.
  *
  * @param fields Field names in the set.

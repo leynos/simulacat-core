@@ -55,6 +55,12 @@ lives in `tests/request-url.test.ts`, `tests/urls.test.ts`,
 `tests/rest-request-urls.test.ts`, and the request-host GraphQL coverage in
 `tests/graphql.test.ts`.
 
+Set `SIMULACAT_URL_OBSERVABILITY=1` or `true` to emit structured diagnostics
+for request-derived URL handling. The associated Prometheus counter is
+`simulacat_url_derivation_observations_total`; it keeps `event`, `transport`,
+`outcome`, and `reason` labels bounded. Request IDs stay in logs only, and raw
+hosts and fixture identifiers are excluded from metrics.
+
 ### Spelling policy
 
 Run `make spelling` to enforce en-GB-oxendict spelling in tracked Markdown

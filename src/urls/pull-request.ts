@@ -1,7 +1,15 @@
 /** @file Request-scoped URL projection for pull request payloads. */
 import type {BaseUrls} from '../http/request-url.ts';
 import type {GitHubPullRequest} from '../store/entities/pull-request.ts';
-import {apiUrl, classifyUrlFields, projectDerivedFields, webUrl, type UrlFieldClassification} from './shared.ts';
+import {
+  apiUrl,
+  classifyUrlFields,
+  projectDerivedFields,
+  repositoryPath,
+  urlPathSegment,
+  webUrl,
+  type UrlFieldClassification
+} from './shared.ts';
 
 export const pullRequestApiUrlFields = ['url', 'issue_url'] as const;
 export const pullRequestWebUrlFields = ['html_url'] as const;
@@ -12,11 +20,20 @@ export type PullRequestUrlPayload = Omit<GitHubPullRequest, PullRequestUrlField>
 
 const pullRequestUrlBuilders = {
   url: (pullRequest, baseUrls) =>
-    apiUrl(baseUrls, `/repos/${pullRequest.owner}/${pullRequest.repo}/pulls/${pullRequest.number}`),
+    apiUrl(
+      baseUrls,
+      `/repos/${repositoryPath(pullRequest.owner, pullRequest.repo)}/pulls/${urlPathSegment(pullRequest.number)}`
+    ),
   html_url: (pullRequest, baseUrls) =>
-    webUrl(baseUrls, `/${pullRequest.owner}/${pullRequest.repo}/pull/${pullRequest.number}`),
+    webUrl(
+      baseUrls,
+      `/${repositoryPath(pullRequest.owner, pullRequest.repo)}/pull/${urlPathSegment(pullRequest.number)}`
+    ),
   issue_url: (pullRequest, baseUrls) =>
-    apiUrl(baseUrls, `/repos/${pullRequest.owner}/${pullRequest.repo}/issues/${pullRequest.issue_number}`)
+    apiUrl(
+      baseUrls,
+      `/repos/${repositoryPath(pullRequest.owner, pullRequest.repo)}/issues/${urlPathSegment(pullRequest.issue_number)}`
+    )
 } satisfies Record<PullRequestUrlField, (pullRequest: PullRequestUrlPayload, baseUrls: BaseUrls) => string>;
 
 export const pullRequestUrlFieldClassifications: UrlFieldClassification<PullRequestUrlField>[] = [
