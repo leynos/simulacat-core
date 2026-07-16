@@ -10,7 +10,9 @@
 import type {Document, SimulationHandlers} from '@simulacrum/foundation-simulator';
 import {buildBaseUrls, buildUrl, type BaseUrls} from '../http/request-url.ts';
 import {makeUrlObservationContext} from '../http/url-observability.ts';
+import {updateRepositoryUseCase} from '../store/actions/repository-use-case.ts';
 import type {ExtendedSimulationStore} from '../store/index.ts';
+import {observeRepositoryWrite} from '../store/repository-observability.ts';
 import {
   projectBranchUrls,
   projectCommitUrls,
@@ -18,19 +20,13 @@ import {
   projectOrganizationUrls,
   projectPullRequestUrls,
   projectRefUrls,
-  projectRepositoryUrls,
+  projectRepositoryUrls
 } from '../urls/index.ts';
 import {urlPathSegment} from '../urls/shared.ts';
 import {getSchema, type SchemaFile} from '../utils.ts';
 import {requireRestUserActor} from './actor-context.ts';
-import {blobAsBase64, commitStatusResponse, gitTrees, normalizeGitRefPath} from './utils.ts';
-
-import {updateRepositoryUseCase} from '../store/actions/repository-use-case.ts';
-
-import type {GitHubRepository} from '../store/entities.ts';
-import {observeRepositoryWrite} from '../store/repository-observability.ts';
-
 import {buildUpdateRepositoryCommand} from './repository-patch.ts';
+import {blobAsBase64, commitStatusResponse, gitTrees, normalizeGitRefPath} from './utils.ts';
 
 /** REST handler callback shape supplied by the foundation simulator. */
 type SimulationHandler = SimulationHandlers[string];
@@ -66,6 +62,109 @@ const handlers =
     extendedHandlers: ((simulationStore: ExtendedSimulationStore) => SimulationHandlers) | undefined
   ) =>
   (simulationStore: ExtendedSimulationStore): SimulationHandlers => {
+    const getState = () => simulationStore.store.getState();
+    type StoreState = ReturnType<typeof getState>;
+    type RepositoryListSelector = (state: StoreState, repository: RepositoryRouteParams) => unknown;
+
+    const {SIMULACAT_GITHUB_API_URL: fallbackBaseUrl} = process.env;
+    const baseUrlsFor = (request: Req) =>
+      buildBaseUrls(
+        {
+          protocol: request.protocol,
+          host: request.headers.host ?? ''
+        },
+        apiRoot,
+        fallbackBaseUrl,
+        makeUrlObservationContext('rest', request.simulacatActor?.observationContext?.requestId)
+      );
+
+    const projectList = (items: unknown, baseUrls: BaseUrls, project?: RestProjector) => {
+      if (!project) return items;
+      if (!Array.isArray(items)) return items;
+      return items.map((item) => project(item, baseUrls));
+    };
+
+    const projectRepositoryOwnerResponse = (owner: any, baseUrls: BaseUrls) => {
+      const projected = projectOrganizationUrls(owner, baseUrls);
+      const userPath = `/users/${urlPathSegment(projected.login)}`;
+      return {
+        ...projected,
+        followers_url: projected.followers_url ?? buildUrl(baseUrls.apiBaseUrl, `${userPath}/followers`),
+        following_url: projected.following_url ?? buildUrl(baseUrls.apiBaseUrl, `${userPath}/following{/other_user}`),
+        gists_url: projected.gists_url ?? buildUrl(baseUrls.apiBaseUrl, `${userPath}/gists{/gist_id}`),
+        starred_url: projected.starred_url ?? buildUrl(baseUrls.apiBaseUrl, `${userPath}/starred{/owner}{/repo}`),
+        subscriptions_url: projected.subscriptions_url ?? buildUrl(baseUrls.apiBaseUrl, `${userPath}/subscriptions`),
+        organizations_url: projected.organizations_url ?? buildUrl(baseUrls.apiBaseUrl, `${userPath}/orgs`),
+        received_events_url:
+          projected.received_events_url ?? buildUrl(baseUrls.apiBaseUrl, `${userPath}/received_events`)
+      };
+    };
+
+    const projectRepositoryResponse = (repository: any, baseUrls: BaseUrls) => {
+      const projected = projectRepositoryUrls(repository, baseUrls);
+      if (typeof projected.owner !== 'object') return projected;
+      if (projected.owner === null) return projected;
+      return {
+        ...projected,
+        owner: projectRepositoryOwnerResponse(projected.owner, baseUrls)
+      };
+    };
+
+    /** Finds a repository and preserves organisation-owner response shaping. */
+    const findRepositoryResponse = (owner: string, repo: string) => {
+      const repository = simulationStore.selectors.getRepository(getState(), owner, repo);
+      if (!repository) return undefined;
+      return (
+        simulationStore.selectors
+          .allReposWithOrgs(getState())
+          ?.find(
+            (candidate) =>
+              candidate.name === repository.name &&
+              (candidate.owner === repository.owner ||
+                (typeof candidate.owner === 'object' && candidate.owner?.login === repository.owner))
+          ) ?? repository
+      );
+    };
+
+    /** Ensures a repository exists before a repository-scoped handler proceeds. */
+    const requireRepository = (owner: string, repo: string, response: Res) => {
+      const repository = simulationStore.selectors.getRepository(getState(), owner, repo);
+      if (!repository) response.status(404).json(notFound);
+      return repository ?? null;
+    };
+
+    /** Reads repository identity from a repository-scoped REST request context. */
+    const readRepositoryRouteParams = (context: Ctx): RepositoryRouteParams =>
+      context.request.params as RepositoryRouteParams;
+
+    /** Creates a repository-specific list handler with optional URL projection. */
+    const makeListHandler =
+      (selector: RepositoryListSelector, options: MakeListHandlerOptions = {}): SimulationHandler =>
+      async (context: Ctx, request: Req, response: Res) => {
+        const repository = readRepositoryRouteParams(context);
+        if (!requireRepository(repository.owner, repository.repo, response)) return;
+        return response
+          .status(200)
+          .json(projectList(selector(getState(), repository), baseUrlsFor(request), options.project));
+      };
+
+    /** Creates a repository-specific item handler with optional URL projection. */
+    const makeItemHandler =
+      <TParam extends string>(
+        paramName: TParam,
+        selector: (state: StoreState, owner: string, repo: string, param: string | number) => unknown,
+        coerce: (value: string) => string | number = (value) => value,
+        project?: RestProjector
+      ): SimulationHandler =>
+      async (context: Ctx, request: Req, response: Res) => {
+        const params = context.request.params as {owner: string; repo: string} & Record<string, string>;
+        const {owner, repo} = params;
+        if (!requireRepository(owner, repo, response)) return;
+        const item = selector(getState(), owner, repo, coerce(params[paramName] ?? ''));
+        if (!item) return response.status(404).json(notFound);
+        return response.status(200).json(project ? project(item, baseUrlsFor(request)) : item);
+      };
+
     const baseHandlers = !initialState
       ? {}
       : {
@@ -160,23 +259,9 @@ const handlers =
           // GET /repos/{owner}/{repo}
           'repos/get': async (context: Ctx, request: Req, response: Res) => {
             const {owner, repo} = context.request.params as {owner: string; repo: string};
-            const repository = simulationStore.selectors
-              .allReposWithOrgs(getState(), owner)
-              ?.find((candidate) => candidate.name === repo);
-            if (!repository) response.status(404).json(notFound);
-            if (!repository) return;
+            const repository = findRepositoryResponse(owner, repo);
+            if (!repository) return response.status(404).json(notFound);
             return response.status(200).json(projectRepositoryResponse(repository, baseUrlsFor(request)));
-          },
-          // GET /repos/{owner}/{repo}
-          'repos/get': async (context: Ctx, _request: Req, response: Res) => {
-            const {owner, repo} = context.request.params;
-            const repository = requireRepository(owner, repo, response);
-            if (!repository) return;
-            const shapedRepository = shapeRepository(repository);
-            if (!shapedRepository) {
-              return response.status(404).json(notFound);
-            }
-            return response.status(200).json(shapedRepository);
           },
           // PATCH /repos/{owner}/{repo}
           'repos/update': async (context: Ctx, request: Req, response: Res) => {
@@ -187,13 +272,13 @@ const handlers =
               observeRepositoryWrite({operation: 'patch', outcome: 'not-found', reason: 'missing-repository'});
               return response.status(404).json(notFound);
             }
-            const shapedRepository = shapeRepository(result.repository);
-            if (!shapedRepository) {
+            const repository = findRepositoryResponse(owner, repo);
+            if (!repository) {
               observeRepositoryWrite({operation: 'patch', outcome: 'not-found', reason: 'unshaped-repository'});
               return response.status(404).json(notFound);
             }
             observeRepositoryWrite({operation: 'patch', outcome: 'success'});
-            return response.status(200).json(shapedRepository);
+            return response.status(200).json(projectRepositoryResponse(repository, baseUrlsFor(request)));
           },
           // L#29067 /repos/{owner}/{repo}/branches
           'repos/list-branches': async (context: Ctx, request: Req, response: Res) => {
@@ -364,8 +449,6 @@ const handlers =
 
     // note for any cases where it `return`s an object,
     //  that will validate the response per the schema
-
-    type RepositoryListSelector = (state: StoreState, repository: RepositoryRouteParams) => unknown;
 
     return {
       ...baseHandlers,
