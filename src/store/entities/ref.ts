@@ -36,18 +36,30 @@ const defaultRefPrefix = (objectType: RefObjectType) => {
  * `Ref:${refStoreKey({owner, repo, qualifiedName})}`.
  *
  * @returns The normalized `GitHubRef` shape used by the store and adapters.
+ *
+ * @internal
  */
 export const githubRefSchema = z
   .object({
+    /** Login of the account that owns the repository the ref belongs to. */
     owner: z.string().trim().min(1),
+    /** Name of the repository the ref belongs to. */
     repo: z.string().trim().min(1),
+    /** Store-facing ref name, without the `refs/heads/` or `refs/tags/` prefix. */
     qualifiedName: z.string().trim().min(1),
+    /** Fully qualified ref, for example `refs/heads/main`; takes precedence over `qualifiedName`. */
     ref: z.string().trim().min(1).optional(),
+    /** The GraphQL global node identifier for the ref. */
     node_id: z.string().optional(),
+    /** REST API URL for the ref. */
     url: z.string().optional(),
+    /** Git object the ref points to. */
     object: z.object({
+      /** Type of Git object the ref points to. */
       type: refObjectTypeSchema.default('commit'),
+      /** SHA-1 hash of the object the ref points to. */
       sha: z.string().trim().min(1),
+      /** API URL for the object the ref points to. */
       url: z.string().optional()
     })
   })
@@ -59,12 +71,16 @@ export const githubRefSchema = z
 
     return {
       ...ref,
+      /** Store-facing ref name; the fully qualified `ref` input wins over the raw `qualifiedName`. */
       qualifiedName,
+      /** Fully qualified ref path, prefixed from the object type when the input was unqualified. */
       ref: fullRef,
+      /** The GraphQL global node identifier, derived from the store key when omitted. */
       node_id:
         ref.node_id ??
         Buffer.from(`Ref:${refStoreKey({owner: ref.owner, repo: ref.repo, qualifiedName})}`).toString('base64')
     };
   });
 
-export type GitHubRef = z.infer<typeof githubRefSchema>;
+/** The normalized shape of a Git ref fixture produced by `githubRefSchema`. */
+export interface GitHubRef extends z.infer<typeof githubRefSchema> {}

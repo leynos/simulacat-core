@@ -17,15 +17,25 @@ import {githubPullRequestSchema, pullRequestStoreKey, type GitHubPullRequest} fr
 import {githubRefSchema, refStoreKey, type GitHubRef} from './entities/ref.ts';
 import {githubRepositorySchema, repositoryStoreKey, type GitHubRepository} from './entities/repository.ts';
 
+/** The normalized shape of a GitHub user fixture produced by `githubUserSchema`. */
 export interface GitHubUser {
+  /** Numeric GitHub user ID, generated when the fixture omits one. */
   id: number;
+  /** GitHub login handle; the canonical identifier for the user. */
   login: string;
+  /** Display name, defaulting to `login` when the fixture omits one. */
   name: string;
+  /** Free-text profile biography, defaulting to an empty string. */
   bio: string;
+  /** Contact email, derived from `name` when the fixture omits one. */
   email: string;
+  /** Optional profile URL. */
   url?: string | undefined;
+  /** Avatar image URL, defaulting to the classic GitHub placeholder. */
   avatar_url: string;
+  /** Logins of organizations the user belongs to. */
   organizations: string[];
+  /** ISO timestamp of account creation. */
   created_at: string;
 }
 
@@ -43,6 +53,12 @@ const getNextInstallationId = (usedInstallationIds: Set<number>, nextInstallatio
   };
 };
 
+/**
+ * Validates and normalizes a minimal GitHub user fixture, deriving a display
+ * name and contact email from `login` when they are omitted.
+ *
+ * @internal
+ */
 export const githubUserSchema = z
   .object({
     id: z
@@ -74,6 +90,15 @@ export const githubUserSchema = z
     };
   });
 
+/**
+ * Validates and normalizes the full seeded initial store: users,
+ * installations, organizations, repositories, branches, blobs, refs,
+ * commits, and pull requests. During transformation, installations without
+ * an `id` are allocated one, and any organization lacking a matching
+ * installation account is granted a generated installation.
+ *
+ * @internal
+ */
 export const githubInitialStoreSchema = z
   .object({
     users: z.array(githubUserSchema),

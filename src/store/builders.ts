@@ -1,11 +1,11 @@
 /** @file Public fixture builders backed by the GitHub entity schemas. */
 import type {z} from 'zod';
-import {githubBranchSchema} from './entities/branch.ts';
-import {githubCommitSchema} from './entities/commit.ts';
-import {githubIssueSchema} from './entities/issue.ts';
-import {githubPullRequestSchema} from './entities/pull-request.ts';
-import {githubRefSchema} from './entities/ref.ts';
-import {githubRepositorySchema} from './entities/repository.ts';
+import {githubBranchSchema, type GitHubBranch} from './entities/branch.ts';
+import {githubCommitSchema, type GitHubCommit} from './entities/commit.ts';
+import {githubIssueSchema, type GitHubIssue} from './entities/issue.ts';
+import {githubPullRequestSchema, type GitHubPullRequest} from './entities/pull-request.ts';
+import {githubRefSchema, type GitHubRef} from './entities/ref.ts';
+import {githubRepositorySchema, type GitHubRepository} from './entities/repository.ts';
 
 /** Input shape for building a GitHub repository fixture. */
 export type RepositoryFixtureInput = z.input<typeof githubRepositorySchema>;
@@ -28,7 +28,7 @@ export type PullRequestFixtureInput = z.input<typeof githubPullRequestSchema>;
  * @returns Parsed GitHub repository fixture.
  * @throws {ZodError} When `input` does not satisfy the repository schema.
  */
-export const buildRepositoryFixture = (input: RepositoryFixtureInput) => {
+export const buildRepositoryFixture = (input: RepositoryFixtureInput): GitHubRepository => {
   return githubRepositorySchema.parse(input);
 };
 
@@ -39,26 +39,26 @@ export const buildRepositoryFixture = (input: RepositoryFixtureInput) => {
  * @returns Parsed GitHub branch fixture.
  * @throws {ZodError} When `input` does not satisfy the branch schema.
  */
-export const buildBranchFixture = (input: BranchFixtureInput) => {
+export const buildBranchFixture = (input: BranchFixtureInput): GitHubBranch => {
   return githubBranchSchema.parse(input);
 };
 
 /** Validates and returns a Git ref fixture from input. */
-export const buildRefFixture = (input: RefFixtureInput) => {
+export const buildRefFixture = (input: RefFixtureInput): GitHubRef => {
   return githubRefSchema.parse(input);
 };
 
 /** Validates and returns a Git commit fixture from input. */
-export const buildCommitFixture = (input: CommitFixtureInput) => {
+export const buildCommitFixture = (input: CommitFixtureInput): GitHubCommit => {
   return githubCommitSchema.parse(input);
 };
 
 /** Validates and returns a GitHub issue fixture from input. */
-export const buildIssueFixture = (input: IssueFixtureInput) => {
+export const buildIssueFixture = (input: IssueFixtureInput): GitHubIssue => {
   return githubIssueSchema.parse(input);
 };
 
 /** Validates and returns a GitHub pull request fixture from input. */
-export const buildPullRequestFixture = (input: PullRequestFixtureInput) => {
+export const buildPullRequestFixture = (input: PullRequestFixtureInput): GitHubPullRequest => {
   return githubPullRequestSchema.parse(input);
 };

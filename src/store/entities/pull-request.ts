@@ -103,33 +103,56 @@ const normalizePullRequestRef = (ref: PullRequestRefInput, owner: string, repo: 
  *
  * @returns The normalized `GitHubPullRequest` shape used by the store and
  * adapters.
+ *
+ * @internal
  */
 export const githubPullRequestSchema = z
   .object({
+    /** Login of the account that owns the repository the pull request belongs to. */
     owner: z.string().trim().min(1),
+    /** Name of the repository the pull request belongs to. */
     repo: z.string().trim().min(1),
+    /** Unique numeric identifier for the pull request across the whole simulated instance. */
     id: z.number().optional(),
+    /** The GraphQL global node identifier for the pull request. */
     node_id: z.string().optional(),
+    /** Pull request number, unique within the owning repository. */
     number: z.number().int().positive(),
+    /** Issue number backing this pull request; must match `number` when provided. */
     issue_number: z.number().int().positive().optional(),
+    /** Current lifecycle state of the pull request. */
     state: pullRequestStateSchema.optional().default('open'),
+    /** Pull request title. */
     title: z.string().trim().min(1),
+    /** Pull request body text, in Markdown. */
     body: z.string().optional().default(''),
+    /** Whether the pull request is still a draft. */
     draft: z.boolean().optional().default(false),
     user: z
       .object({
+        /** Username of the account that opened the pull request. */
         login: z.string().trim().min(1)
       })
       .optional(),
+    /** Branch the pull request targets. */
     base: pullRequestRefSchema,
+    /** Branch containing the proposed changes. */
     head: pullRequestRefSchema,
+    /** ISO 8601 timestamp recording when the pull request was created. */
     created_at: z.string().optional().default(defaultTimestamp),
+    /** ISO 8601 timestamp recording when the pull request was last updated. */
     updated_at: z.string().optional().default(defaultTimestamp),
+    /** ISO 8601 timestamp recording when the pull request was closed, or `null` while open. */
     closed_at: z.string().nullable().optional(),
+    /** ISO 8601 timestamp recording when the pull request was merged, or `null` if unmerged. */
     merged_at: z.string().nullable().optional(),
+    /** Whether the pull request can be merged without conflicts, or `null` if unknown. */
     mergeable: z.boolean().nullable().optional().default(null),
+    /** REST API URL for the pull request. */
     url: z.string().optional(),
+    /** Web URL for viewing the pull request. */
     html_url: z.string().optional(),
+    /** REST API URL for the pull request's associated issue. */
     issue_url: z.string().optional()
   })
   .transform((pullRequest) => {
@@ -139,15 +162,24 @@ export const githubPullRequestSchema = z
 
     return {
       ...pullRequest,
+      /** Unique numeric identifier, offset from the pull request number when omitted. */
       id: pullRequest.id ?? ENTITY_ID_OFFSETS.PULL_REQUEST + pullRequest.number,
+      /** The GraphQL global node identifier, derived from the store key when omitted. */
       node_id: pullRequest.node_id ?? Buffer.from(`PullRequest:${key}`).toString('base64'),
+      /** Number of the issue that mirrors this pull request; always equals `number`. */
       issue_number: issueNumber,
+      /** Author of the pull request, defaulting to the `octocat` fixture account. */
       user: pullRequest.user ?? {login: 'octocat'},
+      /** Base (target) branch reference, normalized to the owning repository. */
       base: normalizePullRequestRef(pullRequest.base, pullRequest.owner, pullRequest.repo),
+      /** Head (source) branch reference, normalized to the owning repository. */
       head: normalizePullRequestRef(pullRequest.head, pullRequest.owner, pullRequest.repo),
+      /** Close timestamp derived from the pull request state; null while open. */
       closed_at: deriveClosedAt(pullRequest),
+      /** Merge timestamp derived from the pull request state; null unless merged. */
       merged_at: deriveMergedAt(pullRequest)
     };
   });
 
-export type GitHubPullRequest = z.infer<typeof githubPullRequestSchema>;
+/** The normalized shape of a GitHub pull request fixture produced by `githubPullRequestSchema`. */
+export interface GitHubPullRequest extends z.infer<typeof githubPullRequestSchema> {}
