@@ -174,6 +174,25 @@ const resolveRepositoryOwner = (
   return users?.[owner] ?? owner;
 };
 
+type RepositoryWithOwnerSchema = Pick<
+  ExtendSimulationSelectors<ExtendedSchema>['schema'],
+  'organizations' | 'repositories'
+>;
+
+/** Builds a keyed repository selector that joins an organization owner when present. */
+const buildRepositoryWithOwnerSelector = (schema: RepositoryWithOwnerSchema) => {
+  return (state: AnyState, owner: string, name: string): GitHubRepositoryWithOrganizationOwner | undefined => {
+    const repository = schema.repositories.selectTable(state)?.[repositoryStoreKey({owner, name})];
+    if (!repository) return undefined;
+    const organization = schema.organizations.selectTable(state)?.[owner];
+    return {
+      ...repository,
+      id: Number(repository.id),
+      owner: organization ? toRepoOwner(organization) : repository.owner
+    };
+  };
+};
+
 /** Builds selectors that join organizations and repositories. */
 const buildOrganisationSelectors = ({createSelector, schema}: ExtendSimulationSelectors<ExtendedSchema>) => {
   const allGithubOrganizations: (state: AnyState) => GitHubOrganizationWithRepositories[] = createSelector(
@@ -206,21 +225,7 @@ const buildOrganisationSelectors = ({createSelector, schema}: ExtendSimulationSe
       }
     );
 
-  const getRepositoryWithOwner = (
-    state: AnyState,
-    owner: string,
-    name: string
-  ): GitHubRepositoryWithOrganizationOwner | undefined => {
-    const repository = schema.repositories.selectTable(state)?.[repositoryStoreKey({owner, name})];
-    if (!repository) return undefined;
-    const organizations = schema.organizations.selectTable(state);
-    const users = schema.users.selectTable(state);
-    return {
-      ...repository,
-      id: Number(repository.id),
-      owner: resolveRepositoryOwner(organizations, users, repository.owner)
-    };
-  };
+  const getRepositoryWithOwner = buildRepositoryWithOwnerSelector(schema);
 
   return {allGithubOrganizations, allReposWithOrgs, getRepositoryWithOwner};
 };

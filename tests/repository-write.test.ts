@@ -115,10 +115,10 @@ describe('repository writes through shared actions', () => {
 
     expect(patch.status).toBe(200);
     expect(patch.body.description).toBe('Patched user repository');
-    expect(patch.body.owner).toEqual(expect.objectContaining({login: 'octocat', type: 'User'}));
+    expect(patch.body.owner).toBe('octocat');
     expect(get.status).toBe(200);
     expect(get.body.description).toBe('Patched user repository');
-    expect(get.body.owner).toEqual(expect.objectContaining({login: 'octocat', type: 'User'}));
+    expect(get.body.owner).toBe('octocat');
     expect(graphql.errors).toBeUndefined();
     expect(graphql.data?.repository?.description).toBe('Patched user repository');
     expect(metricsAfterPatch).toContain(
