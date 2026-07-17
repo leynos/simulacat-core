@@ -83,7 +83,7 @@
   },
   "devDependencies": {
     "@aboviq/bun-test-cucumber": "^0.2.0",
-    "@arethetypeswrong/core": "^0.18.4",
+    "@arethetypeswrong/core": "^0.18.5",
     "@biomejs/biome": "^2.5.3",
     "@graphql-codegen/cli": "^7.2.0",
     "@graphql-codegen/typescript": "^6.1.0",
