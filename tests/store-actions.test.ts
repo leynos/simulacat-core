@@ -200,8 +200,52 @@ describe('repository write action queue', () => {
     expect(observedBeforeSecond).toEqual(['first']);
     expect(queues.size).toBe(0);
   });
+});
 
-  it('preserves every update in a queued repository write batch', async () => {
+describe('repository write action queue failures', () => {
+  it('retains the failing and later actions after a queued operation fails', () => {
+    const first = {type: 'first'};
+    const second = {type: 'second'};
+    const queues = new Map([['acme/awesome-repo', [first, second]]]);
+    const processed: string[] = [];
+    let shouldFail = true;
+    const operation: Parameters<typeof processEntityUpdateQueue>[2] = function* (action) {
+      if (action.type === 'first' && shouldFail) throw new Error('first write failed');
+      processed.push(action.type);
+      yield* [];
+    };
+
+    const failedDrain = processEntityUpdateQueue(queues, 'acme/awesome-repo', operation)();
+    expect(() => failedDrain.next()).toThrow('first write failed');
+    expect(queues.get('acme/awesome-repo')).toEqual([first, second]);
+    expect(processed).toEqual([]);
+
+    shouldFail = false;
+    expect(processEntityUpdateQueue(queues, 'acme/awesome-repo', operation)().next().done).toBe(true);
+    expect(processed).toEqual(['first', 'second']);
+    expect(queues.size).toBe(0);
+  });
+});
+
+describe('repository write action queue batches', () => {
+  it('executes every queued repository write batch action once and in order', () => {
+    const actions = Array.from({length: 128}, (_, index) => ({type: `Batch update ${index}`}));
+    const queues = new Map([['acme/awesome-repo', actions]]);
+    const processed: string[] = [];
+    let description = 'Original description';
+    const operation: Parameters<typeof processEntityUpdateQueue>[2] = function* (action) {
+      description = action.type;
+      processed.push(action.type);
+      yield* [];
+    };
+
+    expect(processEntityUpdateQueue(queues, 'acme/awesome-repo', operation)().next().done).toBe(true);
+    expect(processed).toEqual(actions.map((action) => action.type));
+    expect(description).toBe('Batch update 127');
+    expect(queues.size).toBe(0);
+  });
+
+  it('preserves the final repository state from a queued repository write batch', async () => {
     const server = await simulation({initialState}).listen(0);
     try {
       await Promise.all(

@@ -87,9 +87,11 @@ export type GitHubRepoOwner = Omit<GitHubOrganization, 'name' | 'email'> & {
   id: number;
 };
 
+export type GitHubRepositoryOwner = GitHubRepoOwner | GitHubUser;
+
 export type GitHubRepositoryWithOrganizationOwner = Omit<GitHubRepository, 'id' | 'owner'> & {
   id: number;
-  owner: GitHubRepoOwner | string | null;
+  owner: GitHubRepositoryOwner | string | null;
 };
 
 /** Creates the base store schema and seeds it from parsed initial state. */
@@ -127,8 +129,8 @@ const extendActions =
     if (!extendedActions) return base;
     const extResult = extendedActions(args);
     return {
-      ...(base as object),
-      ...(extResult as object)
+      ...(extResult as object),
+      ...(base as object)
     } as GitHubActions;
   };
 
@@ -161,6 +163,17 @@ const toRepoOwner = (org: GitHubOrganization): GitHubRepoOwner => ({
   public_members_url: org.public_members_url
 });
 
+/** Resolves the shaped owner object for a repository identity. */
+const resolveRepositoryOwner = (
+  organizations: Record<string, GitHubOrganization> | undefined,
+  users: Record<string, GitHubUser> | undefined,
+  owner: string
+): GitHubRepositoryOwner | string => {
+  const organization = organizations?.[owner];
+  if (organization) return toRepoOwner(organization);
+  return users?.[owner] ?? owner;
+};
+
 /** Builds selectors that join organizations and repositories. */
 const buildOrganisationSelectors = ({createSelector, schema}: ExtendSimulationSelectors<ExtendedSchema>) => {
   const allGithubOrganizations: (state: AnyState) => GitHubOrganizationWithRepositories[] = createSelector(
@@ -178,16 +191,16 @@ const buildOrganisationSelectors = ({createSelector, schema}: ExtendSimulationSe
     createSelector(
       schema.repositories.selectTableAsList,
       schema.organizations.selectTable,
+      schema.users.selectTable,
       (_: AnyState, org?: string) => org,
-      (allRepos, orgMap, org) => {
+      (allRepos, orgMap, userMap, org) => {
         if (org && !orgMap?.[org]) return undefined;
         const repos = !org ? allRepos : allRepos.filter((r) => r.owner === org);
         return repos.map((repo) => {
-          const ownerOrg = orgMap?.[repo.owner];
           return {
             ...repo,
             id: Number(repo.id),
-            owner: ownerOrg ? toRepoOwner(ownerOrg) : repo.owner
+            owner: resolveRepositoryOwner(orgMap, userMap, repo.owner)
           };
         });
       }
@@ -200,11 +213,12 @@ const buildOrganisationSelectors = ({createSelector, schema}: ExtendSimulationSe
   ): GitHubRepositoryWithOrganizationOwner | undefined => {
     const repository = schema.repositories.selectTable(state)?.[repositoryStoreKey({owner, name})];
     if (!repository) return undefined;
-    const organization = schema.organizations.selectTable(state)?.[owner];
+    const organizations = schema.organizations.selectTable(state);
+    const users = schema.users.selectTable(state);
     return {
       ...repository,
       id: Number(repository.id),
-      owner: organization ? toRepoOwner(organization) : repository.owner
+      owner: resolveRepositoryOwner(organizations, users, repository.owner)
     };
   };
 

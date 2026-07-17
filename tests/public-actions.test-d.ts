@@ -11,6 +11,7 @@ type Equal<Left, Right> = (<T>() => T extends Left ? 1 : 2) extends <T>() => T e
 type Expect<Value extends true> = Value;
 
 type WritableFieldContract = Expect<Equal<RepositoryWritableField, 'description' | 'homepage'>>;
+type WritableFieldTupleParity = Expect<Equal<(typeof REPOSITORY_WRITABLE_FIELDS)[number], RepositoryWritableField>>;
 type CommandChangesContract = Expect<
   Equal<UpdateRepositoryCommand['changes'], Partial<Record<RepositoryWritableField, string | undefined>>>
 >;
@@ -32,4 +33,5 @@ void body;
 void addRepository;
 void invalidCommand;
 void (null as unknown as WritableFieldContract);
+void (null as unknown as WritableFieldTupleParity);
 void (null as unknown as CommandChangesContract);

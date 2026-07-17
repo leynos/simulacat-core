@@ -40,21 +40,19 @@ describe('repository PATCH parsing', () => {
   });
 
   it('retains valid writable siblings when another writable field is malformed', () => {
-    const cases: Array<{body: unknown; changes: UpdateRepositoryCommand['changes']}> = [
-      {
-        body: {description: null, homepage: 'https://docs.example.test'},
-        changes: {homepage: 'https://docs.example.test'}
-      },
-      {body: {description: 'Updated description', homepage: []}, changes: {description: 'Updated description'}},
-      {
-        body: {description: false, homepage: 'https://docs.example.test'},
-        changes: {homepage: 'https://docs.example.test'}
-      },
-      {
-        body: {description: 'Updated description', homepage: {invalid: true}},
-        changes: {description: 'Updated description'}
-      }
-    ];
+    const invalidValues = [null, [], 42, false, {invalid: true}];
+    const cases: Array<{body: unknown; changes: UpdateRepositoryCommand['changes']}> = invalidValues.flatMap(
+      (invalidValue) => [
+        {
+          body: {description: invalidValue, homepage: 'https://docs.example.test'},
+          changes: {homepage: 'https://docs.example.test'}
+        },
+        {
+          body: {description: 'Updated description', homepage: invalidValue},
+          changes: {description: 'Updated description'}
+        }
+      ]
+    );
 
     for (const {body, changes} of cases) {
       expect(buildUpdateRepositoryCommand({owner: 'acme', name: 'awesome-repo', body})).toEqual({

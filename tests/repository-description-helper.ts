@@ -1,13 +1,16 @@
 /** @file Shared GraphQL helpers for repository description assertions. */
+import {z} from 'zod';
 
-export type GraphQLRepositoryDescription = {
-  data?: {
-    repository?: {
-      description?: string;
-    };
-  };
-  errors?: Array<{message: string}>;
-};
+const graphQLRepositoryDescriptionSchema = z.object({
+  data: z
+    .object({
+      repository: z.object({description: z.string().nullable().optional()}).nullable().optional()
+    })
+    .optional(),
+  errors: z.array(z.object({message: z.string()})).optional()
+});
+
+export type GraphQLRepositoryDescription = z.infer<typeof graphQLRepositoryDescriptionSchema>;
 
 const gql = String.raw;
 
@@ -39,5 +42,5 @@ export const fetchGraphQLDescription = async (
     })
   });
 
-  return (await response.json()) as GraphQLRepositoryDescription;
+  return graphQLRepositoryDescriptionSchema.parse(await response.json());
 };

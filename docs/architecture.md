@@ -134,7 +134,7 @@ derive from the same key as base64-encoded `Repository:owner/name` strings.
 Selectors provide the higher-level joins the handlers need:
 
 - installations joined to owning organizations and repositories
-- repositories decorated with organization owners
+- repositories decorated with user-or-organization owners
 - keyed repository and branch lookup by owner-qualified coordinates
 - blob lookup by `path` or `sha`
 - repository tree lookup across all blobs in an owner/repository pair

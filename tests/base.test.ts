@@ -62,6 +62,7 @@ describe('router extension tests', () => {
     expect(res.ok).toBe(true);
     expect(body).toContain('# TYPE simulacat_actor_observations_total counter');
     expect(body).toContain('# TYPE simulacat_url_derivation_observations_total counter');
+    expect(body).toContain('# TYPE simulacat_repository_write_observations_total counter');
   });
 
   it('matches the stable Prometheus metrics snapshot', async () => {

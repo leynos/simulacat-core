@@ -1,5 +1,6 @@
 /** @file Step definitions for shared repository write behaviour. */
 import {expect} from 'bun:test';
+import {z} from 'zod';
 import {withState} from './cucumber.js';
 import {fetchGraphQLDescription} from './repository-description-helper.ts';
 import {simulation, type InitialState} from '../src/index.ts';
@@ -11,6 +12,8 @@ type ScenarioState = {
   baseUrl?: string;
   response?: Response;
 };
+
+const repositoryDescriptionResponseSchema = z.object({description: z.string().nullable().optional()});
 
 const {After, Given, When, Then} = withState<ScenarioState>();
 
@@ -89,7 +92,7 @@ Then('REST repository {string} has description {string}', async (state, args) =>
   const {owner, name} = parseFullName(requireStepArg(args, 0));
   const expectedDescription = requireStepArg(args, 1);
   const response = await fetch(`${state.baseUrl}/repos/${owner}/${name}`);
-  const body = (await response.json()) as {description?: string};
+  const body = repositoryDescriptionResponseSchema.parse(await response.json());
 
   expect(response.status).toBe(200);
   expect(body.description).toBe(expectedDescription);

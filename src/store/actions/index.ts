@@ -43,27 +43,48 @@ type EntityUpdateAction<Command> = Action & {
 
 type EntityUpdateOperation = Parameters<Supervisor>[1];
 
+/** Removes completed actions while preserving a failed action and its successors. */
+const cleanUpEntityUpdateQueue = (queues: Map<string, Action[]>, id: string, queue: Action[], completed: number) => {
+  if (completed === queue.length) {
+    queues.delete(id);
+  } else if (completed > 0) {
+    queue.splice(0, completed);
+  }
+};
+
 /**
  * Drains one entity's queued updates in first-in-first-out order.
  *
  * @param queues Per-entity action queues maintained by the supervisor.
  * @param id Entity key whose queue should drain.
  * @param operation StarFX operation that applies one queued action.
- * @returns An operation that drains queued actions and removes the empty queue.
+ * @returns An operation that drains queued actions and removes an empty queue.
+ *
+ * If an operation fails, successfully processed actions are removed while the
+ * failing action and later actions remain queued for the next dispatch. The
+ * failure still propagates to the caller.
  */
 export const processEntityUpdateQueue = (queues: Map<string, Action[]>, id: string, operation: EntityUpdateOperation) =>
   function* () {
     const queue = queues.get(id);
-    while (queue?.length) {
-      for (const action of queue.splice(0)) yield* operation(action);
+    if (!queue) return;
+    let completed = 0;
+
+    try {
+      while (completed < queue.length) {
+        yield* operation(queue[completed] as Action);
+        completed += 1;
+      }
+    } finally {
+      cleanUpEntityUpdateQueue(queues, id, queue, completed);
     }
-    queues.delete(id);
   };
 
 /** Creates a supervisor that serializes updates for each entity key. */
 const createEntityUpdateSupervisor = <Command>(keyOf: (command: Command) => string): Supervisor => {
   return function* superviseEntityUpdates(pattern, operation) {
     const queues = new Map<string, Action[]>();
+    const activeQueueIds = new Set<string>();
     const actions = useActions(pattern);
 
     for (const action of yield* each(actions)) {
@@ -72,7 +93,16 @@ const createEntityUpdateSupervisor = <Command>(keyOf: (command: Command) => stri
       queue.push(action);
       queues.set(id, queue);
 
-      if (queue.length === 1) yield* spawn(processEntityUpdateQueue(queues, id, operation));
+      if (!activeQueueIds.has(id)) {
+        activeQueueIds.add(id);
+        yield* spawn(function* () {
+          try {
+            yield* processEntityUpdateQueue(queues, id, operation)();
+          } finally {
+            activeQueueIds.delete(id);
+          }
+        });
+      }
       yield* each.next();
     }
   };

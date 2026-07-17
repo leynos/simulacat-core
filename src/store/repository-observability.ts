@@ -1,5 +1,5 @@
 /**
- * @file Repository write observability counters and optional diagnostic logs.
+ * @file Repository write observability counters.
  *
  * Counters are process-local and use synchronous, no-`await` read-modify-write
  * operations. They are atomic with respect to JavaScript callbacks in the

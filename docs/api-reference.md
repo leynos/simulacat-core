@@ -261,7 +261,7 @@ flat route list.
 | `GET /orgs/{org}/installation`                     | Fully scriptable     | Store-backed installation lookup for an organization account.                             |
 | `GET /repos/{owner}/{repo}/installation`           | Fully scriptable     | Store-backed installation lookup for a repository owner/repo pair.                        |
 | `GET /orgs/{org}/repos`                            | Fully scriptable     | Store-backed repository list scoped by organization.                                      |
-| `GET /repos/{owner}/{repo}`                        | Fully scriptable     | Returns the store-backed repository joined with the organization owner shape.             |
+| `GET /repos/{owner}/{repo}`                        | Fully scriptable     | Returns the store-backed repository joined with the user-or-organization owner shape.     |
 | `PATCH /repos/{owner}/{repo}`                      | Fully scriptable     | Updates whitelisted repository metadata through the shared `updateRepository` action.     |
 | `GET /repos/{owner}/{repo}/branches`               | Fully scriptable     | Returns repository-scoped branches and 404s for unknown repositories.                     |
 | `GET /repos/{owner}/{repo}/commits/{ref}/status`   | Schema-stubbed       | Returns a fixed success payload with dynamic owner/repo/ref interpolation only.           |
