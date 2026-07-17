@@ -118,12 +118,11 @@ Stop and escalate when any of these is breached:
   Mitigation: the roadmap success criterion is satisfied across *separate* HTTP
   requests (write request, then read request), where any microtask/IO boundary
   has already flushed — so the cross-surface acceptance test is robust
-  regardless. For the *write response itself*, the use case re-selects the
-  persisted repository after dispatch; pure reducer output is only a fallback
-  if that contract changes. If a within-request read-back is ever needed,
-  prefer a state-subscription latch over assuming synchronous settlement. Stage
-  B includes a focused store-level test that dispatches the action and asserts
-  the new state is observable, which pins this behaviour down early.
+  regardless. For the *write response itself*, `updateRepositoryUseCase`
+  awaits dispatch, then re-selects the persisted repository before the PATCH
+  handler shapes its response. Stage B includes a focused store-level test
+  that dispatches the action and asserts the new state is observable before
+  re-selection, which pins this settlement behaviour down early.
 - Risk R2: returning a full repository object via `return {status, json}` runs
   the OpenAPI response validator, which is known to choke on nullable fields in
   the GitHub schema. Severity: low.

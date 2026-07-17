@@ -112,18 +112,7 @@ const handlers =
 
     /** Finds a repository and preserves organisation-owner response shaping. */
     const findRepositoryResponse = (owner: string, repo: string) => {
-      const repository = simulationStore.selectors.getRepository(getState(), owner, repo);
-      if (!repository) return undefined;
-      return (
-        simulationStore.selectors
-          .allReposWithOrgs(getState())
-          ?.find(
-            (candidate) =>
-              candidate.name === repository.name &&
-              (candidate.owner === repository.owner ||
-                (typeof candidate.owner === 'object' && candidate.owner?.login === repository.owner))
-          ) ?? repository
-      );
+      return simulationStore.selectors.getRepositoryWithOwner(getState(), owner, repo);
     };
 
     /** Ensures a repository exists before a repository-scoped handler proceeds. */

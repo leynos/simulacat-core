@@ -14,6 +14,7 @@ type RepositoryResponse = {
   description?: string;
   full_name?: string;
   homepage?: string;
+  owner?: {login?: string; type?: string} | string;
   private?: boolean;
 };
 
@@ -84,6 +85,7 @@ describe('repository writes through shared actions', () => {
         private: false
       })
     );
+    expect(patch.body.owner).toEqual(expect.objectContaining({login: 'acme', type: 'Organization'}));
     expect(get.status).toBe(200);
     expect(get.body.description).toBe('Patched via shared action');
     expect(list.status).toBe(200);
@@ -107,6 +109,7 @@ describe('repository writes through shared actions', () => {
 
     expect(patch.status).toBe(200);
     expect(patch.body.description).toBe('Patched user repository');
+    expect(patch.body.owner).toBe('octocat');
     expect(get.status).toBe(200);
     expect(get.body.description).toBe('Patched user repository');
     expect(graphql.errors).toBeUndefined();
@@ -132,29 +135,58 @@ describe('repository PATCH malformed payloads', () => {
     await server.ensureClose();
   });
 
-  it('keeps persisted writable fields when PATCH values are malformed', async () => {
-    const before = await fetchJson<RepositoryResponse>(`${baseUrl}/repos/acme/awesome-repo`);
-    const patch = await fetchJson<ValidationErrorResponse>(`${baseUrl}/repos/acme/awesome-repo`, {
-      method: 'PATCH',
-      headers: {
-        authorization: 'Bearer local-token',
-        'content-type': 'application/json'
-      },
-      body: JSON.stringify({description: null, homepage: {invalid: true}})
-    });
-    const after = await fetchJson<RepositoryResponse>(`${baseUrl}/repos/acme/awesome-repo`);
+  it('rejects malformed writable fields without persisting either field', async () => {
+    const invalidValues = [null, [], 42, false, {invalid: true}];
 
-    expect(before.status).toBe(200);
-    expect(patch.status).toBe(400);
-    expect(patch.body.err).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({instancePath: '/requestBody/description', message: 'must be string'})
-      ])
-    );
-    expect(after.status).toBe(200);
-    expect(after.body).toEqual(
-      expect.objectContaining({description: before.body.description, homepage: before.body.homepage})
-    );
+    for (const field of ['description', 'homepage'] as const) {
+      for (const value of invalidValues) {
+        const before = await fetchJson<RepositoryResponse>(`${baseUrl}/repos/acme/awesome-repo`);
+        const patch = await fetchJson<ValidationErrorResponse>(`${baseUrl}/repos/acme/awesome-repo`, {
+          method: 'PATCH',
+          headers: {
+            authorization: 'Bearer local-token',
+            'content-type': 'application/json'
+          },
+          body: JSON.stringify({[field]: value, ignored: 'unknown'})
+        });
+        const after = await fetchJson<RepositoryResponse>(`${baseUrl}/repos/acme/awesome-repo`);
+
+        expect(patch.status).toBe(400);
+        expect(patch.body.err).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({instancePath: `/requestBody/${field}`, message: 'must be string'})
+          ])
+        );
+        expect(after.status).toBe(200);
+        expect(after.body).toEqual(
+          expect.objectContaining({description: before.body.description, homepage: before.body.homepage})
+        );
+      }
+    }
+  });
+
+  it('rejects mixed writable payloads without persisting their valid sibling', async () => {
+    for (const body of [
+      {description: 'Accepted only by the parser', homepage: null},
+      {description: false, homepage: 'Accepted only by the parser'}
+    ]) {
+      const before = await fetchJson<RepositoryResponse>(`${baseUrl}/repos/acme/awesome-repo`);
+      const patch = await fetchJson<ValidationErrorResponse>(`${baseUrl}/repos/acme/awesome-repo`, {
+        method: 'PATCH',
+        headers: {
+          authorization: 'Bearer local-token',
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      });
+      const after = await fetchJson<RepositoryResponse>(`${baseUrl}/repos/acme/awesome-repo`);
+
+      expect(patch.status).toBe(400);
+      expect(patch.body.err).toEqual(expect.arrayContaining([expect.objectContaining({message: 'must be string'})]));
+      expect(after.body).toEqual(
+        expect.objectContaining({description: before.body.description, homepage: before.body.homepage})
+      );
+    }
   });
 });
 
@@ -163,14 +195,22 @@ describe('repository write observability', () => {
     resetRepositoryWriteObservabilityCounters();
   });
 
-  it('escapes multi-segment repository observation reasons in Prometheus output', () => {
+  it('renders only finite repository write metric series', () => {
     observeRepositoryWrite({
       operation: 'patch',
       outcome: 'not-found',
-      reason: 'request."path"\\line\nmore'
+      reason: 'missing-repository'
     });
+    observeRepositoryWrite({operation: 'patch', outcome: 'not-found', reason: 'unshaped-repository'});
+    observeRepositoryWrite({operation: 'patch', outcome: 'success'});
 
-    expect(getRepositoryWriteObservabilityMetrics()).toContain('reason="request.\\"path\\"\\\\line\\nmore"');
+    expect(getRepositoryWriteObservabilityMetrics()).toBe(
+      '# HELP simulacat_repository_write_observations_total Repository write observations.\n' +
+        '# TYPE simulacat_repository_write_observations_total counter\n' +
+        'simulacat_repository_write_observations_total{operation="patch",outcome="not-found",reason="missing-repository"} 1\n' +
+        'simulacat_repository_write_observations_total{operation="patch",outcome="not-found",reason="unshaped-repository"} 1\n' +
+        'simulacat_repository_write_observations_total{operation="patch",outcome="success",reason=""} 1\n'
+    );
   });
 
   it('counts concurrent PATCH observations in the process-local event loop', async () => {

@@ -163,6 +163,8 @@ repository.visibility; // still the seeded/default value
 
 The same persisted value is visible through `GET /repos/{owner}/{repo}`,
 `GET /orgs/{org}/repos`, and GraphQL `repository(owner:, name:)` reads.
+The PATCH response is shaped from that persisted repository rather than the
+request body, so it matches those subsequent reads.
 Repository write routes do not validate real GitHub tokens.
 
 ## Request-derived URLs

@@ -1,7 +1,9 @@
 /** @file Unit and store-level tests for shared repository write actions. */
 import {describe, expect, it} from 'bun:test';
 import fc from 'fast-check';
+import {sleep} from 'starfx';
 import {simulation, type InitialState, buildRepositoryFixture} from '../src/index.ts';
+import {processEntityUpdateQueue} from '../src/store/actions/index.ts';
 import {applyRepositoryUpdate, type UpdateRepositoryCommand} from '../src/store/actions/repository.ts';
 import {updateRepositoryUseCase} from '../src/store/actions/repository-use-case.ts';
 
@@ -151,6 +153,76 @@ describe('repository write action reducer runtime validation', () => {
     }
 
     expect(current).toEqual(snapshot);
+  });
+});
+
+describe('repository write action queue', () => {
+  it('drains same-key updates FIFO while another key proceeds independently', () => {
+    const first = {type: 'first'};
+    const second = {type: 'second'};
+    const other = {type: 'other'};
+    const queues = new Map([
+      ['acme/awesome-repo', [first]],
+      ['globex/awesome-repo', [other]]
+    ]);
+    const persisted: string[] = [];
+    const repositoryValues = new Map([
+      ['acme/awesome-repo', 'Original description'],
+      ['globex/awesome-repo', 'Other description']
+    ]);
+    const observedBeforeSecond: string[] = [];
+    const operation: Parameters<typeof processEntityUpdateQueue>[2] = function* (action) {
+      if (action.type === 'first') {
+        repositoryValues.set('acme/awesome-repo', 'first');
+        persisted.push('first');
+        yield* sleep(1);
+        return;
+      }
+      if (action.type === 'second') {
+        observedBeforeSecond.push(repositoryValues.get('acme/awesome-repo') ?? '');
+        repositoryValues.set('acme/awesome-repo', 'second');
+        persisted.push('second');
+        return;
+      }
+      repositoryValues.set('globex/awesome-repo', 'other');
+      persisted.push('other');
+    };
+
+    const sameKeyDrain = processEntityUpdateQueue(queues, 'acme/awesome-repo', operation)();
+    expect(sameKeyDrain.next().value).toBeDefined();
+
+    queues.get('acme/awesome-repo')?.push(second);
+    const otherKeyDrain = processEntityUpdateQueue(queues, 'globex/awesome-repo', operation)();
+    expect(otherKeyDrain.next().done).toBe(true);
+
+    expect(sameKeyDrain.next().done).toBe(true);
+    expect(persisted).toEqual(['first', 'other', 'second']);
+    expect(observedBeforeSecond).toEqual(['first']);
+    expect(queues.size).toBe(0);
+  });
+
+  it('preserves every update in a queued repository write batch', async () => {
+    const server = await simulation({initialState}).listen(0);
+    try {
+      await Promise.all(
+        Array.from({length: 128}, (_, index) =>
+          server.simulationStore.store.dispatch(
+            server.simulationStore.actions.updateRepository({
+              owner: 'acme',
+              name: 'awesome-repo',
+              changes: {description: `Batch update ${index}`}
+            })
+          )
+        )
+      );
+      const state = server.simulationStore.store.getState();
+
+      expect(server.simulationStore.selectors.getRepository(state, 'acme', 'awesome-repo')?.description).toBe(
+        'Batch update 127'
+      );
+    } finally {
+      await server.ensureClose();
+    }
   });
 });
 

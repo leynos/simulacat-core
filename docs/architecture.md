@@ -75,8 +75,9 @@ state store, then exposes that state through REST and GraphQL surfaces.
   adapters and REST handlers call use cases rather than mutating store tables
   locally.
 - `src/store/repository-observability.ts`
-  Maintains process-local counters for repository PATCH/write outcomes. Read
-  handlers do not record these observations.
+  Maintains process-local counters for bounded repository PATCH outcomes only:
+  success, missing repository, or unshaped repository. Repository GET handlers
+  do not record these observations.
 - `src/store/entities/shared.ts`
   Defines `githubEntityPermissionSchema`.
 - `src/store/index.ts`
@@ -84,7 +85,8 @@ state store, then exposes that state through REST and GraphQL surfaces.
   lookups.
 - `src/rest/index.ts`
   OpenAPI operation handlers for the current REST surface. Write handlers
-  parse and validate request bodies before calling shared action use cases.
+  parse and validate request bodies before calling shared action use cases,
+  then shape a re-selected persisted repository for PATCH responses.
 - `src/rest/utils.ts`
   Small payload builders shared by the REST handlers.
 - `src/graphql/handler.ts`

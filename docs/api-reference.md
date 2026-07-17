@@ -251,7 +251,7 @@ flat route list.
 | Surface                                            | Classification       | Current behaviour                                                                         |
 | -------------------------------------------------- | -------------------- | ----------------------------------------------------------------------------------------- |
 | `GET /health`                                      | Fully scriptable     | Built-in helper route that always returns `{status: "ok"}`.                               |
-| `GET /metrics`                                     | Fully scriptable     | Exposes bounded actor, URL, and repository-write counters; request IDs stay in logs only. |
+| `GET /metrics`                                     | Fully scriptable     | Exposes bounded actor, URL, and PATCH-only repository-write counters.                     |
 | `POST /graphql`                                    | Fully scriptable     | Routed through GraphQL Yoga using the shared seeded store.                                |
 | `GET /login/oauth/authorize`                       | Fully scriptable     | Built-in OAuth helper that redirects with a fixed development code.                       |
 | `POST /login/oauth/access_token`                   | Fully scriptable     | Built-in OAuth helper that returns fixed development token fields.                        |

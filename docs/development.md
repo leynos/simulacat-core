@@ -273,12 +273,15 @@ used when that full replacement is deliberate.
 
 Repository-write observability in `src/store/repository-observability.ts` is
 limited to PATCH/write boundaries; repository GET handlers remain read-only.
-The counters are process-local and use a synchronous no-`await`
-read-modify-write operation. That increment is atomic with respect to JavaScript
-callbacks in the current single-event-loop Bun/Node runtime, but counters are
-not shared across processes. A Worker-thread or shared-memory runtime requires
-a redesign using `worker_threads`, `SharedArrayBuffer`, or another shared-memory
-primitive, as tracked by [issue #14](https://github.com/leynos/simulacat-core/issues/14).
+`simulacat_repository_write_observations_total` contains only bounded PATCH
+outcomes: `success`, or `not-found` with `missing-repository` or
+`unshaped-repository`. The counters are process-local and use a synchronous
+no-`await` read-modify-write operation. That increment is atomic with respect
+to JavaScript callbacks in the current single-event-loop Bun/Node runtime, but
+counters are not shared across processes. A Worker-thread or shared-memory
+runtime requires a redesign using `worker_threads`, `SharedArrayBuffer`, or
+another shared-memory primitive, as tracked by
+[issue #14](https://github.com/leynos/simulacat-core/issues/14).
 
 ### Request actors
 

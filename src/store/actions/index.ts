@@ -43,13 +43,19 @@ type EntityUpdateAction<Command> = Action & {
 
 type EntityUpdateOperation = Parameters<Supervisor>[1];
 
-/** Drains one entity's queued updates in first-in-first-out order. */
-const processEntityUpdateQueue = (queues: Map<string, Action[]>, id: string, operation: EntityUpdateOperation) =>
+/**
+ * Drains one entity's queued updates in first-in-first-out order.
+ *
+ * @param queues Per-entity action queues maintained by the supervisor.
+ * @param id Entity key whose queue should drain.
+ * @param operation StarFX operation that applies one queued action.
+ * @returns An operation that drains queued actions and removes the empty queue.
+ */
+export const processEntityUpdateQueue = (queues: Map<string, Action[]>, id: string, operation: EntityUpdateOperation) =>
   function* () {
     const queue = queues.get(id);
     while (queue?.length) {
-      const action = queue.shift();
-      if (action) yield* operation(action);
+      for (const action of queue.splice(0)) yield* operation(action);
     }
     queues.delete(id);
   };

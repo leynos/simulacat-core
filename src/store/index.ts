@@ -193,7 +193,22 @@ const buildOrganisationSelectors = ({createSelector, schema}: ExtendSimulationSe
       }
     );
 
-  return {allGithubOrganizations, allReposWithOrgs};
+  const getRepositoryWithOwner = (
+    state: AnyState,
+    owner: string,
+    name: string
+  ): GitHubRepositoryWithOrganizationOwner | undefined => {
+    const repository = schema.repositories.selectTable(state)?.[repositoryStoreKey({owner, name})];
+    if (!repository) return undefined;
+    const organization = schema.organizations.selectTable(state)?.[owner];
+    return {
+      ...repository,
+      id: Number(repository.id),
+      owner: organization ? toRepoOwner(organization) : repository.owner
+    };
+  };
+
+  return {allGithubOrganizations, allReposWithOrgs, getRepositoryWithOwner};
 };
 
 /** Resolves the GitHub organisation account for an app installation. */
