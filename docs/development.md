@@ -30,9 +30,15 @@ The normal contributor gate is:
 3. `bun check:types`
 4. `bun test`
 
-`make all` runs `check-fmt`, `typecheck`, `lint`, `test`, and `spelling` in the
-repository's preferred order. The `lint` target runs the `biomejs` and `oxlint`
-sub-targets.
+`make all` runs `check-fmt`, `typecheck`, `docs-check`, `lint`, `test`, and
+`spelling` in the repository's preferred order. The `lint` target runs the
+`biomejs` and `oxlint` sub-targets. The `docs-check` target (`bun run
+docs:check`) is the zero-tolerance documentation gate: TypeDoc's
+`notDocumented` validation over the package entry point (`typedoc.json`),
+requiring a JSDoc block on every declaration in the public surface, treating
+warnings as errors, and emitting no documentation artefacts. Zod schema
+constants are tagged `@internal` so their field definitions stay out of the
+documented surface.
 
 ### Dependency advisories
 
@@ -103,6 +109,7 @@ flowchart LR
 
   make_all --> check_fmt["check-fmt (Biome format-only check)"]
   make_all --> typecheck["typecheck (bun run check:types)"]
+  make_all --> docs_check["docs-check (TypeDoc notDocumented gate)"]
   make_all --> lint[lint]
   make_all --> test["test (bun run test)"]
   make_all --> spelling["spelling (shared en-GB-oxendict policy)"]
@@ -117,7 +124,8 @@ flowchart LR
   oxlint_rules --> jsdoc_gates[McCabe complexity, nesting depth, complex conditionals, and JSDoc gates]
 ```
 
-Caption: The `make all` target runs format checking, type-checking, linting,
+Caption: The `make all` target runs format checking, type-checking, the
+TypeDoc documentation gate, linting,
 tests, and spelling. Linting is delegated to the `biomejs` and `oxlint`
 sub-targets; Oxlint now owns the syntax-aware maintainability and JSDoc gates
 that were previously prototyped outside the Makefile.

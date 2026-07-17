@@ -1,4 +1,4 @@
-.PHONY: all fmt check-fmt typecheck lint biomejs oxlint test build clean generate markdownlint nixie spelling spelling-config spelling-phrase-check spelling-helper-test
+.PHONY: all fmt check-fmt typecheck docs-check lint biomejs oxlint test build clean generate markdownlint nixie spelling spelling-config spelling-phrase-check spelling-helper-test
 
 MDLINT ?= bunx --package markdownlint-cli2@0.23.0 markdownlint-cli2
 XARGS_R := $(shell if xargs --help 2>&1 | grep -q '\\-r'; then printf -- '-r'; fi)
@@ -19,7 +19,7 @@ SPELLING_HELPER_PYTEST = PYTHONPATH=scripts $(UV_ENV) $(UV) run --no-project \
 	--python 3.14 --with pathspec==$(PATHSPEC_VERSION) --with pytest==9.0.2 \
 	--with pytest-cov==7.0.0 python -m pytest
 
-all: check-fmt typecheck lint test spelling
+all: check-fmt typecheck docs-check lint test spelling
 
 fmt:
 	bun run fmt
@@ -30,6 +30,12 @@ check-fmt:
 
 typecheck:
 	bun run check:types
+
+# Zero-tolerance documentation gate: TypeDoc's notDocumented validation over
+# the package entry point (typedoc.json). Runs after typecheck so the
+# generated GraphQL types already exist. Emits no documentation artefacts.
+docs-check:
+	bun run docs:check
 
 lint: biomejs oxlint
 
