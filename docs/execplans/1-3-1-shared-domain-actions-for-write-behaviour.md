@@ -303,9 +303,7 @@ Stop and escalate when any of these is breached:
   Date/Author: 2026-06-17, planning.
 - Decision: the write response is built by **re-selecting the persisted entity
   after the dispatched action settles** (read-your-write), so the PATCH body is
-  identical to a subsequent GET. The pure-reducer output is the documented
-  fallback only if the Stage-A settlement spike shows the awaited dispatch does
-  not settle in time.
+  identical to a subsequent GET.
   Rationale: a PATCH response that diverges from GET is a contract bug
   (Telefono). Cross-surface acceptance is still asserted across separate
   requests, which is robust regardless of settlement.
@@ -510,10 +508,9 @@ In `src/rest/index.ts`, two new entries in the base handler table, plus one
 shared shaping helper:
 
 - `shapeRepository(state, owner, name)` — returns the single stored repository
-  with the same owner-object reshaping `repos/list-for-org` already applies (it
-  reuses `selectors.allReposWithOrgs(state, owner)` and finds by name, so the
-  PATCH response, the GET response, and the list response are byte-for-byte the
-  same shape). This is the single REST serialization point for a repository.
+  via `selectors.getRepositoryWithOwner(state, owner, name)` so the PATCH and
+  GET responses stay aligned on the persisted value. This is the single REST
+  serialization point for a repository.
 - `'repos/update'` — `PATCH /repos/{owner}/{repo}`: guards with
   `requireRepository`; builds a command with the adapter-facing
   `buildUpdateRepositoryCommand`;
@@ -552,12 +549,10 @@ Stage A — understand and propose (no code changes).
    GitHub field) or reduce the whitelist to `description` only. Do not write a
    field the schema does not model.
 5. Settlement spike (pins Risk R1, ~10 lines, throwaway): in a scratch test,
-   build the store, `await store.dispatch(actions.updateRepository(cmd))`, and
-   assert `selectors.getRepository(store.getState(), ...)` shows the write. If
-   the awaited dispatch reliably settles, the use case re-selects after await
-   (preferred). If it does not, switch the use case to return the pure reducer
-   output (which equals the eventually-settled state) and record the finding in
-   Surprises & Discoveries. Delete the spike once the behaviour is known.
+  build the store, `await store.dispatch(actions.updateRepository(cmd))`, and
+  assert `selectors.getRepository(store.getState(), ...)` shows the write. The
+  use case awaits dispatch and re-selects the persisted repository before
+  returning. Delete the spike once the behaviour is known.
 
 Stage B — red tests (small diffs that fail before implementation).
 
@@ -841,10 +836,10 @@ action, and the same state is visible through `GET /repos/{owner}/{repo}`,
 The mutation spine cost four small source modules under `src/store/actions/`
 plus thin REST adapter wiring. The pure reducer stayed framework-free, while
 starfx-specific behaviour lives in the thunk factory. Awaiting the dispatched
-action was sufficient for immediate re-selection in the same request. The main
-implementation lesson is that starfx table `set` replaces an entire table;
-future whole-entity updates should use table `add` unless full replacement is
-explicitly intended.
+action was sufficient, and the use case re-selected the persisted repository
+before returning. The main implementation lesson is that starfx table `set`
+replaces an entire table; future whole-entity updates should use table `add`
+unless full replacement is explicitly intended.
 
 ## Revision note
 
@@ -854,8 +849,8 @@ explicitly intended.
   period-containing reasons. The optional proof milestone remains non-blocking.
 - 2026-07-15 — Addressed review feedback after re-verifying each report against
   the live branch. The REST response now shapes an already-resolved repository
-  through the unscoped joined selector, preserving user-owned repository reads
-  and writes; both behavioural and Gherkin coverage now exercise that path.
+  through `getRepositoryWithOwner`, preserving user-owned repository reads and
+  writes; both behavioural and Gherkin coverage now exercise that path.
   PATCH input is validated with Zod, GraphQL description assertions share one
   helper, and scenario servers close in an `After` hook. The public action
   surface has compile-time assertions, while bounded PATCH/GET outcome metrics
@@ -867,12 +862,12 @@ explicitly intended.
   (`updateRepositoryUseCase`) and a thunk factory (`createEntityUpdateThunk`)
   so the spine is a genuine reuse seam rather than route-local orchestration;
   changed the write response to re-select the persisted entity (PATCH body ==
-  GET body) with the pure-reducer output as fallback; added a Stage-A
-  settlement spike and a `homepage` schema check; added a type-regression
-  guard test for the `GitHubActions` widening; recorded the string-only command
-  type as a deliberate, documented narrowing. Why: the review found the
-  original draft centralized the reducer but not the orchestration, which would
-  have let the next slice reintroduce the route-local writes 1.3.1 exists to
-  remove. Effect on remaining work: Stage C gains two small files
-  (`repository-use-case.ts`, the factory in `actions/index.ts`); the REST
-  handlers shrink to thin adapters; no change to the success criterion.
+  GET body); added a Stage-A settlement spike and a `homepage` schema check;
+  added a type-regression guard test for the `GitHubActions` widening;
+  recorded the string-only command type as a deliberate, documented narrowing.
+  Why: the review found the original draft centralized the reducer but not the
+  orchestration, which would have let the next slice reintroduce the
+  route-local writes 1.3.1 exists to remove. Effect on remaining work: Stage C
+  gains two small files (`repository-use-case.ts`, the factory in
+  `actions/index.ts`); the REST handlers shrink to thin adapters; no change to
+  the success criterion.

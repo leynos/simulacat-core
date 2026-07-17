@@ -82,11 +82,13 @@ state store, then exposes that state through REST and GraphQL surfaces.
   Defines `githubEntityPermissionSchema`.
 - `src/store/index.ts`
   Base schema slices plus selectors for installations, repositories, and blob
-  lookups.
+  lookups, including the targeted `getRepositoryWithOwner` selector used by the
+  repository write and read paths.
 - `src/rest/index.ts`
   OpenAPI operation handlers for the current REST surface. Write handlers
   parse and validate request bodies before calling shared action use cases,
-  then shape a re-selected persisted repository for PATCH responses.
+  then shape a re-selected persisted repository for PATCH responses through
+  `getRepositoryWithOwner`.
 - `src/rest/utils.ts`
   Small payload builders shared by the REST handlers.
 - `src/graphql/handler.ts`

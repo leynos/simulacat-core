@@ -98,11 +98,11 @@ fields, `description` and `homepage`. Other fields accepted by GitHub's
 `private`, are intentionally ignored until the repository settings roadmap
 slice implements them.
 
-`updateRepositoryUseCase` dispatches the built-in `updateRepository` action,
-then re-selects the repository from the shared store. This keeps
-`PATCH /repos/{owner}/{repo}`, `GET /repos/{owner}/{repo}`,
-`GET /orgs/{org}/repos`, and GraphQL `repository(owner:, name:)` aligned on
-one persisted repository value.
+`updateRepositoryUseCase` awaits `dispatchWrite` for the built-in
+`updateRepository` action, then re-selects the persisted repository from the
+shared store. This keeps `PATCH /repos/{owner}/{repo}`,
+`GET /repos/{owner}/{repo}`, `GET /orgs/{org}/repos`, and GraphQL
+`repository(owner:, name:)` aligned on one read-your-write repository value.
 
 Repository identity is owner-scoped. Repositories are keyed as `owner/name`,
 branches are keyed as `owner/repo:name`, and blobs are keyed as
