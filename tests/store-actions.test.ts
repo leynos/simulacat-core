@@ -1,7 +1,6 @@
 /** @file Unit and store-level tests for shared repository write actions. */
 import {describe, expect, it} from 'bun:test';
 import fc from 'fast-check';
-import {sleep} from 'starfx';
 import {simulation, type InitialState, buildRepositoryFixture} from '../src/index.ts';
 import {processEntityUpdateQueue} from '../src/store/actions/index.ts';
 import {applyRepositoryUpdate, type UpdateRepositoryCommand} from '../src/store/actions/repository.ts';
@@ -31,6 +30,15 @@ const command: UpdateRepositoryCommand = {
   owner: 'acme',
   name: 'awesome-repo',
   changes: {description: 'Updated description'}
+};
+
+type EntityUpdateOperation = Parameters<typeof processEntityUpdateQueue>[2];
+type QueueInstruction =
+  ReturnType<ReturnType<EntityUpdateOperation>[typeof Symbol.iterator]> extends Iterator<infer Yield> ? Yield : never;
+
+/** Pauses a manually advanced queue operation exactly once. */
+const pauseOnce = function* () {
+  yield undefined as unknown as QueueInstruction;
 };
 
 const writeableString = fc.string({maxLength: 80});
@@ -175,7 +183,7 @@ describe('repository write action queue', () => {
       if (action.type === 'first') {
         repositoryValues.set('acme/awesome-repo', 'first');
         persisted.push('first');
-        yield* sleep(1);
+        yield* pauseOnce();
         return;
       }
       if (action.type === 'second') {
@@ -189,7 +197,7 @@ describe('repository write action queue', () => {
     };
 
     const sameKeyDrain = processEntityUpdateQueue(queues, 'acme/awesome-repo', operation)();
-    expect(sameKeyDrain.next().value).toBeDefined();
+    expect(sameKeyDrain.next().value).toBeUndefined();
 
     queues.get('acme/awesome-repo')?.push(second);
     const otherKeyDrain = processEntityUpdateQueue(queues, 'globex/awesome-repo', operation)();
