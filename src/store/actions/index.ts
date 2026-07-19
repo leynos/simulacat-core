@@ -64,7 +64,11 @@ const cleanUpEntityUpdateQueue = (queues: Map<string, Action[]>, id: string, que
  * failing action and later actions remain queued for the next dispatch. The
  * failure still propagates to the caller.
  */
-export const processEntityUpdateQueue = (queues: Map<string, Action[]>, id: string, operation: EntityUpdateOperation) =>
+export const processEntityUpdateQueue = (
+  queues: Map<string, Action[]>,
+  id: string,
+  operation: EntityUpdateOperation
+): (() => Operation<void>) =>
   function* () {
     const queue = queues.get(id);
     if (!queue) return;

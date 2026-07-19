@@ -112,7 +112,8 @@
     "ws": "8.21.0"
   },
   "inlinedDependencies": {
-    "starfx": "0.15.0"
+    "effection": "4.0.3",
+    "starfx": "0.16.1"
   },
   "main": "./dist/index.cjs"
 }

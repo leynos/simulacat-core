@@ -35,11 +35,16 @@ const command: UpdateRepositoryCommand = {
 type EntityUpdateOperation = Parameters<typeof processEntityUpdateQueue>[2];
 type QueueInstruction =
   ReturnType<ReturnType<EntityUpdateOperation>[typeof Symbol.iterator]> extends Iterator<infer Yield> ? Yield : never;
+type QueueDrain = ReturnType<ReturnType<typeof processEntityUpdateQueue>>;
 
 /** Pauses a manually advanced queue operation exactly once. */
 const pauseOnce = function* () {
   yield undefined as unknown as QueueInstruction;
 };
+
+/** Views the operation as an iterator for deterministic queue-draining tests. */
+const manuallyAdvanceQueueDrain = (operation: QueueDrain): Iterator<QueueInstruction, void> =>
+  operation as unknown as Iterator<QueueInstruction, void>;
 
 const writeableString = fc.string({maxLength: 80});
 const commandArbitrary = fc.record({
@@ -196,11 +201,13 @@ describe('repository write action queue', () => {
       persisted.push('other');
     };
 
-    const sameKeyDrain = processEntityUpdateQueue(queues, 'acme/awesome-repo', operation)();
+    const sameKeyDrain = manuallyAdvanceQueueDrain(processEntityUpdateQueue(queues, 'acme/awesome-repo', operation)());
     expect(sameKeyDrain.next().value).toBeUndefined();
 
     queues.get('acme/awesome-repo')?.push(second);
-    const otherKeyDrain = processEntityUpdateQueue(queues, 'globex/awesome-repo', operation)();
+    const otherKeyDrain = manuallyAdvanceQueueDrain(
+      processEntityUpdateQueue(queues, 'globex/awesome-repo', operation)()
+    );
     expect(otherKeyDrain.next().done).toBe(true);
 
     expect(sameKeyDrain.next().done).toBe(true);
@@ -223,13 +230,15 @@ describe('repository write action queue failures', () => {
       yield* [];
     };
 
-    const failedDrain = processEntityUpdateQueue(queues, 'acme/awesome-repo', operation)();
+    const failedDrain = manuallyAdvanceQueueDrain(processEntityUpdateQueue(queues, 'acme/awesome-repo', operation)());
     expect(() => failedDrain.next()).toThrow('first write failed');
     expect(queues.get('acme/awesome-repo')).toEqual([first, second]);
     expect(processed).toEqual([]);
 
     shouldFail = false;
-    expect(processEntityUpdateQueue(queues, 'acme/awesome-repo', operation)().next().done).toBe(true);
+    expect(
+      manuallyAdvanceQueueDrain(processEntityUpdateQueue(queues, 'acme/awesome-repo', operation)()).next().done
+    ).toBe(true);
     expect(processed).toEqual(['first', 'second']);
     expect(queues.size).toBe(0);
   });
@@ -247,7 +256,9 @@ describe('repository write action queue batches', () => {
       yield* [];
     };
 
-    expect(processEntityUpdateQueue(queues, 'acme/awesome-repo', operation)().next().done).toBe(true);
+    expect(
+      manuallyAdvanceQueueDrain(processEntityUpdateQueue(queues, 'acme/awesome-repo', operation)()).next().done
+    ).toBe(true);
     expect(processed).toEqual(actions.map((action) => action.type));
     expect(description).toBe('Batch update 127');
     expect(queues.size).toBe(0);
