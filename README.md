@@ -1,5 +1,8 @@
 # Simulacat Core
 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](
+https://deepwiki.com/leynos/simulacat-core)
+
 *A stateful mock GitHub API engine for deterministic tests and local
 automation.*
 
