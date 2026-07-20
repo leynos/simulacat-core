@@ -2,9 +2,11 @@
 import {describe, expect, it} from 'bun:test';
 import fc from 'fast-check';
 import {simulation, type InitialState, buildRepositoryFixture} from '../src/index.ts';
-import {processEntityUpdateQueue} from '../src/store/actions/index.ts';
+import type {GitHubRepository} from '../src/store/entities.ts';
+import {createEntityUpdateThunk, processEntityUpdateQueue} from '../src/store/actions/index.ts';
 import {applyRepositoryUpdate, type UpdateRepositoryCommand} from '../src/store/actions/repository.ts';
 import {updateRepositoryUseCase} from '../src/store/actions/repository-use-case.ts';
+import {repositoryStoreKey} from '../src/store/keys.ts';
 
 /** Builds a repository fixture used by reducer property tests. */
 const repositoryFixture = () =>
@@ -357,6 +359,67 @@ describe('repository write action dispatch', () => {
           changes: {description: 'No repository'}
         })
       ).resolves.toEqual({ok: false, reason: 'not-found'});
+    } finally {
+      await server.ensureClose();
+    }
+  });
+});
+
+describe('repository write action supervisor failure isolation', () => {
+  it("keeps processing other entity keys after one key's write throws in the real store", async () => {
+    const server = await simulation({
+      initialState,
+      extend: {
+        extendStore: {
+          actions: ({thunks, schema}) => ({
+            failingUpdate: createEntityUpdateThunk({
+              name: 'failingUpdate',
+              thunks,
+              update: schema.update,
+              table: schema.repositories,
+              keyOf: repositoryStoreKey,
+              reduce: (current: GitHubRepository, command: UpdateRepositoryCommand): GitHubRepository => {
+                if (command.owner === 'acme') throw new Error('forced repository write failure');
+                return applyRepositoryUpdate(current, command);
+              }
+            })
+          })
+        }
+      }
+    }).listen(0);
+
+    const extendedActions = server.simulationStore.actions as unknown as {
+      failingUpdate: typeof server.simulationStore.actions.updateRepository;
+    };
+    const failingUpdate = extendedActions.failingUpdate;
+
+    try {
+      // The 'acme' write throws inside its spawned drain. The supervisor must
+      // contain that failure rather than tearing down; whether the error is
+      // surfaced synchronously or swallowed, it must not abort the test.
+      try {
+        await server.simulationStore.store.dispatch(
+          failingUpdate({owner: 'acme', name: 'awesome-repo', changes: {description: 'never persisted'}})
+        );
+      } catch {
+        // The forced failure is expected; isolation is asserted below.
+      }
+
+      // A write for a different key must still be processed afterwards. If the
+      // supervisor had torn down on the 'acme' failure, this key would never
+      // persist.
+      await server.simulationStore.store.dispatch(
+        failingUpdate({owner: 'globex', name: 'awesome-repo', changes: {description: 'globex still writes'}})
+      );
+
+      const state = server.simulationStore.store.getState();
+      expect(server.simulationStore.selectors.getRepository(state, 'globex', 'awesome-repo')?.description).toBe(
+        'globex still writes'
+      );
+      // The failing key was never mutated.
+      expect(server.simulationStore.selectors.getRepository(state, 'acme', 'awesome-repo')?.description).toBe(
+        'Original description'
+      );
     } finally {
       await server.ensureClose();
     }

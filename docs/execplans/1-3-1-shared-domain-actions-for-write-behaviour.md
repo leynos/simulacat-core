@@ -380,10 +380,12 @@ uses):
 
 - Actions are starfx *thunks* created with
   `thunks.create<Payload>('name', function* (ctx, next) { ... yield* next(); })`.
-  Inside a thunk, state is written with
-  `yield* schema.update(schema.<slice>.set({[key]: entity}))` (or `.merge` /
-  `.patch`). The table slice updaters are `add`, `set`, `remove`, `patch`,
-  `merge`, `reset` (see starfx `store/slice/table.d.ts`).
+  Inside a thunk, whole-entity upserts write state with
+  `yield* schema.update(schema.<slice>.add({[key]: entity}))` (or `.merge` /
+  `.patch` for partial field updates). `set` replaces the entire table and is
+  reserved for deliberate, complete-table replacement. The table slice
+  updaters are `add`, `set`, `remove`, `patch`, `merge`, `reset` (see starfx
+  `store/slice/table.d.ts`).
 - Actions are dispatched with
   `simulationStore.store.dispatch(simulationStore.actions.<name>(payload))`.
 - `inputActions({thunks, store, schema})` is the seam that returns the built-in
@@ -430,14 +432,6 @@ export function applyRepositoryUpdate(
   current: GitHubRepository,
   command: UpdateRepositoryCommand
 ): GitHubRepository;
-
-/** Extracts a command from a raw REST request body, keeping only whitelisted
- * string fields. This adapter-facing parser is separate from the pure reducer. */
-export function buildUpdateRepositoryCommand(
-  owner: string,
-  name: string,
-  body: unknown
-): UpdateRepositoryCommand;
 ```
 
 In `src/store/actions/index.ts` (driven adapter — starfx wiring):
@@ -456,7 +450,7 @@ export const createEntityUpdateThunk = <Command, Entity>(args: {
   name: string;
   keyOf: (command: Command) => string;
   reducer: (current: Entity, command: Command) => Entity;
-}) => /* thunks.create<Command>(name, function* (ctx, next) { read → reduce → set }) */ unknown;
+}) => /* thunks.create<Command>(name, function* (ctx, next) { read → reduce → add }) */ unknown;
 
 /** Builds the package's built-in domain actions (thunks) from the store args.
  * Wired into `inputActions` in `src/store/index.ts`. */
@@ -472,6 +466,24 @@ export const buildDomainActions = (
     reducer: applyRepositoryUpdate
   })
 });
+```
+
+In `src/rest/repository-patch.ts` (driving adapter — REST request parsing):
+
+```ts
+/** Input accepted when building an update command from an HTTP request body. */
+export type BuildUpdateRepositoryCommandInput = {
+  owner: string;
+  name: string;
+  body: unknown;
+};
+
+/** Adapter-facing parser: extracts a command from an untrusted REST request
+ * body using Zod, keeping only whitelisted string fields. Separate from the
+ * pure reducer so `src/store/actions/repository.ts` stays free of request-parsing. */
+export function buildUpdateRepositoryCommand(
+  input: BuildUpdateRepositoryCommandInput
+): UpdateRepositoryCommand;
 ```
 
 In `src/store/actions/repository-use-case.ts` (driving port — shared

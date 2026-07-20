@@ -102,6 +102,11 @@ const createEntityUpdateSupervisor = <Command>(keyOf: (command: Command) => stri
         yield* spawn(function* () {
           try {
             yield* processEntityUpdateQueue(queues, id, operation)();
+          } catch {
+            // Contain the drain failure so one key's failed write neither
+            // terminates the supervisor nor blocks other entity keys. The
+            // failing action and its successors stay queued (see
+            // processEntityUpdateQueue) for the next dispatch to retry.
           } finally {
             activeQueueIds.delete(id);
           }

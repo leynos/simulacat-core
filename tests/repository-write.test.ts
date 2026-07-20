@@ -115,10 +115,12 @@ describe('repository writes through shared actions', () => {
 
     expect(patch.status).toBe(200);
     expect(patch.body.description).toBe('Patched user repository');
-    expect(patch.body.owner).toBe('octocat');
+    expect(patch.body.owner).toEqual(expect.objectContaining({login: 'octocat', type: 'User'}));
+    expect(patch.body.owner).not.toHaveProperty('email');
     expect(get.status).toBe(200);
     expect(get.body.description).toBe('Patched user repository');
-    expect(get.body.owner).toBe('octocat');
+    expect(get.body.owner).toEqual(expect.objectContaining({login: 'octocat', type: 'User'}));
+    expect(get.body.owner).not.toHaveProperty('email');
     expect(graphql.errors).toBeUndefined();
     expect(graphql.data?.repository?.description).toBe('Patched user repository');
     expect(metricsAfterPatch).toContain(
@@ -264,5 +266,25 @@ describe('repository write observability', () => {
     expect(getRepositoryWriteObservabilityMetrics()).toContain(
       'simulacat_repository_write_observations_total{operation="patch",outcome="success",reason=""} 1'
     );
+  });
+});
+
+describe('GraphQL description helper transport failures', () => {
+  it('rejects non-2xx GraphQL responses with the HTTP status', async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async () =>
+      new Response('service unavailable', {status: 503, statusText: 'Service Unavailable'})) as unknown as typeof fetch;
+
+    let error: unknown;
+    try {
+      await fetchGraphQLDescription('http://helper.invalid', 'acme', 'awesome-repo');
+    } catch (caught) {
+      error = caught;
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+
+    expect(error).toBeInstanceOf(Error);
+    expect((error as Error).message).toContain('HTTP 503');
   });
 });

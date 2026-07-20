@@ -15,9 +15,9 @@ type Res = Parameters<SimulationHandler>[2];
 
 const notFound = {message: 'Not Found'};
 
-/** Preserves an existing URL or supplies the request-scoped fallback. */
-const withFallbackUrl = (value: unknown, fallback: string): string => {
-  return typeof value === 'string' ? value : fallback;
+/** Supplies the fallback only when the URL is undefined, retaining an explicit null. */
+const withFallbackUrl = (value: string | null | undefined, fallback: string): string | null => {
+  return value === undefined ? fallback : value;
 };
 
 /** Projects a user owner with the REST URL fields expected in repository payloads. */
@@ -56,13 +56,25 @@ const projectOrganizationOwnerResponse = (owner: any, baseUrls: BaseUrls) => {
   const userPath = `/users/${urlPathSegment(projected.login)}`;
   return {
     ...projected,
-    followers_url: projected.followers_url ?? buildUrl(baseUrls.apiBaseUrl, `${userPath}/followers`),
-    following_url: projected.following_url ?? buildUrl(baseUrls.apiBaseUrl, `${userPath}/following{/other_user}`),
-    gists_url: projected.gists_url ?? buildUrl(baseUrls.apiBaseUrl, `${userPath}/gists{/gist_id}`),
-    starred_url: projected.starred_url ?? buildUrl(baseUrls.apiBaseUrl, `${userPath}/starred{/owner}{/repo}`),
-    subscriptions_url: projected.subscriptions_url ?? buildUrl(baseUrls.apiBaseUrl, `${userPath}/subscriptions`),
-    organizations_url: projected.organizations_url ?? buildUrl(baseUrls.apiBaseUrl, `${userPath}/orgs`),
-    received_events_url: projected.received_events_url ?? buildUrl(baseUrls.apiBaseUrl, `${userPath}/received_events`)
+    followers_url: withFallbackUrl(projected.followers_url, buildUrl(baseUrls.apiBaseUrl, `${userPath}/followers`)),
+    following_url: withFallbackUrl(
+      projected.following_url,
+      buildUrl(baseUrls.apiBaseUrl, `${userPath}/following{/other_user}`)
+    ),
+    gists_url: withFallbackUrl(projected.gists_url, buildUrl(baseUrls.apiBaseUrl, `${userPath}/gists{/gist_id}`)),
+    starred_url: withFallbackUrl(
+      projected.starred_url,
+      buildUrl(baseUrls.apiBaseUrl, `${userPath}/starred{/owner}{/repo}`)
+    ),
+    subscriptions_url: withFallbackUrl(
+      projected.subscriptions_url,
+      buildUrl(baseUrls.apiBaseUrl, `${userPath}/subscriptions`)
+    ),
+    organizations_url: withFallbackUrl(projected.organizations_url, buildUrl(baseUrls.apiBaseUrl, `${userPath}/orgs`)),
+    received_events_url: withFallbackUrl(
+      projected.received_events_url,
+      buildUrl(baseUrls.apiBaseUrl, `${userPath}/received_events`)
+    )
   };
 };
 

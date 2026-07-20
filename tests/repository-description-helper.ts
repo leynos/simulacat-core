@@ -21,6 +21,7 @@ const gql = String.raw;
  * @param owner Repository owner login.
  * @param name Repository name.
  * @returns The GraphQL response payload.
+ * @throws {Error} When the GraphQL endpoint responds with a non-2xx HTTP status.
  */
 export const fetchGraphQLDescription = async (
   baseUrl: string,
@@ -41,6 +42,10 @@ export const fetchGraphQLDescription = async (
       variables: {owner, name}
     })
   });
+
+  if (!response.ok) {
+    throw new Error(`GraphQL description query failed with HTTP ${response.status} ${response.statusText}`.trim());
+  }
 
   return graphQLRepositoryDescriptionSchema.parse(await response.json());
 };

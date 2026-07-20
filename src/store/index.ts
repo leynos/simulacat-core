@@ -87,7 +87,22 @@ export type GitHubRepoOwner = Omit<GitHubOrganization, 'name' | 'email'> & {
   id: number;
 };
 
-export type GitHubRepositoryOwner = GitHubRepoOwner | GitHubUser;
+/**
+ * Public projection of a user-owned repository owner.
+ *
+ * Deliberately omits internal-only user fields (notably `email`, `name`, `bio`,
+ * and `organizations`) so REST and GraphQL responses never leak them through the
+ * repository owner slot.
+ */
+export type GitHubPublicUserOwner = {
+  id: GitHubUser['id'];
+  login: GitHubUser['login'];
+  type: 'User';
+  avatar_url: GitHubUser['avatar_url'];
+  url?: GitHubUser['url'];
+};
+
+export type GitHubRepositoryOwner = GitHubRepoOwner | GitHubPublicUserOwner;
 
 export type GitHubRepositoryWithOrganizationOwner = Omit<GitHubRepository, 'id' | 'owner'> & {
   id: number;
@@ -163,6 +178,15 @@ const toRepoOwner = (org: GitHubOrganization): GitHubRepoOwner => ({
   public_members_url: org.public_members_url
 });
 
+/** Projects a seeded user into the public repository-owner subset. */
+const toPublicUserOwner = (user: GitHubUser): GitHubPublicUserOwner => ({
+  id: user.id,
+  login: user.login,
+  type: 'User',
+  avatar_url: user.avatar_url,
+  url: user.url
+});
+
 /** Resolves the shaped owner object for a repository identity. */
 const resolveRepositoryOwner = (
   organizations: Record<string, GitHubOrganization> | undefined,
@@ -171,24 +195,26 @@ const resolveRepositoryOwner = (
 ): GitHubRepositoryOwner | string => {
   const organization = organizations?.[owner];
   if (organization) return toRepoOwner(organization);
-  return users?.[owner] ?? owner;
+  const user = users?.[owner];
+  return user ? toPublicUserOwner(user) : owner;
 };
 
 type RepositoryWithOwnerSchema = Pick<
   ExtendSimulationSelectors<ExtendedSchema>['schema'],
-  'organizations' | 'repositories'
+  'organizations' | 'repositories' | 'users'
 >;
 
-/** Builds a keyed repository selector that joins an organization owner when present. */
+/** Builds a keyed repository selector that projects its user or organization owner. */
 const buildRepositoryWithOwnerSelector = (schema: RepositoryWithOwnerSchema) => {
   return (state: AnyState, owner: string, name: string): GitHubRepositoryWithOrganizationOwner | undefined => {
     const repository = schema.repositories.selectTable(state)?.[repositoryStoreKey({owner, name})];
     if (!repository) return undefined;
-    const organization = schema.organizations.selectTable(state)?.[owner];
+    const organizations = schema.organizations.selectTable(state);
+    const users = schema.users.selectTable(state);
     return {
       ...repository,
       id: Number(repository.id),
-      owner: organization ? toRepoOwner(organization) : repository.owner
+      owner: resolveRepositoryOwner(organizations, users, repository.owner)
     };
   };
 };
