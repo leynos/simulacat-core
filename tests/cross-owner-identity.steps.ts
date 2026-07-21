@@ -95,7 +95,7 @@ const parseFullName = (fullName: string): {owner: string; name: string} => {
   return {owner, name};
 };
 
-After(async (state) => {
+After({tags: '@cross-owner-identity'}, async (state) => {
   await state.server?.ensureClose();
   return state;
 });

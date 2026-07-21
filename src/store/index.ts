@@ -26,6 +26,7 @@ import {
   type GitHubIssue,
   type GitHubPullRequest
 } from './entities.ts';
+import {buildDomainActions} from './actions/index.ts';
 import {buildEarlyEntitySelectors, type EarlyEntitySelectorArgs} from './early-entity-selectors.ts';
 import {branchStoreKey, repositoryStoreKey} from './keys.ts';
 
@@ -54,13 +55,23 @@ export type GitHubSchema = ReturnType<ExtendedSchema>;
 export type GitHubActions = ReturnType<ExtendActions>;
 export type GitHubSelectors = ReturnType<ExtendSelectors>;
 
+/** Caller-supplied store action extensions. */
+export type GitHubActionExtensions = Record<string, unknown>;
+
 export type ExtendedSimulationStore = SimulationStore<GitHubSchema, GitHubActions, GitHubSelectors>;
 
-// Public type for consumers of this package to declare the shape of an
-// `extendStore` argument. This wires the foundation `ExtendStoreConfig`
-// generics to the concrete GitHub schema/actions/selectors types so callers
-// get accurate typing when they provide schema/actions/selectors extensions.
-export type GitHubExtendStoreInput = ExtendStoreConfig<GitHubSchema, GitHubActions, GitHubSelectors>;
+/**
+ * Public type for consumers of this package to declare the shape of an
+ * `extendStore` argument. This wires the foundation `ExtendStoreConfig`
+ * generics to the concrete GitHub schema/actions/selectors types so callers
+ * get accurate typing when they provide schema/actions/selectors extensions.
+ */
+export type GitHubExtendStoreInput = Omit<
+  ExtendStoreConfig<GitHubSchema, GitHubActions & GitHubActionExtensions, GitHubSelectors>,
+  'schema'
+> & {
+  schema?: ExtendSimulationSchemaInput<GitHubSchema>;
+};
 
 export type GitHubOrganizationWithRepositories = GitHubOrganization & {
   repositories: GitHubRepository[];
@@ -76,9 +87,26 @@ export type GitHubRepoOwner = Omit<GitHubOrganization, 'name' | 'email'> & {
   id: number;
 };
 
+/**
+ * Public projection of a user-owned repository owner.
+ *
+ * Deliberately omits internal-only user fields (notably `email`, `name`, `bio`,
+ * and `organizations`) so REST and GraphQL responses never leak them through the
+ * repository owner slot.
+ */
+export type GitHubPublicUserOwner = {
+  id: GitHubUser['id'];
+  login: GitHubUser['login'];
+  type: 'User';
+  avatar_url: GitHubUser['avatar_url'];
+  url?: GitHubUser['url'];
+};
+
+export type GitHubRepositoryOwner = GitHubRepoOwner | GitHubPublicUserOwner;
+
 export type GitHubRepositoryWithOrganizationOwner = Omit<GitHubRepository, 'id' | 'owner'> & {
   id: number;
-  owner: GitHubRepoOwner | string | null;
+  owner: GitHubRepositoryOwner | string | null;
 };
 
 /** Creates the base store schema and seeds it from parsed initial state. */
@@ -104,20 +132,20 @@ const inputSchema =
   };
 
 /** Returns the package's built-in action set before caller extensions. */
-const inputActions = (_args: ExtendSimulationActions<ExtendedSchema>): ExtendSimulationActions<ExtendedSchema> => {
-  return {} as ExtendSimulationActions<ExtendedSchema>;
+const inputActions = (args: ExtendSimulationActions<ExtendedSchema>) => {
+  return buildDomainActions(args);
 };
 
 /** Merges built-in actions with caller-provided extensions. */
 const extendActions =
-  (extendedActions?: ExtendSimulationActionsInputLoose<GitHubActions, GitHubSchema>) =>
+  (extendedActions?: ExtendSimulationActionsInputLoose<GitHubActions & GitHubActionExtensions, GitHubSchema>) =>
   (args: ExtendSimulationActions<ExtendedSchema>) => {
     const base = inputActions(args);
     if (!extendedActions) return base;
     const extResult = extendedActions(args);
     return {
-      ...(base as object),
-      ...(extResult as object)
+      ...(extResult as object),
+      ...(base as object)
     } as GitHubActions;
   };
 
@@ -150,6 +178,47 @@ const toRepoOwner = (org: GitHubOrganization): GitHubRepoOwner => ({
   public_members_url: org.public_members_url
 });
 
+/** Projects a seeded user into the public repository-owner subset. */
+const toPublicUserOwner = (user: GitHubUser): GitHubPublicUserOwner => ({
+  id: user.id,
+  login: user.login,
+  type: 'User',
+  avatar_url: user.avatar_url,
+  url: user.url
+});
+
+/** Resolves the shaped owner object for a repository identity. */
+const resolveRepositoryOwner = (
+  organizations: Record<string, GitHubOrganization> | undefined,
+  users: Record<string, GitHubUser> | undefined,
+  owner: string
+): GitHubRepositoryOwner | string => {
+  const organization = organizations?.[owner];
+  if (organization) return toRepoOwner(organization);
+  const user = users?.[owner];
+  return user ? toPublicUserOwner(user) : owner;
+};
+
+type RepositoryWithOwnerSchema = Pick<
+  ExtendSimulationSelectors<ExtendedSchema>['schema'],
+  'organizations' | 'repositories' | 'users'
+>;
+
+/** Builds a keyed repository selector that projects its user or organization owner. */
+const buildRepositoryWithOwnerSelector = (schema: RepositoryWithOwnerSchema) => {
+  return (state: AnyState, owner: string, name: string): GitHubRepositoryWithOrganizationOwner | undefined => {
+    const repository = schema.repositories.selectTable(state)?.[repositoryStoreKey({owner, name})];
+    if (!repository) return undefined;
+    const organizations = schema.organizations.selectTable(state);
+    const users = schema.users.selectTable(state);
+    return {
+      ...repository,
+      id: Number(repository.id),
+      owner: resolveRepositoryOwner(organizations, users, repository.owner)
+    };
+  };
+};
+
 /** Builds selectors that join organizations and repositories. */
 const buildOrganisationSelectors = ({createSelector, schema}: ExtendSimulationSelectors<ExtendedSchema>) => {
   const allGithubOrganizations: (state: AnyState) => GitHubOrganizationWithRepositories[] = createSelector(
@@ -167,22 +236,24 @@ const buildOrganisationSelectors = ({createSelector, schema}: ExtendSimulationSe
     createSelector(
       schema.repositories.selectTableAsList,
       schema.organizations.selectTable,
+      schema.users.selectTable,
       (_: AnyState, org?: string) => org,
-      (allRepos, orgMap, org) => {
+      (allRepos, orgMap, userMap, org) => {
         if (org && !orgMap?.[org]) return undefined;
         const repos = !org ? allRepos : allRepos.filter((r) => r.owner === org);
         return repos.map((repo) => {
-          const ownerOrg = orgMap?.[repo.owner];
           return {
             ...repo,
             id: Number(repo.id),
-            owner: ownerOrg ? toRepoOwner(ownerOrg) : repo.owner
+            owner: resolveRepositoryOwner(orgMap, userMap, repo.owner)
           };
         });
       }
     );
 
-  return {allGithubOrganizations, allReposWithOrgs};
+  const getRepositoryWithOwner = buildRepositoryWithOwnerSelector(schema);
+
+  return {allGithubOrganizations, allReposWithOrgs, getRepositoryWithOwner};
 };
 
 /** Resolves the GitHub organisation account for an app installation. */

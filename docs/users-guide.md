@@ -132,6 +132,41 @@ Seeded refs, commits, issues, and pull requests are visible through the
 documented REST endpoints and through repository GraphQL fields such as
 `defaultBranchRef`, `ref`, `issues`, and `pullRequests`.
 
+## Updating repository metadata
+
+`PATCH /repos/{owner}/{repo}` writes repository metadata through the shared
+store action path. The current demonstrator intentionally persists only
+`description` and `homepage`; policy and visibility fields such as
+`visibility`, merge strategy settings, and `default_branch` are accepted by
+the request body but ignored until the repository settings roadmap slice
+implements them.
+
+```typescript
+const response = await fetch(`${baseUrl}/repos/acme/awesome-repo`, {
+  method: 'PATCH',
+  headers: {
+    authorization: 'Bearer local-token',
+    'content-type': 'application/json'
+  },
+  body: JSON.stringify({
+    description: 'Patched via shared action',
+    homepage: 'https://docs.example.test',
+    visibility: 'private'
+  })
+});
+
+const repository = await response.json();
+repository.description; // 'Patched via shared action'
+repository.homepage; // 'https://docs.example.test'
+repository.visibility; // still the seeded/default value
+```
+
+The same persisted value is visible through `GET /repos/{owner}/{repo}`,
+`GET /orgs/{org}/repos`, and GraphQL `repository(owner:, name:)` reads.
+The PATCH response is shaped from that persisted repository rather than the
+request body, so it matches those subsequent reads.
+Repository write routes do not validate real GitHub tokens.
+
 ## Request-derived URLs
 
 REST and GraphQL payload URLs are derived from the request that produced the

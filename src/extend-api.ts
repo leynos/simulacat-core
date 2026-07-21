@@ -14,6 +14,7 @@ import {requestActorMiddleware} from './middleware/request-actor.ts';
 import {normalizeGitRefPath} from './rest/utils.ts';
 import {getActorObservabilityMetrics} from './store/actors.ts';
 import type {ExtendedSimulationStore} from './store/index.ts';
+import {getRepositoryWriteObservabilityMetrics} from './store/repository-observability.ts';
 import {projectRefUrls} from './urls/ref.ts';
 
 /**
@@ -66,7 +67,9 @@ export const extendRouter =
     router.get('/metrics', (_, response) => {
       response
         .type('text/plain; version=0.0.4; charset=utf-8')
-        .send(`${getActorObservabilityMetrics()}${getUrlObservabilityMetrics()}`);
+        .send(
+          `${getActorObservabilityMetrics()}${getUrlObservabilityMetrics()}${getRepositoryWriteObservabilityMetrics()}`
+        );
     });
 
     router.use('/graphql', createHandler(simulationStore, apiRoot));

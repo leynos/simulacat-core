@@ -1,3 +1,4 @@
+@cross-owner-identity
 Feature: Repository identity is owner-scoped and ref-safe
 
   Background:

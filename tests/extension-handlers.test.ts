@@ -2,6 +2,7 @@
 import {afterAll, beforeAll, beforeEach, describe, expect, it} from 'bun:test';
 import {type InitialState, simulation} from '../src/index.ts';
 import {requireRestUserActor} from '../src/rest/actor-context.ts';
+import type {UpdateRepositoryCommand} from '../src/store/actions/repository.ts';
 import {requestActorHeader, resetActorObservationCounters} from '../src/store/actors.ts';
 
 type SimulationServer = Awaited<ReturnType<ReturnType<typeof simulation>['listen']>>;
@@ -147,5 +148,34 @@ describe('extension handlers with actor context', () => {
       'Authentication required'
     ]);
     expect(viewer.body.errors?.[0]?.message).toContain('Authentication required');
+  });
+
+  it('keeps caller action extensions alongside built-in repository write actions', async () => {
+    let callerUpdateRepository: unknown;
+    const app = simulation({
+      initialState: fixtureState,
+      extend: {
+        extendStore: {
+          actions: ({thunks}) => ({
+            noteExtensionAction: thunks.create<{message: string}>('noteExtensionAction'),
+            updateRepository: (() => {
+              const replacement = thunks.create<UpdateRepositoryCommand>('callerUpdateRepository');
+              callerUpdateRepository = replacement;
+              return replacement;
+            })()
+          })
+        }
+      }
+    });
+    const extensionServer = await app.listen(0);
+    const extensionActionName = 'noteExtensionAction';
+
+    try {
+      expect(extensionServer.simulationStore.actions.updateRepository).toBeFunction();
+      expect(extensionServer.simulationStore.actions[extensionActionName]).toBeFunction();
+      expect(extensionServer.simulationStore.actions.updateRepository).not.toBe(callerUpdateRepository);
+    } finally {
+      await extensionServer.ensureClose();
+    }
   });
 });

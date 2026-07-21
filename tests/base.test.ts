@@ -3,6 +3,7 @@ import {afterAll, beforeAll, beforeEach, describe, expect, it} from 'bun:test';
 import {simulation} from '../src/index.ts';
 import {resetUrlObservabilityCounters} from '../src/http/url-observability.ts';
 import {resetActorObservationCounters} from '../src/store/actors.ts';
+import {resetRepositoryWriteObservabilityCounters} from '../src/store/repository-observability.ts';
 
 type SimulationServer = Awaited<ReturnType<ReturnType<typeof simulation>['listen']>>;
 
@@ -45,6 +46,7 @@ describe('router extension tests', () => {
   beforeEach(() => {
     resetActorObservationCounters();
     resetUrlObservabilityCounters();
+    resetRepositoryWriteObservabilityCounters();
   });
 
   it('allows extending the router', async () => {
@@ -60,6 +62,7 @@ describe('router extension tests', () => {
     expect(res.ok).toBe(true);
     expect(body).toContain('# TYPE simulacat_actor_observations_total counter');
     expect(body).toContain('# TYPE simulacat_url_derivation_observations_total counter');
+    expect(body).toContain('# TYPE simulacat_repository_write_observations_total counter');
   });
 
   it('matches the stable Prometheus metrics snapshot', async () => {
@@ -91,6 +94,7 @@ describe('actor observability end-to-end', () => {
   beforeEach(() => {
     resetActorObservationCounters();
     resetUrlObservabilityCounters();
+    resetRepositoryWriteObservabilityCounters();
   });
 
   it('populates observability counters after an actor-authenticated request', async () => {

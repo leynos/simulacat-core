@@ -67,13 +67,28 @@ state store, then exposes that state through REST and GraphQL surfaces.
   resolution, selection, and observability for anonymous, user, app, and
   installation actors. REST, GraphQL, and caller extensions use these helpers
   instead of selecting a user locally.
+- `src/store/actions/`
+  Contains shared write reducers, starfx thunk adapters, dispatch helpers, and
+  application use cases. Pure reducer modules such as
+  `src/store/actions/repository.ts` stay framework-free; Zod request-body
+  parsing happens in the adapter layer before commands reach reducers, and
+  adapters and REST handlers call use cases rather than mutating store tables
+  locally.
+- `src/store/repository-observability.ts`
+  Maintains process-local counters for bounded repository PATCH outcomes only:
+  success, missing repository, or unshaped repository. Repository GET handlers
+  do not record these observations.
 - `src/store/entities/shared.ts`
   Defines `githubEntityPermissionSchema`.
 - `src/store/index.ts`
   Base schema slices plus selectors for installations, repositories, and blob
-  lookups.
+  lookups, including the targeted `getRepositoryWithOwner` selector used by the
+  repository write and read paths.
 - `src/rest/index.ts`
-  OpenAPI operation handlers for the current REST surface.
+  OpenAPI operation handlers for the current REST surface. Write handlers
+  parse and validate request bodies before calling shared action use cases,
+  then shape a re-selected persisted repository for PATCH responses through
+  `getRepositoryWithOwner`.
 - `src/rest/utils.ts`
   Small payload builders shared by the REST handlers.
 - `src/graphql/handler.ts`
@@ -119,7 +134,7 @@ derive from the same key as base64-encoded `Repository:owner/name` strings.
 Selectors provide the higher-level joins the handlers need:
 
 - installations joined to owning organizations and repositories
-- repositories decorated with organization owners
+- repositories decorated with user-or-organization owners
 - keyed repository and branch lookup by owner-qualified coordinates
 - blob lookup by `path` or `sha`
 - repository tree lookup across all blobs in an owner/repository pair
@@ -132,6 +147,13 @@ state for REST and GraphQL reads to agree on refs, commits, issues, and pull
 requests, but they do not yet own collaboration policy. Mutations,
 mergeability, labels, reviews, timelines, checks, and actor-aware permissions
 belong to later roadmap slices.
+
+Repository metadata writes are the first shared action demonstrator. The
+`updateRepository` action applies only whitelisted descriptive fields
+(`description`, `homepage`) through the shared store, so REST
+`PATCH /repos/{owner}/{repo}`, REST repository reads, and GraphQL
+`repository(owner:, name:)` observe the same persisted repository value.
+Repository policy settings remain a later roadmap slice.
 
 ## Request actor flow
 

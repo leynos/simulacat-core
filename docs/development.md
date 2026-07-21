@@ -238,6 +238,9 @@ Changes to behaviour should come with a targeted regression test.
 - Repository-owned entity invariants should use property tests with
   `fast-check` when the behaviour covers a range of owners, repositories, refs,
   SHAs, numbers, or ordering combinations.
+- Write-path adapter tests should cover request-body parsing and command
+  construction separately from pure reducer tests so Zod stays at the
+  boundary.
 - REST and GraphQL integration tests start local simulator servers. In
   restricted sandboxes these tests may need elevated local port-binding
   permission; do not run them in parallel with other gates.
@@ -253,6 +256,32 @@ The current entity model is intentionally narrow. It supports early read
 surfaces for refs, commits, issues, and pull requests. Do not expand it into
 reviews, labels, timelines, mergeability, checks, or actor-aware permissions
 without updating the relevant roadmap item and design documentation.
+
+### Shared write actions
+
+Shared write behaviour belongs under `src/store/actions/`. Keep the pure
+domain reducer in an entity-specific module that imports only types and pure
+helpers; parse request bodies with Zod in the adapter layer before building
+commands, put starfx-specific thunk construction in the adapter module, and
+call an application use case from REST or GraphQL adapters. Route handlers
+should validate lookup conditions, build commands, call the use case, and
+shape the response.
+
+When updating table entities, prefer preserving operations such as table `add`
+for whole-entity upserts. `set` replaces the entire table and should only be
+used when that full replacement is deliberate.
+
+Repository-write observability in `src/store/repository-observability.ts` is
+limited to PATCH/write boundaries; repository GET handlers remain read-only.
+`simulacat_repository_write_observations_total` contains only bounded PATCH
+outcomes: `success`, or `not-found` with `missing-repository` or
+`unshaped-repository`. The counters are process-local and use a synchronous
+no-`await` read-modify-write operation. That increment is atomic with respect
+to JavaScript callbacks in the current single-event-loop Bun/Node runtime, but
+counters are not shared across processes. A Worker-thread or shared-memory
+runtime requires a redesign using `worker_threads`, `SharedArrayBuffer`, or
+another shared-memory primitive, as tracked by
+[issue #14](https://github.com/leynos/simulacat-core/issues/14).
 
 ### Request actors
 
