@@ -142,16 +142,16 @@ graph embedded inside a very large schema.
 
 ### Top-level queries
 
-| Field                     | Status                        | Notes                                                                                                                                                         |
-| ------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `viewer`                  | Partially implemented         | Resolves the selected `user:<login>` simulator actor from GraphQL Yoga context. Real token validation and app/installation authorization remain out of scope. |
-| `user(login)`             | Implemented                   | Store-backed lookup by user login.                                                                                                                            |
-| `organization(login)`     | Implemented                   | Store-backed lookup by org login.                                                                                                                             |
-| `organizations(...)`      | Implemented                   | Store-backed list with relay pagination.                                                                                                                      |
-| `repository(owner, name)` | Implemented                   | Store-backed repo lookup.                                                                                                                                     |
-| `repositoryOwner(login)`  | Implemented                   | Resolves to org or user from store.                                                                                                                           |
-| `users(...)`              | Not explicitly implemented    | Present in the enterprise schema, but not in the resolver map.                                                                                                |
-| Other public query roots  | Not explicitly implemented    | Most of the public schema entry points have no package resolver.                                                                                              |
+| Field                     | Status                     | Notes                                                                                                                                                         |
+| ------------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `viewer`                  | Partially implemented      | Resolves the selected `user:<login>` simulator actor from GraphQL Yoga context. Real token validation and app/installation authorization remain out of scope. |
+| `user(login)`             | Implemented                | Store-backed lookup by user login.                                                                                                                            |
+| `organization(login)`     | Implemented                | Store-backed lookup by org login.                                                                                                                             |
+| `organizations(...)`      | Implemented                | Store-backed list with relay pagination.                                                                                                                      |
+| `repository(owner, name)` | Implemented                | Store-backed repo lookup.                                                                                                                                     |
+| `repositoryOwner(login)`  | Implemented                | Resolves to org or user from store.                                                                                                                           |
+| `users(...)`              | Not explicitly implemented | Present in the enterprise schema, but not in the resolver map.                                                                                                |
+| Other public query roots  | Not explicitly implemented | Most of the public schema entry points have no package resolver.                                                                                              |
 
 ### Nested fields with real scripting
 
@@ -251,8 +251,8 @@ What exists:
   `extend.openapiHandlers`
 - routes can be added with `extend.extendRouter`
 - REST extensions can use `getActorContext(request)` and
-  `requireRestUserActor(...)` to share the same request actor selection path
-  as built-in `/user` and GraphQL `viewer`
+  `requireRestUserActor(...)` to share the same request actor selection path as
+  built-in `/user` and GraphQL `viewer`
 
 What does not exist:
 

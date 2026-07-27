@@ -49,12 +49,12 @@ state store, then exposes that state through REST and GraphQL surfaces.
   `repositoryStoreKey`.
 - `src/store/entities/label.ts`
   Planned early vertical-slice module for repository labels. It will define a
-  repository-scoped `GitHubLabel`, canonical `labelStoreKey`, URL defaults,
-  and fixture parsing once roadmap step 1.5 lands.
+  repository-scoped `GitHubLabel`, canonical `labelStoreKey`, URL defaults, and
+  fixture parsing once roadmap step 1.5 lands.
 - `src/store/keys.ts`
   Re-exports canonical key helpers and parsing helpers for repositories,
-  branches, blobs, refs, commits, issues, pull requests, and future
-  repository labels.
+  branches, blobs, refs, commits, issues, pull requests, and future repository
+  labels.
 - `src/store/builders.ts`
   Provides public fixture builders backed by the same schemas used for seeded
   state.
@@ -85,9 +85,9 @@ state store, then exposes that state through REST and GraphQL surfaces.
   lookups, including the targeted `getRepositoryWithOwner` selector used by the
   repository write and read paths.
 - `src/rest/index.ts`
-  OpenAPI operation handlers for the current REST surface. Write handlers
-  parse and validate request bodies before calling shared action use cases,
-  then shape a re-selected persisted repository for PATCH responses through
+  OpenAPI operation handlers for the current REST surface. Write handlers parse
+  and validate request bodies before calling shared action use cases, then
+  shape a re-selected persisted repository for PATCH responses through
   `getRepositoryWithOwner`.
 - `src/rest/utils.ts`
   Small payload builders shared by the REST handlers.
@@ -142,8 +142,8 @@ Selectors provide the higher-level joins the handlers need:
 - shallow commit reachability from a seeded ref
 - pull request relation lookup for base refs, head refs, and linked issues
 
-The early collaboration slices are deliberately narrow. They model enough
-state for REST and GraphQL reads to agree on refs, commits, issues, and pull
+The early collaboration slices are deliberately narrow. They model enough state
+for REST and GraphQL reads to agree on refs, commits, issues, and pull
 requests, but they do not yet own collaboration policy. Mutations,
 mergeability, labels, reviews, timelines, checks, and actor-aware permissions
 belong to later roadmap slices.
@@ -166,9 +166,9 @@ actors.
 `extendRouter()`/extension routes, and before built-in local routes such as
 `/graphql`. It builds a request-scoped actor context from inbound headers,
 attaches it to `req.simulacatActor`, and records one parse observation for the
-HTTP request. `openapi()` mounts built-in REST handlers, but the middleware does
-not directly govern OpenAPI handler mounting. The actor context includes parsed
-actor details, diagnostics, and request-id context. The REST and GraphQL
+HTTP request. `openapi()` mounts built-in REST handlers, but the middleware
+does not directly govern OpenAPI handler mounting. The actor context includes
+parsed actor details, diagnostics, and request-id context. The REST and GraphQL
 adapters then pass that normalized context into shared helper flows, which
 resolve user actors through `requireUserActor()` and GraphQL's
 `requireGraphQLUserActor()` respectively. GraphQL Yoga builds the same context
@@ -194,10 +194,11 @@ The package is designed to be extended rather than forked.
 - `extendStore`
   Provides schema slices, actions, and selectors.
 - `openapiHandlers`
-  Registers or overrides REST operations while reusing the same store. Actor-aware
-  handlers should call `requireRestUserActor(request, simulationStore, surface)`,
-  which uses middleware-attached `req.simulacatActor` when present and falls back
-  to rebuilding the same actor context from request headers.
+  Registers or overrides REST operations while reusing the same store.
+  Actor-aware handlers should call
+  `requireRestUserActor(request, simulationStore, surface)`, which uses
+  middleware-attached `req.simulacatActor` when present and falls back to
+  rebuilding the same actor context from request headers.
 - `extendRouter`
   Adds plain Express routes for harness-specific behaviour. These routes run
   after request actor middleware, so `req.simulacatActor` is already available.
@@ -235,8 +236,8 @@ The supported root-mounted client setup is a `github3.GitHub` instance using a
 compatibility contract and tests exist.
 
 Repository, issue, pull request, and label payloads are the first contract-test
-targets. This lets simulacat remove route-local compatibility patches and
-keeps direct client incompatibilities visible in core.
+targets. This lets simulacat remove route-local compatibility patches and keeps
+direct client incompatibilities visible in core.
 
 ## Repository label slice
 

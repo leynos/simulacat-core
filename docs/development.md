@@ -31,8 +31,8 @@ The normal contributor gate is:
 4. `bun test`
 
 `make all` runs `check-fmt`, `typecheck`, `lint`, `test`, and `spelling` in the
-repository's preferred order. The `lint` target runs the `biomejs` and
-`oxlint` sub-targets.
+repository's preferred order. The `lint` target runs the `biomejs` and `oxlint`
+sub-targets.
 
 ## URL derivation
 
@@ -43,15 +43,15 @@ not synthesize simulator-host URLs while parsing fixtures.
 Request-derived URL policy is split across two layers:
 
 - `src/http/request-url.ts` normalizes the configured `apiUrl` (including its
-  API root), derives API and web base URLs from a request origin, and falls back
-  to `SIMULACAT_GITHUB_API_URL` only when the request has no usable HTTP(S)
-  host.
+  API root), derives API and web base URLs from a request origin, and falls
+  back to `SIMULACAT_GITHUB_API_URL` only when the request has no usable
+  HTTP(S) host.
 - `src/urls/` contains pure per-entity projectors for repository,
   organization, branch, ref, commit, issue, and pull request payloads.
 
 New REST or GraphQL handlers should project URL-bearing payloads at the adapter
-boundary instead of reading derived URL fields from the store. Relevant coverage
-lives in `tests/request-url.test.ts`, `tests/urls.test.ts`,
+boundary instead of reading derived URL fields from the store. Relevant
+coverage lives in `tests/request-url.test.ts`, `tests/urls.test.ts`,
 `tests/rest-request-urls.test.ts`, and the request-host GraphQL coverage in
 `tests/graphql.test.ts`.
 
@@ -103,8 +103,8 @@ that were previously prototyped outside the Makefile.
 
 ## Linting rules
 
-`make all` runs Biome and Oxlint as maintainability gates. Biome enforces
-exact rules where it has native support:
+`make all` runs Biome and Oxlint as maintainability gates. Biome enforces exact
+rules where it has native support:
 
 - `complexity.noExcessiveLinesPerFunction`: functions may not exceed 70 lines,
   counting blank lines.
@@ -134,14 +134,14 @@ documentation (JSDoc) enforcement into separate Oxlint rules:
 - `df12/require-module-jsdoc`: JS/TS files must start with a module-level
   JSDoc block containing `@file`.
 
-Existing documentation debt is isolated in `.jsdoc-baseline.json` as
-per-symbol entries. Do not add new entries for new code; remove baseline
-entries as those functions receive complete JSDoc.
+Existing documentation debt is isolated in `.jsdoc-baseline.json` as per-symbol
+entries. Do not add new entries for new code; remove baseline entries as those
+functions receive complete JSDoc.
 
 The local plugin keeps the maintainability contract in the same Oxlint process
 as the complexity rules. `eslint-plugin-jsdoc` is a broader ESLint ecosystem
-dependency, but this repository does not run ESLint; the local rules enforce the
-project-specific public/private/module split without adding another parser,
+dependency, but this repository does not run ESLint; the local rules enforce
+the project-specific public/private/module split without adding another parser,
 runner, or suppression syntax.
 
 Non-compliant examples:
@@ -180,9 +180,8 @@ export function convert(input: RepositoryRefInput): string {
 
 ### Suppressing lint violations
 
-Prefer refactoring to suppression. When a suppression is unavoidable, include
-a short reason that explains why the exception is narrower than changing the
-rule.
+Prefer refactoring to suppression. When a suppression is unavoidable, include a
+short reason that explains why the exception is narrower than changing the rule.
 
 Biome inline suppression:
 
@@ -239,8 +238,7 @@ Changes to behaviour should come with a targeted regression test.
   `fast-check` when the behaviour covers a range of owners, repositories, refs,
   SHAs, numbers, or ordering combinations.
 - Write-path adapter tests should cover request-body parsing and command
-  construction separately from pure reducer tests so Zod stays at the
-  boundary.
+  construction separately from pure reducer tests so Zod stays at the boundary.
 - REST and GraphQL integration tests start local simulator servers. In
   restricted sandboxes these tests may need elevated local port-binding
   permission; do not run them in parallel with other gates.
@@ -259,13 +257,13 @@ without updating the relevant roadmap item and design documentation.
 
 ### Shared write actions
 
-Shared write behaviour belongs under `src/store/actions/`. Keep the pure
-domain reducer in an entity-specific module that imports only types and pure
-helpers; parse request bodies with Zod in the adapter layer before building
-commands, put starfx-specific thunk construction in the adapter module, and
-call an application use case from REST or GraphQL adapters. Route handlers
-should validate lookup conditions, build commands, call the use case, and
-shape the response.
+Shared write behaviour belongs under `src/store/actions/`. Keep the pure domain
+reducer in an entity-specific module that imports only types and pure helpers;
+parse request bodies with Zod in the adapter layer before building commands,
+put starfx-specific thunk construction in the adapter module, and call an
+application use case from REST or GraphQL adapters. Route handlers should
+validate lookup conditions, build commands, call the use case, and shape the
+response.
 
 When updating table entities, prefer preserving operations such as table `add`
 for whole-entity upserts. `set` replaces the entire table and should only be
@@ -285,42 +283,42 @@ another shared-memory primitive, as tracked by
 
 ### Request actors
 
-Request actor parsing lives in `src/store/actors.ts`, not in individual REST
-or GraphQL routes. `requestActorMiddleware()` runs before caller
-`extendRouter()`/extension routes and before built-in local routes such as
-`/graphql`; it is installed by the API router composition and does not directly
-govern OpenAPI handler mounting. It then attaches `req.simulacatActor` with the
-parsed actor, diagnostics, and request-id observation context. Plain
-`extendRouter()` routes can read that context with `getActorContext(request)`
-when raw actor details are needed.
+Request actor parsing lives in `src/store/actors.ts`, not in individual REST or
+GraphQL routes. `requestActorMiddleware()` runs before caller `extendRouter()`
+/extension routes and before built-in local routes such as `/graphql`; it is
+installed by the API router composition and does not directly govern OpenAPI
+handler mounting. It then attaches `req.simulacatActor` with the parsed actor,
+diagnostics, and request-id observation context. Plain `extendRouter()` routes
+can read that context with `getActorContext(request)` when raw actor details
+are needed.
 
 GraphQL Yoga builds the same `SimulacatRequestActor` context shape from Fetch
-headers using `buildActorContext`, and `Query.viewer` resolves the selected user
-through `requireGraphQLUserActor()` and `requireUserActor()`, so expectations
-stay consistent.
+headers using `buildActorContext`, and `Query.viewer` resolves the selected
+user through `requireGraphQLUserActor()` and `requireUserActor()`, so
+expectations stay consistent.
 
 OpenAPI extension handlers should not depend on router middleware ordering.
 They should call `requireRestUserActor(request, simulationStore, surface)`,
-which uses middleware-attached context when present and falls back to rebuilding
-the same actor context from request headers. That helper selects the
+which uses middleware-attached context when present and falls back to
+rebuilding the same actor context from request headers. That helper selects the
 authenticated user and emits the same resolution, selection, and
 authentication-failure observability as built-in `/user` handlers.
 
 New actor-aware behaviour should add focused unit tests for parser or resolver
 invariants and route-level tests for observable REST or GraphQL contracts. Use
 `fast-check` when a parser or key format must hold across a range of generated
-values. Do not add real credential validation, permission checks, or GitHub
-App cryptography under the request actor helper; those are separate
-authorization slices. A first-class GraphQL schema or resolver extension hook
-does not exist yet, so GraphQL extension should remain future roadmap work
-rather than being hidden inside the request actor helpers.
+values. Do not add real credential validation, permission checks, or GitHub App
+cryptography under the request actor helper; those are separate authorization
+slices. A first-class GraphQL schema or resolver extension hook does not exist
+yet, so GraphQL extension should remain future roadmap work rather than being
+hidden inside the request actor helpers.
 
-Actor observability uses process-local counters in `src/store/actors.ts`.
-The request actor middleware records one parse outcome per inbound HTTP
-request. REST and GraphQL handlers record store-resolution outcomes, resolved
-actor selections, and authentication failures at their transport boundaries
-when they opt into actor-aware behaviour. The parser and resolver helpers
-remain pure and do not log directly.
+Actor observability uses process-local counters in `src/store/actors.ts`. The
+request actor middleware records one parse outcome per inbound HTTP request.
+REST and GraphQL handlers record store-resolution outcomes, resolved actor
+selections, and authentication failures at their transport boundaries when they
+opt into actor-aware behaviour. The parser and resolver helpers remain pure and
+do not log directly.
 
 The built-in `GET /metrics` route exports those counters in Prometheus text
 format as `simulacat_actor_observations_total`. Metric labels are bounded to
@@ -332,14 +330,13 @@ Production monitors should alert on sustained increases in
 authentication-contract regressions or caller misconfiguration until the
 corresponding structured logs show an expected rollout or test workload.
 
-Set `SIMULACAT_ACTOR_OBSERVABILITY=1` or
-`SIMULACAT_ACTOR_OBSERVABILITY=true` to emit the same actor observations as
-structured JSON debug lines on stderr. Each line includes
-`component: "simulacat.actor"`, the event name, actor kind, outcome, source or
-surface where applicable, a non-sensitive actor label, and the inbound
-`x-request-id` or `x-correlation-id` value when present. Tests that inspect the
-counters should call `resetActorObservationCounters()` before each case to
-avoid cross-test leakage.
+Set `SIMULACAT_ACTOR_OBSERVABILITY=1` or `SIMULACAT_ACTOR_OBSERVABILITY=true`
+to emit the same actor observations as structured JSON debug lines on stderr.
+Each line includes `component: "simulacat.actor"`, the event name, actor kind,
+outcome, source or surface where applicable, a non-sensitive actor label, and
+the inbound `x-request-id` or `x-correlation-id` value when present. Tests that
+inspect the counters should call `resetActorObservationCounters()` before each
+case to avoid cross-test leakage.
 
 Further reading: the actor-at-the-boundary and protocol-adapter guidance lives
 in
@@ -354,9 +351,9 @@ Feature files live under `features/` and are loaded by
 `tests/**/*.steps.ts`; `test-plugins.ts` registers that pattern through Bun's
 test preload configured in `bunfig.toml`.
 
-`bun test` and `make test` run the Gherkin scenarios alongside the normal
-unit and integration tests. Keep feature files focused on user-visible
-behaviour, and keep pure helper invariants in regular Bun tests.
+`bun test` and `make test` run the Gherkin scenarios alongside the normal unit
+and integration tests. Keep feature files focused on user-visible behaviour,
+and keep pure helper invariants in regular Bun tests.
 
 ## Regenerating bundled assets
 

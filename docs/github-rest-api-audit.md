@@ -126,21 +126,21 @@ works in that mode.
 The explicit OpenAPI handler map lives in
 `packages/github-api/src/rest/index.ts`.
 
-| Operation ID                                   | Method | Path                                                 | Classification                     | Notes                                                                                                                                                                                                                 |
-| ---------------------------------------------- | ------ | ---------------------------------------------------- | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `apps/list-installations`                      | `GET`  | `/app/installations`                                 | Partially scriptable               | Derived from installation entities in the store, but the endpoint still reflects only the seeded installation slice.                                                                                                  |
-| `apps/create-installation-access-token`        | `POST` | `/app/installations/{installation_id}/access_tokens` | Partially scriptable               | Token, expiry, permissions, and selection are fixed; repository list comes from the store.                                                                                                                            |
-| `apps/list-repos-accessible-to-installation`   | `GET`  | `/installation/repositories`                         | Stateful/scriptable                | Returns all repos in store with `total_count`.                                                                                                                                                                        |
-| `apps/get-org-installation`                    | `GET`  | `/orgs/{org}/installation`                           | Stateful/scriptable                | Looks up generated installation for org; returns 404 when missing.                                                                                                                                                    |
-| `apps/get-repo-installation`                   | `GET`  | `/repos/{owner}/{repo}/installation`                 | Stateful/scriptable                | Looks up installation for repo owner and repo; returns 404 when missing.                                                                                                                                              |
-| `repos/list-for-org`                           | `GET`  | `/orgs/{org}/repos`                                  | Stateful/scriptable                | Filters repositories by org; returns `[]` for orgs with no repos and 404 for unknown orgs.                                                                                                                            |
-| `repos/list-branches`                          | `GET`  | `/repos/{owner}/{repo}/branches`                     | Stateful/scriptable                | Filters the branches table by owner and repo.                                                                                                                                                                         |
-| `repos/get-combined-status-for-ref`            | `GET`  | `/repos/{owner}/{repo}/commits/{ref}/status`         | Mostly stubbed                     | Response is built from a fixed utility payload with dynamic owner/repo/ref interpolation only.                                                                                                                        |
-| `repos/get-content`                            | `GET`  | `/repos/{owner}/{repo}/contents/{path}`              | Stateful/scriptable                | Looks up a blob by owner/repo/path and returns base64 content.                                                                                                                                                        |
-| `git/get-blob`                                 | `GET`  | `/repos/{owner}/{repo}/git/blobs/{file_sha}`         | Stateful/scriptable                | Looks up a blob by owner/repo/sha and returns base64 content.                                                                                                                                                         |
-| `git/get-tree`                                 | `GET`  | `/repos/{owner}/{repo}/git/trees/{tree_sha}`         | Partially scriptable               | The handler now reads `tree_sha`, but it still ignores real tree-sha semantics and simply maps all blobs for the repo.                                                                                                |
-| `users/get-authenticated`                      | `GET`  | `/user`                                              | Partially scriptable               | Uses shared request actor helpers to resolve the selected `user:<login>` simulator actor and returns 401 when no user actor resolves.                                                                                 |
-| `orgs/list-memberships-for-authenticated-user` | `GET`  | `/user/memberships/orgs`                             | Partially scriptable               | Uses shared request actor helpers to return only the selected user actor's active organization memberships. Legacy user headers remain aliases.                                                                       |
+| Operation ID                                   | Method | Path                                                 | Classification       | Notes                                                                                                                                           |
+| ---------------------------------------------- | ------ | ---------------------------------------------------- | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/list-installations`                      | `GET`  | `/app/installations`                                 | Partially scriptable | Derived from installation entities in the store, but the endpoint still reflects only the seeded installation slice.                            |
+| `apps/create-installation-access-token`        | `POST` | `/app/installations/{installation_id}/access_tokens` | Partially scriptable | Token, expiry, permissions, and selection are fixed; repository list comes from the store.                                                      |
+| `apps/list-repos-accessible-to-installation`   | `GET`  | `/installation/repositories`                         | Stateful/scriptable  | Returns all repos in store with `total_count`.                                                                                                  |
+| `apps/get-org-installation`                    | `GET`  | `/orgs/{org}/installation`                           | Stateful/scriptable  | Looks up generated installation for org; returns 404 when missing.                                                                              |
+| `apps/get-repo-installation`                   | `GET`  | `/repos/{owner}/{repo}/installation`                 | Stateful/scriptable  | Looks up installation for repo owner and repo; returns 404 when missing.                                                                        |
+| `repos/list-for-org`                           | `GET`  | `/orgs/{org}/repos`                                  | Stateful/scriptable  | Filters repositories by org; returns `[]` for orgs with no repos and 404 for unknown orgs.                                                      |
+| `repos/list-branches`                          | `GET`  | `/repos/{owner}/{repo}/branches`                     | Stateful/scriptable  | Filters the branches table by owner and repo.                                                                                                   |
+| `repos/get-combined-status-for-ref`            | `GET`  | `/repos/{owner}/{repo}/commits/{ref}/status`         | Mostly stubbed       | Response is built from a fixed utility payload with dynamic owner/repo/ref interpolation only.                                                  |
+| `repos/get-content`                            | `GET`  | `/repos/{owner}/{repo}/contents/{path}`              | Stateful/scriptable  | Looks up a blob by owner/repo/path and returns base64 content.                                                                                  |
+| `git/get-blob`                                 | `GET`  | `/repos/{owner}/{repo}/git/blobs/{file_sha}`         | Stateful/scriptable  | Looks up a blob by owner/repo/sha and returns base64 content.                                                                                   |
+| `git/get-tree`                                 | `GET`  | `/repos/{owner}/{repo}/git/trees/{tree_sha}`         | Partially scriptable | The handler now reads `tree_sha`, but it still ignores real tree-sha semantics and simply maps all blobs for the repo.                          |
+| `users/get-authenticated`                      | `GET`  | `/user`                                              | Partially scriptable | Uses shared request actor helpers to resolve the selected `user:<login>` simulator actor and returns 401 when no user actor resolves.           |
+| `orgs/list-memberships-for-authenticated-user` | `GET`  | `/user/memberships/orgs`                             | Partially scriptable | Uses shared request actor helpers to return only the selected user actor's active organization memberships. Legacy user headers remain aliases. |
 
 ## What Is Stubbed But Not Really Mocked
 
@@ -180,11 +180,11 @@ simulator.
 
 Consumers can extend it in three ways:
 
-| Extension point          | Where                                    | What it enables                                                                       |
-| ------------------------ | ---------------------------------------- | ------------------------------------------------------------------------------------- |
-| `extend.openapiHandlers` | `packages/github-api/src/index.ts`       | Add or replace OpenAPI operation handlers with store and actor-helper access.         |
-| `extend.extendRouter`    | `packages/github-api/src/extend-api.ts`  | Add Express routes or middleware after actor middleware runs.                         |
-| `extend.extendStore`     | `packages/github-api/src/store/index.ts` | Add schema slices, actions, and selectors to support richer scripted behaviour.       |
+| Extension point          | Where                                    | What it enables                                                                 |
+| ------------------------ | ---------------------------------------- | ------------------------------------------------------------------------------- |
+| `extend.openapiHandlers` | `packages/github-api/src/index.ts`       | Add or replace OpenAPI operation handlers with store and actor-helper access.   |
+| `extend.extendRouter`    | `packages/github-api/src/extend-api.ts`  | Add Express routes or middleware after actor middleware runs.                   |
+| `extend.extendStore`     | `packages/github-api/src/store/index.ts` | Add schema slices, actions, and selectors to support richer scripted behaviour. |
 
 Current limitations of that extension model:
 
@@ -209,9 +209,9 @@ Notable constraints:
   `githubInitialStoreSchema.parse(...)`, but caller-supplied installation rows
   are preserved rather than overwritten.
 - Repository, organization, branch, ref, commit, issue, and pull request REST
-  API fields are projected from the inbound request host plus the configured API
-  root. Web-facing GraphQL links use the same request host without the API root.
-  Explicit fixture URL overrides are preserved.
+  API fields are projected from the inbound request host plus the configured
+  API root. Web-facing GraphQL links use the same request host without the API
+  root. Explicit fixture URL overrides are preserved.
 - External repository fields such as `git_url`, `ssh_url`, `mirror_url`, and
   `homepage` are not rewritten to the simulator host unless a caller explicitly
   seeds them that way.

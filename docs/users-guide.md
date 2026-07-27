@@ -10,15 +10,15 @@ stores, REST responses, or GraphQL lookups.
 
 The canonical identity scheme uses these key formats:
 
-| Entity | Format | Example |
-| --- | --- | --- |
-| Repository | `owner/name` | `acme/awesome-repo` |
-| Branch | `owner/repo:name` | `acme/awesome-repo:main` |
-| Blob | `owner/repo:reference` | `acme/awesome-repo:docs/api/README.md` |
-| Ref | `owner/repo:qualifiedName` | `acme/awesome-repo:main` |
-| Commit | `owner/repo:sha` | `acme/awesome-repo:abc123` |
-| Issue | `owner/repo#number` | `acme/awesome-repo#42` |
-| Pull request | `owner/repo!number` | `acme/awesome-repo!42` |
+| Entity       | Format                     | Example                                |
+| ------------ | -------------------------- | -------------------------------------- |
+| Repository   | `owner/name`               | `acme/awesome-repo`                    |
+| Branch       | `owner/repo:name`          | `acme/awesome-repo:main`               |
+| Blob         | `owner/repo:reference`     | `acme/awesome-repo:docs/api/README.md` |
+| Ref          | `owner/repo:qualifiedName` | `acme/awesome-repo:main`               |
+| Commit       | `owner/repo:sha`           | `acme/awesome-repo:abc123`             |
+| Issue        | `owner/repo#number`        | `acme/awesome-repo#42`                 |
+| Pull request | `owner/repo!number`        | `acme/awesome-repo!42`                 |
 
 The `reference` component in blob keys may contain `/`, so paths such as
 `docs/api/README.md` remain valid terminal references.
@@ -40,9 +40,8 @@ const id = repositoryNodeId('acme', 'awesome-repo');
 
 Use the fixture builders when tests need parsed repository, branch, ref,
 commit, issue, or pull request fixtures without constructing a complete initial
-state. See
-[`docs/api-reference.md`](./api-reference.md) for the detailed fixture schema
-fields.
+state. See [`docs/api-reference.md`](./api-reference.md) for the detailed
+fixture schema fields.
 
 ```typescript
 import {
@@ -137,9 +136,9 @@ documented REST endpoints and through repository GraphQL fields such as
 `PATCH /repos/{owner}/{repo}` writes repository metadata through the shared
 store action path. The current demonstrator intentionally persists only
 `description` and `homepage`; policy and visibility fields such as
-`visibility`, merge strategy settings, and `default_branch` are accepted by
-the request body but ignored until the repository settings roadmap slice
-implements them.
+`visibility`, merge strategy settings, and `default_branch` are accepted by the
+request body but ignored until the repository settings roadmap slice implements
+them.
 
 ```typescript
 const response = await fetch(`${baseUrl}/repos/acme/awesome-repo`, {
@@ -162,10 +161,10 @@ repository.visibility; // still the seeded/default value
 ```
 
 The same persisted value is visible through `GET /repos/{owner}/{repo}`,
-`GET /orgs/{org}/repos`, and GraphQL `repository(owner:, name:)` reads.
-The PATCH response is shaped from that persisted repository rather than the
-request body, so it matches those subsequent reads.
-Repository write routes do not validate real GitHub tokens.
+`GET /orgs/{org}/repos`, and GraphQL `repository(owner:, name:)` reads. The
+PATCH response is shaped from that persisted repository rather than the request
+body, so it matches those subsequent reads. Repository write routes do not
+validate real GitHub tokens.
 
 ## Request-derived URLs
 
@@ -216,23 +215,23 @@ requests should not need that fallback because the request host is preferred.
 
 ## Request actors
 
-Authenticated-user surfaces use a simulator-controlled request actor instead
-of the first seeded user. Set the preferred `x-simulacat-actor` header when
-a test needs `/user`, `/user/memberships/orgs`, or GraphQL `viewer` to run
-as a specific seeded user.
+Authenticated-user surfaces use a simulator-controlled request actor instead of
+the first seeded user. Set the preferred `x-simulacat-actor` header when a test
+needs `/user`, `/user/memberships/orgs`, or GraphQL `viewer` to run as a
+specific seeded user.
 
-| Actor kind | Header value | Observable behaviour |
-| --- | --- | --- |
-| Anonymous | `anonymous` or no actor header | `/user` returns 401 and `viewer` fails with `Authentication required`. |
-| User | `user:octocat` | `/user` and `viewer` resolve the seeded user whose login is `octocat`. |
-| App | `app:1` or `app:simulator-app` | The actor is parsed for later policy work, but authenticated-user surfaces return 401. |
-| Installation | `installation:1` | The actor is parsed for later policy work, but authenticated-user surfaces return 401. |
+| Actor kind   | Header value                   | Observable behaviour                                                                   |
+| ------------ | ------------------------------ | -------------------------------------------------------------------------------------- |
+| Anonymous    | `anonymous` or no actor header | `/user` returns 401 and `viewer` fails with `Authentication required`.                 |
+| User         | `user:octocat`                 | `/user` and `viewer` resolve the seeded user whose login is `octocat`.                 |
+| App          | `app:1` or `app:simulator-app` | The actor is parsed for later policy work, but authenticated-user surfaces return 401. |
+| Installation | `installation:1`               | The actor is parsed for later policy work, but authenticated-user surfaces return 401. |
 
-`x-simulacat-user: octocat` and `x-github-user: octocat` remain
-compatibility aliases for `user:octocat`. Prefer `x-simulacat-actor` for new
-tests because it can represent all supported actor kinds. These headers do not
-validate real GitHub personal access tokens, OAuth tokens, GitHub App JWTs, or
-installation tokens.
+`x-simulacat-user: octocat` and `x-github-user: octocat` remain compatibility
+aliases for `user:octocat`. Prefer `x-simulacat-actor` for new tests because it
+can represent all supported actor kinds. These headers do not validate real
+GitHub personal access tokens, OAuth tokens, GitHub App JWTs, or installation
+tokens.
 
 ## Store key helpers and parsers
 
@@ -307,16 +306,16 @@ blobStoreKey(blob: Pick<GitHubBlob, 'owner' | 'repo' | 'path' | 'sha'>)
 back to the first seeded user when no actor header is present. They now return
 HTTP 401 with `Authentication required` for unauthenticated requests.
 
-| Scenario | Before 1.2.1 | After 1.2.1 |
-| --- | --- | --- |
-| No actor header sent | First seeded user returned | 401 `{"message":"Authentication required"}` |
-| `x-simulacat-user: <login>` sent | Named user returned (unchanged) | Named user returned (unchanged) |
-| `x-simulacat-actor: user:<login>` sent | Not supported | Named user returned |
+| Scenario                               | Before 1.2.1                    | After 1.2.1                                 |
+| -------------------------------------- | ------------------------------- | ------------------------------------------- |
+| No actor header sent                   | First seeded user returned      | 401 `{"message":"Authentication required"}` |
+| `x-simulacat-user: <login>` sent       | Named user returned (unchanged) | Named user returned (unchanged)             |
+| `x-simulacat-actor: user:<login>` sent | Not supported                   | Named user returned                         |
 
 Set `x-simulacat-actor: user:<login>` (or a legacy alias) on every request that
 must exercise `/user`, `/user/memberships/orgs`, or `viewer`.
 
 For REST authenticated-user routes, both `GET /user` and
 `GET /user/memberships/orgs` require `x-simulacat-actor: user:<login>` or a
-legacy user alias. Without an actor that resolves to a seeded user, these routes
-return HTTP 401 with `{"message":"Authentication required"}`.
+legacy user alias. Without an actor that resolves to a seeded user, these
+routes return HTTP 401 with `{"message":"Authentication required"}`.

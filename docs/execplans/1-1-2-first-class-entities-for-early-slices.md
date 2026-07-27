@@ -1,17 +1,16 @@
 # Add first-class entities for early slices
 
-This ExecPlan (execution plan) is a living document. The sections
-`Constraints`, `Tolerances`, `Risks`, `Progress`, `Surprises & Discoveries`,
-`Decision Log`, and `Outcomes & Retrospective` must be kept up to date as work
-proceeds.
+This ExecPlan (execution plan) is a living document. The sections `Constraints`,
+`Tolerances`, `Risks`, `Progress`, `Surprises & Discoveries`, `Decision Log`,
+and `Outcomes & Retrospective` must be kept up to date as work proceeds.
 
 Status: COMPLETE
 
-Roadmap reference: `docs/roadmap.md` task `1.1.2` under section 1.1
-"Prove repository identity is owner-scoped and ref-safe".
+Roadmap reference: `docs/roadmap.md` task `1.1.2` under section 1.1 "Prove
+repository identity is owner-scoped and ref-safe".
 
-Approval gate: approved for implementation on 2026-05-10 after the draft PR
-was created. Implementation is proceeding milestone by milestone under the
+Approval gate: approved for implementation on 2026-05-10 after the draft PR was
+created. Implementation is proceeding milestone by milestone under the
 tolerances below.
 
 ## Purpose / big picture
@@ -121,66 +120,52 @@ escalation, not workarounds.
 ## Risks
 
 - Risk: the word "ref" overlaps with the existing `GitHubBranch` entity.
-  Severity: medium.
-  Likelihood: high.
-  Mitigation: model a new generic repository ref entity only where needed for
-  Git refs and GraphQL `Repository.ref(qualifiedName)`. Keep `GitHubBranch` as
-  the REST branch payload shape unless tests prove it should become a wrapper
-  over refs in this slice.
+  Severity: medium. Likelihood: high. Mitigation: model a new generic
+  repository ref entity only where needed for Git refs and GraphQL
+  `Repository.ref(qualifiedName)`. Keep `GitHubBranch` as the REST branch
+  payload shape unless tests prove it should become a wrapper over refs in this
+  slice.
 
 - Risk: pull requests are also issues in GitHub's REST model.
-  Severity: high.
-  Likelihood: high.
-  Mitigation: make the link explicit. A pull request fixture must either carry
-  or derive an issue key for the same repository and number. Issue endpoints
-  may include pull requests only when the tested contract requires it; broad
-  issue collaboration remains phase 8.
+  Severity: high. Likelihood: high. Mitigation: make the link explicit. A pull
+  request fixture must either carry or derive an issue key for the same
+  repository and number. Issue endpoints may include pull requests only when
+  the tested contract requires it; broad issue collaboration remains phase 8.
 
 - Risk: GitHub docs and runtime schemas expose far more fields than this task
-  should implement.
-  Severity: medium.
-  Likelihood: high.
-  Mitigation: keep schemas minimal but GitHub-shaped. Include only identity,
-  owner/repo coordinates, number or SHA, state, title/body where relevant,
-  author login, timestamps, base/head refs for pull requests, and commit parent
-  linkage needed for phase 2 history.
+  should implement. Severity: medium. Likelihood: high. Mitigation: keep
+  schemas minimal but GitHub-shaped. Include only identity, owner/repo
+  coordinates, number or SHA, state, title/body where relevant, author login,
+  timestamps, base/head refs for pull requests, and commit parent linkage
+  needed for phase 2 history.
 
 - Risk: existing GraphQL tests often assert only `errors === undefined`, which
-  can hide semantic regressions.
-  Severity: medium.
-  Likelihood: high.
+  can hide semantic regressions. Severity: medium. Likelihood: high.
   Mitigation: add behavioural GraphQL tests that assert returned entity ids,
   names, numbers, states, SHAs, pagination counts, and owner scoping.
 
 - Risk: REST handlers are only registered when `initialState` is present, while
-  schema stubs can respond without first-class state.
-  Severity: medium.
-  Likelihood: medium.
-  Mitigation: tests for new scriptable REST behaviour must seed `initialState`
-  and assert 404 or empty results for missing entities. Documentation must
-  continue to distinguish schema-stubbed from state-backed behaviour.
+  schema stubs can respond without first-class state. Severity: medium.
+  Likelihood: medium. Mitigation: tests for new scriptable REST behaviour must
+  seed `initialState` and assert 404 or empty results for missing entities.
+  Documentation must continue to distinguish schema-stubbed from state-backed
+  behaviour.
 
 - Risk: generated ids and timestamps can make tests flaky.
-  Severity: medium.
-  Likelihood: medium.
-  Mitigation: follow the repository id precedent with resettable counters for
-  numeric defaults where needed. In tests, provide explicit ids and ISO
-  timestamps unless the test is about defaulting.
+  Severity: medium. Likelihood: medium. Mitigation: follow the repository id
+  precedent with resettable counters for numeric defaults where needed. In
+  tests, provide explicit ids and ISO timestamps unless the test is about
+  defaulting.
 
 - Risk: canonical key grammar can accidentally make different entity kinds
-  collide.
-  Severity: high.
-  Likelihood: low.
-  Mitigation: use entity-specific prefixes in node ids and entity-specific key
-  helper names. Add property tests proving distinct coordinates produce
-  distinct keys within each entity type and that parsers round-trip valid
-  generated parts.
+  collide. Severity: high. Likelihood: low. Mitigation: use entity-specific
+  prefixes in node ids and entity-specific key helper names. Add property tests
+  proving distinct coordinates produce distinct keys within each entity type
+  and that parsers round-trip valid generated parts.
 
 - Risk: adding nested GraphQL conversion for refs, commits, issues, and pull
   requests may require types from the enterprise schema rather than the public
-  schema described in the audit.
-  Severity: medium.
-  Likelihood: medium.
+  schema described in the audit. Severity: medium. Likelihood: medium.
   Mitigation: inspect `src/__generated__/resolvers-types.ts` and the runtime
   `schema/schema.docs-enterprise.graphql` before writing converters. Keep tests
   aligned to the runtime schema.
@@ -207,8 +192,8 @@ escalation, not workarounds.
   tracking were completed before implementation resumed.
 - [x] (2026-05-10T13:02:44Z) Implemented milestone A test coverage for key
   round trips, defaulted initial-state collections, duplicate detection,
-  owner-scoped REST reads, and GraphQL repository reads. The first focused
-  test run exposed a numbered-key generator gap for `#` and `!` separators.
+  owner-scoped REST reads, and GraphQL repository reads. The first focused test
+  run exposed a numbered-key generator gap for `#` and `!` separators.
 - [x] (2026-05-10T13:02:44Z) Implemented milestone B store schemas, key
   helpers, parsers, public builders, store slices, and selectors for refs,
   commits, issues, and pull requests.
@@ -229,8 +214,8 @@ escalation, not workarounds.
   selector-builder typing, and schema JSDoc.
 - [x] (2026-05-10T14:01:03Z) Final verification passed:
   `make check-fmt`, `make lint`, `make typecheck`, `make test`, and
-  `make markdownlint`. The final `make test` run reported 167 passing tests,
-  0 failures, and 2079 assertions across 12 files.
+  `make markdownlint`. The final `make test` run reported 167 passing tests, 0
+  failures, and 2079 assertions across 12 files.
 - [x] (2026-05-10T14:01:03Z) Final `coderabbit review --agent` completed with
   `findings: 0`.
 
@@ -242,91 +227,83 @@ escalation, not workarounds.
   practice and architecture notes.
 
 - Observation: the context-pack Model Context Protocol (MCP) server has no
-  existing context pack for this task.
-  Evidence: `context_pack.output` returned no packs for the first-class entity
-  query.
-  Impact: the plan relies on direct repository inspection and Wyvern reports.
+  existing context pack for this task. Evidence: `context_pack.output` returned
+  no packs for the first-class entity query. Impact: the plan relies on direct
+  repository inspection and Wyvern reports.
 
 - Observation: LemmaScript is a tech-preview TypeScript verification toolchain
   that relies on `//@` specifications and external Dafny or Lean tooling.
   Evidence: Firecrawl result for
-  `https://github.com/midspiral/LemmaScript/blob/main/README.md`.
-  Impact: property tests are the default proof method for key grammar and
-  repository scoping. If implementation introduces a true business axiom that
-  needs exhaustive proof, dependency/tooling approval is required first.
+  `https://github.com/midspiral/LemmaScript/blob/main/README.md`. Impact:
+  property tests are the default proof method for key grammar and repository
+  scoping. If implementation introduces a true business axiom that needs
+  exhaustive proof, dependency/tooling approval is required first.
 
 - Observation: CodeRabbit review is blocked by account usage credits.
   Evidence: `coderabbit review --agent` failed with "You've run out of usage
-  credits" during the planning milestone review.
-  Impact: implementation must either wait for CodeRabbit credits to be restored
-  before each milestone review or receive explicit approval to use an alternate
-  review path.
+  credits" during the planning milestone review. Impact: implementation must
+  either wait for CodeRabbit credits to be restored before each milestone
+  review or receive explicit approval to use an alternate review path.
 
 - Observation: `leta files` failed to start its daemon inside the read-only
   sandbox, but the already-added workspace could be queried after elevated
-  execution.
-  Evidence: the first `leta files src` and `leta files tests` attempts returned
-  "Error: Failed to start daemon"; `leta workspace add` reported the workspace
-  already existed, and an elevated `leta files src` listed the source tree.
-  Impact: continue to use `leta` for code navigation where it starts cleanly,
-  and use direct file reads for Markdown and focused implementation context.
+  execution. Evidence: the first `leta files src` and `leta files tests`
+  attempts returned "Error: Failed to start daemon"; `leta workspace add`
+  reported the workspace already existed, and an elevated `leta files src`
+  listed the source tree. Impact: continue to use `leta` for code navigation
+  where it starts cleanly, and use direct file reads for Markdown and focused
+  implementation context.
 
 - Observation: this repository is currently on Zod 3.25.76, not Zod 4.
   Evidence: `bun install` reported `zod@3.25.76`, and `package.json` pins
-  `^3.24.1`.
-  Impact: new schemas use the repository's existing Zod 3 idioms, including
-  `z.string().email()`, instead of introducing Zod 4-only constructors.
+  `^3.24.1`. Impact: new schemas use the repository's existing Zod 3 idioms,
+  including `z.string().email()`, instead of introducing Zod 4-only
+  constructors.
 
 - Observation: local server tests cannot bind ports inside the read-only,
-  network-restricted sandbox even when no process owns the port.
-  Evidence: `bun test --max-concurrency=1 tests/repositories.test.ts` failed
-  with "Failed to start server. Is port 3320 in use?", while elevated
+  network-restricted sandbox even when no process owns the port. Evidence:
+  `bun test --max-concurrency=1 tests/repositories.test.ts` failed with "Failed
+  to start server. Is port 3320 in use?", while elevated
   `ss -ltnp 'sport = :3320 or sport = :3400'` showed no listener. The same
-  tests passed when run with elevated permissions.
-  Impact: REST, GraphQL, and full `make test` gates must run outside the
-  network-restricted sandbox so the simulator can bind local test ports.
+  tests passed when run with elevated permissions. Impact: REST, GraphQL, and
+  full `make test` gates must run outside the network-restricted sandbox so the
+  simulator can bind local test ports.
 
 - Observation: CodeRabbit review completed for the implementation milestone.
   Evidence: `coderabbit review --agent` returned 15 findings, including one
-  major finding that `githubRefSchema` treated every ref object URL as a
-  commit URL.
-  Impact: the implementation now maps supported ref object URL fallbacks by
-  object type and deliberately restricts early refs to commit and tag targets.
-  It also includes the requested documentation comments, shared defaults, and
-  stricter validation.
+  major finding that `githubRefSchema` treated every ref object URL as a commit
+  URL. Impact: the implementation now maps supported ref object URL fallbacks
+  by object type and deliberately restricts early refs to commit and tag
+  targets. It also includes the requested documentation comments, shared
+  defaults, and stricter validation.
 
 - Observation: CodeRabbit review converged after several small follow-up
-  passes.
-  Evidence: later `coderabbit review --agent` runs reported findings around
-  generated ID offsets, deterministic/default timestamp centralization,
+  passes. Evidence: later `coderabbit review --agent` runs reported findings
+  around generated ID offsets, deterministic/default timestamp centralization,
   PR-state mapping, GraphQL repository wrapping, empty `ref` strings, and
-  schema JSDoc before the final pass returned `findings: 0`.
-  Impact: the final implementation has a shared early-entity defaults module,
-  explicit generated-ID band documentation, an exhaustive PR-state converter,
-  consistent minimal repository GraphQL references, and stricter ref input
-  validation.
+  schema JSDoc before the final pass returned `findings: 0`. Impact: the final
+  implementation has a shared early-entity defaults module, explicit
+  generated-ID band documentation, an exhaustive PR-state converter, consistent
+  minimal repository GraphQL references, and stricter ref input validation.
 
 ## Decision log
 
 - Decision: keep this task focused on entity foundations, not full endpoint
-  parity.
-  Rationale: `docs/roadmap.md` says 1.1.2 should cover refs, commits, issues,
-  and pull requests only to the depth needed by phases 2 and 3. The REST and
-  GraphQL audits warn that broad schema coverage is not the same as scriptable
-  behaviour.
-  Date/Author: 2026-05-10T12:11:35Z / Codex.
+  parity. Rationale: `docs/roadmap.md` says 1.1.2 should cover refs, commits,
+  issues, and pull requests only to the depth needed by phases 2 and 3. The
+  REST and GraphQL audits warn that broad schema coverage is not the same as
+  scriptable behaviour. Date/Author: 2026-05-10T12:11:35Z / Codex.
 
 - Decision: use store entities and selectors as the domain boundary, with REST
-  and GraphQL as adapters.
-  Rationale: this follows the project architecture and the
-  `hexagonal-architecture` skill without forcing a new directory layout.
+  and GraphQL as adapters. Rationale: this follows the project architecture and
+  the `hexagonal-architecture` skill without forcing a new directory layout.
   Date/Author: 2026-05-10T12:11:35Z / Codex.
 
 - Decision: treat pull requests as linked to issues but not as a reason to
-  implement broad issue collaboration.
-  Rationale: GitHub's REST issue documentation states that pull requests appear
-  in the issue model, but roadmap phase 8 owns deeper issue collaboration.
-  Date/Author: 2026-05-10T12:11:35Z / Codex.
+  implement broad issue collaboration. Rationale: GitHub's REST issue
+  documentation states that pull requests appear in the issue model, but
+  roadmap phase 8 owns deeper issue collaboration. Date/Author:
+  2026-05-10T12:11:35Z / Codex.
 
 - Decision: do not add LemmaScript as part of the draft plan's default path.
   Rationale: the expected invariants are key grammar, duplicate rejection, and
@@ -337,34 +314,31 @@ escalation, not workarounds.
 
 - Decision: proceed with implementation despite the previously observed
   CodeRabbit usage-credit blockage, but re-run `coderabbit review --agent`
-  after each milestone and record the exact outcome.
-  Rationale: the user explicitly asked to proceed with implementation and to
-  use CodeRabbit after each major milestone. The plan will continue to surface
-  the review blockage rather than silently skipping it.
-  Date/Author: 2026-05-10T12:50:30Z / Codex.
+  after each milestone and record the exact outcome. Rationale: the user
+  explicitly asked to proceed with implementation and to use CodeRabbit after
+  each major milestone. The plan will continue to surface the review blockage
+  rather than silently skipping it. Date/Author: 2026-05-10T12:50:30Z / Codex.
 
 - Decision: split early entity selectors out of `src/store/index.ts` into
-  `src/store/early-entity-selectors.ts`.
-  Rationale: adding the new selector family pushed `src/store/index.ts` over
-  the project 400-line file-size constraint. The split keeps store wiring in
-  `src/store/index.ts` and keeps repository-owned entity lookup policy in a
-  focused feature file.
-  Date/Author: 2026-05-10T13:02:44Z / Codex.
+  `src/store/early-entity-selectors.ts`. Rationale: adding the new selector
+  family pushed `src/store/index.ts` over the project 400-line file-size
+  constraint. The split keeps store wiring in `src/store/index.ts` and keeps
+  repository-owned entity lookup policy in a focused feature file. Date/Author:
+  2026-05-10T13:02:44Z / Codex.
 
 - Decision: expose only narrow state-backed GraphQL fields in this slice.
   Rationale: the generated schema contains far richer `Commit`, `Issue`,
   `PullRequest`, and `Ref` contracts than 1.1.2 requires. The implementation
   backs the fields proven by behavioural tests and leaves wider collaboration
-  and mergeability surfaces to later roadmap slices.
-  Date/Author: 2026-05-10T13:02:44Z / Codex.
+  and mergeability surfaces to later roadmap slices. Date/Author:
+  2026-05-10T13:02:44Z / Codex.
 
 - Decision: mark roadmap item 1.1.2 done only after the code and documentation
-  were both updated in this branch.
-  Rationale: the roadmap entry's success condition is no route-local state for
-  phase 2 and phase 3 fixtures. The store schemas, selectors, public builders,
-  REST reads, GraphQL reads, and documentation updates now describe and test
-  that contract.
-  Date/Author: 2026-05-10T13:11:58Z / Codex.
+  were both updated in this branch. Rationale: the roadmap entry's success
+  condition is no route-local state for phase 2 and phase 3 fixtures. The store
+  schemas, selectors, public builders, REST reads, GraphQL reads, and
+  documentation updates now describe and test that contract. Date/Author:
+  2026-05-10T13:11:58Z / Codex.
 
 ## Outcomes & retrospective
 
@@ -450,32 +424,29 @@ anchors:
 ## Plan of work
 
 Milestone A is a design and red-test milestone. Before writing implementation
-code, rename the branch to
-`1-1-2-first-class-entities-for-early-slices`, confirm it is tracking
-`origin/1-1-2-first-class-entities-for-early-slices` after the first push, and
-record the result in `Progress`. Then inspect the runtime GraphQL enterprise
-schema and generated resolver types for the exact names and nullability of
-`Ref`, `Commit`, `Issue`, and `PullRequest` fields that are already present.
-Do not regenerate schema files unless types are stale.
+code, rename the branch to `1-1-2-first-class-entities-for-early-slices`,
+confirm it is tracking `origin/1-1-2-first-class-entities-for-early-slices`
+after the first push, and record the result in `Progress`. Then inspect the
+runtime GraphQL enterprise schema and generated resolver types for the exact
+names and nullability of `Ref`, `Commit`, `Issue`, and `PullRequest` fields
+that are already present. Do not regenerate schema files unless types are stale.
 
-Write failing tests first. Extend `tests/store-keys.test.ts` or create a
-focused `tests/early-entities-keys.test.ts` for key helpers and parsers. Extend
+Write failing tests first. Extend `tests/store-keys.test.ts` or create a focused
+`tests/early-entities-keys.test.ts` for key helpers and parsers. Extend
 `tests/entities.test.ts` or create `tests/early-entities.test.ts` for schema
-defaults, duplicate-key failures, and `convertInitialStateToStoreState`.
-Include `fast-check` properties for key round trips and owner/repository
-separation. Add behavioural tests for the externally observable reads that
-1.1.2 claims: repository-scoped ref and commit lookup, issue list/detail, and
-pull request list/detail at the minimum depth needed by phases 2 and 3. These
-tests should fail before implementation because the slices and selectors do
-not exist.
+defaults, duplicate-key failures, and `convertInitialStateToStoreState`. Include
+`fast-check` properties for key round trips and owner/repository separation.
+Add behavioural tests for the externally observable reads that 1.1.2 claims:
+repository-scoped ref and commit lookup, issue list/detail, and pull request
+list/detail at the minimum depth needed by phases 2 and 3. These tests should
+fail before implementation because the slices and selectors do not exist.
 
 Milestone B adds the store foundation. Create small entity modules under
 `src/store/entities/` for commits, refs, issues, and pull requests. Prefer
-these stable names unless implementation reveals a conflict:
-`commit.ts`, `ref.ts`, `issue.ts`, and `pull-request.ts`. Each module must
-start with a `/** @file ... */` block, define a Zod schema, export the inferred
-type, and provide the canonical store-key helper where the helper is
-entity-specific.
+these stable names unless implementation reveals a conflict: `commit.ts`,
+`ref.ts`, `issue.ts`, and `pull-request.ts`. Each module must start with a
+`/** @file ... */` block, define a Zod schema, export the inferred type, and
+provide the canonical store-key helper where the helper is entity-specific.
 
 Use these key formats unless Milestone A proves they conflict with a runtime
 schema requirement:
@@ -490,8 +461,8 @@ Pull request: owner/repo!number
 The punctuation deliberately separates issue and pull request number spaces in
 store keys while still allowing pull requests to link to an issue number. If a
 parser would become ambiguous because branch and ref names can contain `/`,
-parse the repository prefix with the existing `owner/name` parser and treat
-the terminal segment as opaque except for the entity's structural separator.
+parse the repository prefix with the existing `owner/name` parser and treat the
+terminal segment as opaque except for the entity's structural separator.
 
 In `src/store/entities.ts`, add optional defaulted arrays for the new
 collections, export the schemas and types, and convert the parsed arrays into
@@ -513,9 +484,9 @@ In `src/store/builders.ts`, add public builders:
 - `buildIssueFixture(input)`
 - `buildPullRequestFixture(input)`
 
-In `src/index.ts`, export the new builders, input types, schemas, entity
-types, key helpers, parser helpers, and node-id helpers. Existing exports must
-remain unchanged.
+In `src/index.ts`, export the new builders, input types, schemas, entity types,
+key helpers, parser helpers, and node-id helpers. Existing exports must remain
+unchanged.
 
 Milestone C wires the minimum adapters. Add REST handlers only for endpoints
 that can be made state-backed with the new slices and that are needed as
@@ -538,9 +509,9 @@ minimum useful shape is:
 - `Repository.defaultBranchRef` points at a seeded ref when one exists, falling
   back to the existing placeholder only when no seeded ref exists.
 
-If generated resolver type constraints make any one of those fields much
-larger than this task's entity foundation, document the deferral and keep the
-surface out of the supported matrix.
+If generated resolver type constraints make any one of those fields much larger
+than this task's entity foundation, document the deferral and keep the surface
+out of the supported matrix.
 
 Milestone D completes documentation, review, and publication mechanics. Update
 `docs/architecture.md` with the new state slices and selector responsibilities.
@@ -553,10 +524,10 @@ audits only where classifications actually changed. Mark roadmap task 1.1.2
 done only after the gates pass.
 
 After each major milestone, run `coderabbit review --agent`, clear every
-concern, and record the outcome in this plan. Commit after each gated
-milestone using the `commit-message` skill's file-based commit message
-workflow. At the end, push the branch and create a draft PR. The PR title must
-include `(1.1.2)`, and the PR summary must mention this ExecPlan file.
+concern, and record the outcome in this plan. Commit after each gated milestone
+using the `commit-message` skill's file-based commit message workflow. At the
+end, push the branch and create a draft PR. The PR title must include
+`(1.1.2)`, and the PR summary must mention this ExecPlan file.
 
 ## Concrete steps
 

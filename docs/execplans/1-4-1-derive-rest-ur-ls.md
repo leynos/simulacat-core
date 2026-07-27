@@ -1,9 +1,8 @@
 # Derive REST URLs from the inbound request host and API root (1.4.1)
 
-This ExecPlan (execution plan) is a living document. The sections
-`Constraints`, `Tolerances`, `Risks`, `Progress`, `Surprises & Discoveries`,
-`Decision Log`, and `Outcomes & Retrospective` must be kept up to date as work
-proceeds.
+This ExecPlan (execution plan) is a living document. The sections `Constraints`,
+`Tolerances`, `Risks`, `Progress`, `Surprises & Discoveries`, `Decision Log`,
+and `Outcomes & Retrospective` must be kept up to date as work proceeds.
 
 Status: COMPLETE
 
@@ -17,18 +16,19 @@ Simulacat Core is an in-memory GitHub REST and GraphQL API *simulator* used as
 a test double. Real GitHub clients — first and foremost the Python `github3.py`
 library — do not only read scalar fields from a response; they **navigate**
 using the URLs embedded in the payload. `github3.py` stores a fetched object's
-`url` as its self-link and expands the RFC 6570 URI-template fields (for
-example `labels_url` = `.../labels{/name}`, `contents_url` = `.../contents{+path}`)
+`url` as its self-link and expands the RFC 6570 URI-template fields (for example
+`labels_url` = `.../labels{/name}`, `contents_url` = `.../contents{+path}`)
 client-side to reach sub-resources. If those URLs point at the wrong host, the
 client is sent to the wrong place.
 
 Today the simulator bakes absolute URLs into entities at **seed time**, inside
 the Zod `.transform()` of each entity schema, using three different hardcoded
-hosts: `localhost:3300` (repositories, organizations), and `https://api.github.com`
-/ `https://github.com` (issues, pull requests, commits, refs, branches). A
-simulator started on a random port therefore returns URLs that point at
-`localhost:3300` (or at real GitHub), not at itself. A client that lists a
-repository and then follows `commits_url` jumps straight off the simulator.
+hosts: `localhost:3300` (repositories, organizations), and
+`https://api.github.com` / `https://github.com` (issues, pull requests,
+commits, refs, branches). A simulator started on a random port therefore
+returns URLs that point at `localhost:3300` (or at real GitHub), not at itself.
+A client that lists a repository and then follows `commits_url` jumps straight
+off the simulator.
 
 After this change, a simulator listening on any port returns repository, issue,
 pull-request, organization, commit, ref, and branch URLs that point back at
@@ -95,8 +95,8 @@ Stop and escalate when any of these is reached.
    in "Plan of work" plus their tests, or the net diff for a single milestone
    exceeds roughly 600 lines, stop and escalate.
 2. Public interface. If a public signature beyond the entity URL fields and the
-   GraphQL dispatcher must change (for example `simulation()`'s argument shape),
-   stop and escalate.
+   GraphQL dispatcher must change (for example `simulation()`'s argument
+   shape), stop and escalate.
 3. Dependencies. If a new runtime dependency seems necessary, stop and
    escalate. A new dev-only dependency for RFC 6570 template expansion in tests
    (for example `uri-templates`) is permitted but must be recorded in the
@@ -105,58 +105,56 @@ Stop and escalate when any of these is reached.
    and escalate with the failing output.
 5. GraphQL ripple. If making the dispatcher request-scoped forces changes at
    more than ~20 call sites or breaks the generated `Resolvers` typing in a way
-   that cannot be contained by the existing `as unknown as Resolvers` cast, stop
-   and escalate.
+   that cannot be contained by the existing `as unknown as Resolvers` cast,
+   stop and escalate.
 6. Ambiguity. If a field's correct host classification (API vs web vs external)
    is genuinely unclear for a field not enumerated in this plan, stop and ask.
 
 ## Risks
 
 1. Risk: half-rewritten URL graph. If only some linked entities are made
-   request-aware, a client navigates off the simulator mid-graph.
-   Severity: high. Likelihood: high if scope were narrowed.
-   Mitigation: full convergence — repository, issue, pull request,
-   organization, commit, ref, and branch are all in scope (Decision D-1). A
-   deny-list property test asserts no served `*_url` contains `localhost:3300`,
-   `api.github.com`, or `github.com` except the explicitly external clone
-   fields.
+   request-aware, a client navigates off the simulator mid-graph. Severity:
+   high. Likelihood: high if scope were narrowed. Mitigation: full convergence
+   — repository, issue, pull request, organization, commit, ref, and branch are
+   all in scope (Decision D-1). A deny-list property test asserts no served
+   `*_url` contains `localhost:3300`, `api.github.com`, or `github.com` except
+   the explicitly external clone fields.
 2. Risk: RFC 6570 templates mangled during the move from inline literals to a
    data table (a dropped `+`, `?`, or `{/...}` suffix silently breaks clients).
-   Severity: high. Likelihood: medium.
-   Mitigation: golden-snapshot the current template output byte-for-byte before
-   refactoring (Milestone 0) and assert equality after; an expansion contract
-   test expands each template and asserts a valid absolute URL.
-3. Risk: GraphQL regression. Converters read `html_url`/`url` off the store; once
-   the store stops baking them, GraphQL emits `undefined` unless a request-scoped
-   base URL is threaded through the recursive, lazily-invoked dispatcher.
-   Severity: high. Likelihood: high.
-   Mitigation: request-bound dispatcher factory (`makeToGraphql`) built per
-   request from `context.baseUrls`; lazy `issues()`/`pullRequests()` closures
-   capture it lexically (Milestone 5).
+   Severity: high. Likelihood: medium. Mitigation: golden-snapshot the current
+   template output byte-for-byte before refactoring (Milestone 0) and assert
+   equality after; an expansion contract test expands each template and asserts
+   a valid absolute URL.
+3. Risk: GraphQL regression. Converters read `html_url`/`url` off the store;
+   once the store stops baking them, GraphQL emits `undefined` unless a
+   request-scoped base URL is threaded through the recursive, lazily-invoked
+   dispatcher. Severity: high. Likelihood: high. Mitigation: request-bound
+   dispatcher factory (`makeToGraphql`) built per request from
+   `context.baseUrls`; lazy `issues()`/`pullRequests()` closures capture it
+   lexically (Milestone 5).
 4. Risk: malformed base URL. Missing/empty `Host`, IPv6 host (`[::1]:port`),
    port handling, or naive string joins producing `//` or `http://undefined`.
-   Severity: medium. Likelihood: medium.
-   Mitigation: a single tested `buildUrl`/`normalizeApiRoot`; `WHATWG URL`
-   construction; a clear, greppable throw on missing host; fast-check host
-   generator includes empty, IPv6, ported, and uppercase hosts (Milestone 1).
+   Severity: medium. Likelihood: medium. Mitigation: a single tested `buildUrl`/
+   `normalizeApiRoot`; `WHATWG URL` construction; a clear, greppable throw on
+   missing host; fast-check host generator includes empty, IPv6, ported, and
+   uppercase hosts (Milestone 1).
 5. Risk: non-root API root untested. `apiRoot='/api/v3'` produces double slashes
-   or drops the prefix because only `'/'` is exercised.
-   Severity: medium. Likelihood: medium.
-   Mitigation: parametrize integration tests over `apiRoot ∈ {'/', '/api/v3'}`.
+   or drops the prefix because only `'/'` is exercised. Severity: medium.
+   Likelihood: medium. Mitigation: parametrize integration tests over
+   `apiRoot ∈ {'/', '/api/v3'}`.
 6. Risk: success theatre. Tests assert the port propagated but `github3.py`
-   still cannot navigate. Severity: medium. Likelihood: medium.
-   Mitigation: the expansion contract test exercises real RFC 6570 expansion; a
-   JS-side end-to-end navigation test follows `commits_url` → a served commit
-   and asserts the second hop stays on the simulator. (A real `github3.py`
+   still cannot navigate. Severity: medium. Likelihood: medium. Mitigation: the
+   expansion contract test exercises real RFC 6570 expansion; a JS-side
+   end-to-end navigation test follows `commits_url` → a served commit and
+   asserts the second hop stays on the simulator. (A real `github3.py`
    round-trip is Python and belongs to roadmap task 1.4.2; note the boundary.)
 
 ## Progress
 
 - [x] 2026-06-24T14:39:54+02:00 — Branch, PR, and session aligned for
   implementation. Local branch is `1-4-1-derive-rest-ur-ls`, tracking
-  `origin/1-4-1-derive-rest-ur-ls`; PR #19 title is now
-  "Derive REST URLs from request host (1.4.1)" and the PR references this Lody
-  session.
+  `origin/1-4-1-derive-rest-ur-ls`; PR #19 title is now "Derive REST URLs from
+  request host (1.4.1)" and the PR references this Lody session.
 - [x] 2026-06-24T14:42:26+02:00 — Milestone 0 golden snapshot test added.
   `tests/url-templates.golden.test.ts` captures current parsed URL fields for
   repository, issue, pull request, organization, commit, ref, and branch
@@ -180,10 +178,10 @@ Stop and escalate when any of these is reached.
   CodeRabbit review. Final focused validation
   `bun test tests/request-url.test.ts` passed with 29 tests. Full validation
   passed with `make check-fmt`, `make test`, `make typecheck`, `make lint`, and
-  `make --no-print-directory markdownlint nixie`; the full suite reported
-  291 passing tests, 5 snapshots, and 5824 assertions. CodeRabbit initially
-  found malformed URL handling, seeded fast-check drift, canonical-host test
-  drift, non-HTTP origins, raw JavaScript input guards, and protocol delimiter
+  `make --no-print-directory markdownlint nixie`; the full suite reported 291
+  passing tests, 5 snapshots, and 5824 assertions. CodeRabbit initially found
+  malformed URL handling, seeded fast-check drift, canonical-host test drift,
+  non-HTTP origins, raw JavaScript input guards, and protocol delimiter
   normalization. Each actionable finding is fixed and
   `coderabbit review --agent` now reports `findings: 0`.
 - [x] Milestone 1 — shared request base-URL policy (`src/http/request-url.ts`).
@@ -193,9 +191,9 @@ Stop and escalate when any of these is reached.
   URLs.
 - [x] 2026-06-25T02:21:03+02:00 — Milestone 2 gates and review cleared.
   Per-entity projectors now cover repository, issue, pull request,
-  organization, commit, ref, and branch payloads. Focused validation passed
-  with `bun test tests/urls.test.ts`, reporting 8 tests and 24447 assertions.
-  Full validation passed with `make check-fmt`, `make test`, `make typecheck`,
+  organization, commit, ref, and branch payloads. Focused validation passed with
+  `bun test tests/urls.test.ts`, reporting 8 tests and 24447 assertions. Full
+  validation passed with `make check-fmt`, `make test`, `make typecheck`,
   `make lint`, and `make --no-print-directory markdownlint nixie`; the full
   suite reported 299 passing tests, 5 snapshots, and 30271 assertions.
   CodeRabbit findings for repository web and external URL derivation,
@@ -214,8 +212,8 @@ Stop and escalate when any of these is reached.
   with Milestone 4 REST wiring. Parsed repository, issue, pull request,
   organization, commit, ref, and branch entities now keep URL fields absent
   unless explicitly seeded, and `tests/entities.test.ts` /
-  `tests/url-templates.golden.test.ts` assert the store is host-agnostic.
-  Full `make test` could not pass after the store change alone because sparse
+  `tests/url-templates.golden.test.ts` assert the store is host-agnostic. Full
+  `make test` could not pass after the store change alone because sparse
   entities made REST OpenAPI validation reject unprojected responses, so REST
   projection wiring was required before committing the milestone.
 - [x] Milestone 3 — make the store host-agnostic (Zod transforms stop baking
@@ -224,14 +222,14 @@ Stop and escalate when any of these is reached.
   `tests/rest-utils.test.ts` now injects `apiBaseUrl` exactly, and the new
   `tests/rest-request-urls.test.ts` starts random-port simulators for `/` and
   `/api/v3` to verify repository, branch, ref, issue, pull request, commit,
-  content, and organization-membership URLs. The focused suite passed with
-  6 tests and 78 assertions after wiring `repos/get` through the enriched
+  content, and organization-membership URLs. The focused suite passed with 6
+  tests and 78 assertions after wiring `repos/get` through the enriched
   repository selector and projecting the root Express wildcard ref route.
 - [x] 2026-06-25T04:13:05+02:00 — Milestone 3/4 deterministic gates passed.
   `make check-fmt`, `make test`, `make typecheck`, `make lint`, and
   `make --no-print-directory markdownlint nixie` all passed after the combined
-  store/REST changes. The final full test run reported 307 passing tests,
-  4 snapshots, and 30501 assertions.
+  store/REST changes. The final full test run reported 307 passing tests, 4
+  snapshots, and 30501 assertions.
 - [x] 2026-06-25T05:13:41+02:00 — Milestone 3/4 CodeRabbit review cleared.
   The first `coderabbit review --agent` attempt hit a recoverable rate limit,
   so the requested randomized `vsleep` backoff ran for 55 minutes before
@@ -242,17 +240,18 @@ Stop and escalate when any of these is reached.
   `Cannot return null for non-nullable field Organization.url` because sparse
   stored organizations no longer carry a GraphQL owner URL. Green: GraphQL
   context now carries request-derived `baseUrls`, `makeToGraphql()` builds a
-  request-bound recursive dispatcher, repository/owner/issue/pull-request/commit
-  converters project URL fields from the shared URL policy, and
-  `tests/graphql.test.ts` asserts random-port repository, owner, topic, issue,
-  pull request, nested pull request, ref target, and commit URLs. Focused
-  validation passed with 33 GraphQL tests and 120 assertions.
+  request-bound recursive dispatcher,
+  repository/owner/issue/pull-request/commit converters project URL fields from
+  the shared URL policy, and `tests/graphql.test.ts` asserts random-port
+  repository, owner, topic, issue, pull request, nested pull request, ref
+  target, and commit URLs. Focused validation passed with 33 GraphQL tests and
+  120 assertions.
 - [x] Milestone 5 — wire the GraphQL adapter to project per request.
 - [x] 2026-06-25T04:07:43+02:00 — Milestone 5 deterministic gates and review
   cleared. `make check-fmt`, `make test`, `make typecheck`, `make lint`, and
   `make --no-print-directory markdownlint nixie` all passed after the
-  request-scoped GraphQL changes. The final full test run reported
-  308 passing tests, 4 snapshots, and 30516 assertions. CodeRabbit
+  request-scoped GraphQL changes. The final full test run reported 308 passing
+  tests, 4 snapshots, and 30516 assertions. CodeRabbit
   `coderabbit review --agent` completed with `findings: 0`.
 - [x] 2026-06-25T04:11:25+02:00 — Milestone 6 implementation completed.
   Search found no remaining malformed `git:github...` source or test URLs; the
@@ -261,8 +260,8 @@ Stop and escalate when any of these is reached.
   into small validation, timestamp, and ref-normalization helpers so its
   complexity suppressions could be removed without changing behaviour. Focused
   validation before this plan update passed with `make lint`, `make typecheck`,
-  and `make test`; the focused full test run reported 308 passing tests,
-  4 snapshots, and 30516 assertions.
+  and `make test`; the focused full test run reported 308 passing tests, 4
+  snapshots, and 30516 assertions.
 - [x] 2026-06-25T04:19:08+02:00 — Milestone 6 gates and review cleared.
   `bun fmt`, `make check-fmt`, `make test`, `make typecheck`, `make lint`, and
   `make --no-print-directory markdownlint nixie` passed after the suppression
@@ -279,10 +278,10 @@ Stop and escalate when any of these is reached.
 - [x] 2026-06-25T05:56:42+02:00 — Milestone 7 gates and review cleared.
   `bun fmt`, `make check-fmt`, `make test`, `make typecheck`, `make lint`, and
   `make --no-print-directory markdownlint nixie` passed after the documentation
-  updates. The full test run reported 308 passing tests, 4 snapshots, and
-  30516 assertions. CodeRabbit initially returned a recoverable rate limit, so
-  the requested randomized `vsleep` backoff ran for 85 minutes before retrying;
-  the retry completed with `findings: 0`.
+  updates. The full test run reported 308 passing tests, 4 snapshots, and 30516
+  assertions. CodeRabbit initially returned a recoverable rate limit, so the
+  requested randomized `vsleep` backoff ran for 85 minutes before retrying; the
+  retry completed with `findings: 0`.
 - [x] Milestone 7 — documentation, capability notes, CHANGELOG, roadmap tick.
 
 ## Surprises & discoveries
@@ -292,10 +291,10 @@ Stop and escalate when any of these is reached.
   builders should "derive REST URLs from the inbound request host and
   configured API root … preserve explicitly seeded URL fields"; and
   `docs/api-reference.md` describes repository `url` as a "Derived simulator
-  URL". `docs/github-rest-api-audit.md` §"Store and Modelling Constraints" still
-  records the live constraint: "Generated repository, organization, and
-  installation URLs assume `localhost:3300`." Impact: this plan aligns code with
-  documented intent and updates the audit note.
+  URL". `docs/github-rest-api-audit.md` §"Store and Modelling Constraints"
+  still records the live constraint: "Generated repository, organization, and
+  installation URLs assume `localhost:3300`." Impact: this plan aligns code
+  with documented intent and updates the audit note.
 - Observation: override preservation does not currently exist for repositories.
   Evidence: `src/store/entities/repository.ts:158-200` overwrites `url`,
   `html_url`, and all `*_url` fields **unconditionally** (no `??`), whereas
@@ -310,9 +309,9 @@ Stop and escalate when any of these is reached.
   malformation hazard for IPv6/ported hosts), and the env var is repurposed as
   an optional fallback default only (Decision D-7).
 - Observation: `git_url` is malformed. Evidence:
-  `src/store/entities/repository.ts:177` emits `git:github.com/${full_name}.git`
-  (missing `//`); correct git protocol is `git://github.com/...`. Impact: fixed
-  in Milestone 6 (Decision D-8).
+  `src/store/entities/repository.ts:177` emits
+  `git:github.com/${full_name}.git` (missing `//`); correct git protocol is
+  `git://github.com/...`. Impact: fixed in Milestone 6 (Decision D-8).
 - Observation: there is no label entity yet. Evidence: `src/store/entities/`
   contains no `label.ts`; `label` appears only as the repository `labels_url`
   template. Impact: "label URLs" in the success criterion means the repository
@@ -371,11 +370,12 @@ Stop and escalate when any of these is reached.
   `extendRouter`, which passes it to `createHandler` for GraphQL base-URL
   construction.
 - Observation: direct converter tests can bypass schema-normalized nested commit
-  shape. Evidence: full `make test` failed in `tests/graphql-converters.test.ts`
-  because a hand-built commit object had no `commit.tree`, but
-  `projectCommitUrls()` correctly expects the normalized `GitHubCommit` shape.
-  Impact: the test fixture now includes the same `commit.tree` and parent-array
-  structure the schema supplies in production paths.
+  shape. Evidence: full `make test` failed in
+  `tests/graphql-converters.test.ts` because a hand-built commit object had no
+  `commit.tree`, but `projectCommitUrls()` correctly expects the normalized
+  `GitHubCommit` shape. Impact: the test fixture now includes the same
+  `commit.tree` and parent-array structure the schema supplies in production
+  paths.
 - Observation: Milestone 6 found no live malformed `git:github...` URLs in
   source or tests. Evidence: literal search found only this plan's historical
   notes, while `src/urls/repository.ts` already projects `git_url` as
@@ -383,10 +383,11 @@ Stop and escalate when any of these is reached.
   to verification and stale suppression cleanup rather than introducing a
   redundant URL change.
 - Observation: pull-request transform complexity remained real after URL
-  derivation moved out of entity schemas. Evidence: removing the old suppression
-  made Biome report cognitive complexity 14. Impact: the transform now delegates
-  number validation, state timestamp derivation, and base/head ref coordinate
-  normalization to small helpers before returning the normalized store shape.
+  derivation moved out of entity schemas. Evidence: removing the old
+  suppression made Biome report cognitive complexity 14. Impact: the transform
+  now delegates number validation, state timestamp derivation, and base/head
+  ref coordinate normalization to small helpers before returning the normalized
+  store shape.
 - Observation: `CHANGELOG.md` predates strict Common Changelog formatting.
   Evidence: existing headings omit dates and use escaped bracket headings such
   as `## \[0.6.4]`. Impact: Milestone 7 adds a consumer-facing 0.6.5 entry in
@@ -397,8 +398,8 @@ Stop and escalate when any of these is reached.
 
 - Decision D-1: full entity convergence — repository, issue, pull request,
   organization, commit, ref, and branch are all made request-aware in this
-  task. Rationale: confirmed with the requester after the expert panel flagged a
-  split-brain URL graph; the named roadmap entities (repo/issue/PR) link to
+  task. Rationale: confirmed with the requester after the expert panel flagged
+  a split-brain URL graph; the named roadmap entities (repo/issue/PR) link to
   commit/ref/branch in the same payload graph, so deferring those would ship a
   graph `github3.py` cannot navigate. Date/Author: 2026-06-18, leynos (scope
   confirmation) + planning agent.
@@ -412,23 +413,23 @@ Stop and escalate when any of these is reached.
   planning + expert panel (Wafflecat).
 - Decision D-3: pure policy helpers take a plain `{protocol, host, apiRoot}`
   record, not a framework request. Rationale: Express exposes
-  `request.headers.host`; Yoga exposes `request.headers.get('host')`; the policy
-  layer must serve both without importing either (Constraint 1). Date/Author:
-  2026-06-18, expert panel (Pandalump, Dinolump).
+  `request.headers.host`; Yoga exposes `request.headers.get('host')`; the
+  policy layer must serve both without importing either (Constraint 1).
+  Date/Author: 2026-06-18, expert panel (Pandalump, Dinolump).
 - Decision D-4: GraphQL uses a request-bound dispatcher factory, not a threaded
   parameter. Rationale: `toGraphql` is recursive and is captured by lazy
   connection closures that run after the resolver returns; a per-call parameter
   would not survive them, but a dispatcher closure carrying `baseUrls` is
   captured lexically. Date/Author: 2026-06-18, expert panel (Pandalump).
 - Decision D-5: override detection by per-field `undefined`, with explicit
-  `null` support for genuinely nullable fields. Rationale: simplest uniform rule
-  that distinguishes "derive" from "caller-set" from "explicit null"; matches
-  GitHub's nullable `mirror_url`/`homepage`. Date/Author: 2026-06-18, expert
-  panel (Telefono).
+  `null` support for genuinely nullable fields. Rationale: simplest uniform
+  rule that distinguishes "derive" from "caller-set" from "explicit null";
+  matches GitHub's nullable `mirror_url`/`homepage`. Date/Author: 2026-06-18,
+  expert panel (Telefono).
 - Decision D-6: no per-request URL caching. Rationale: ~35 string
   concatenations per repository payload are negligible against JSON
-  serialization and HTTP for short-lived random-port test servers; caching keyed
-  on host adds invalidation risk for no observable benefit. Date/Author:
+  serialization and HTTP for short-lived random-port test servers; caching
+  keyed on host adds invalidation risk for no observable benefit. Date/Author:
   2026-06-18, expert panel (Buzzy Bee).
 - Decision D-7: base resolution layers request host first, then an optional
   configured fallback (`apiUrl` option / `SIMULACAT_GITHUB_API_URL`), then a
@@ -444,13 +445,13 @@ Stop and escalate when any of these is reached.
   milestone removes or fixes the baked defaults. Date/Author: 2026-06-18,
   leynos; updated 2026-06-24, implementation agent.
 - Decision D-9: "label URLs" scopes to the repository `labels_url` template;
-  first-class label entities are out of scope (roadmap 1.5). Rationale: no label
-  entity exists yet. Date/Author: 2026-06-18, expert panel (Pandalump).
+  first-class label entities are out of scope (roadmap 1.5). Rationale: no
+  label entity exists yet. Date/Author: 2026-06-18, expert panel (Pandalump).
 - Decision D-10: Milestone 0 snapshots collect only URL-shaped fields from
-  parsed fixtures. Rationale: generated timestamps, ids, and random display data
-  are not part of the URL-template safety net and would make the snapshot noisy.
-  The ref fixture uses `qualifiedName: 'main'` so the baseline covers the normal
-  branch-ref path. Date/Author: 2026-06-24, implementation agent.
+  parsed fixtures. Rationale: generated timestamps, ids, and random display
+  data are not part of the URL-template safety net and would make the snapshot
+  noisy. The ref fixture uses `qualifiedName: 'main'` so the baseline covers
+  the normal branch-ref path. Date/Author: 2026-06-24, implementation agent.
 - Decision D-11: keep raw `RequestOrigin` guard checks in
   `src/http/request-url.ts` until the REST and GraphQL adapter wiring
   milestones introduce real adapter extractors. Rationale: CodeRabbit suggested
@@ -461,10 +462,10 @@ Stop and escalate when any of these is reached.
   Date/Author: 2026-06-24, implementation agent.
 - Decision D-12: protocol inputs ending in `://` are accepted and normalized to
   the bare scheme before origin assembly. Rationale: adapters commonly expose
-  `request.protocol` as `http`/`https`, but callers can pass `http://`; treating
-  that as a malformed composed URL would incorrectly force fallback or failure
-  even though the protocol intent is unambiguous. Date/Author: 2026-06-24,
-  implementation agent.
+  `request.protocol` as `http`/`https`, but callers can pass `http://`;
+  treating that as a malformed composed URL would incorrectly force fallback or
+  failure even though the protocol intent is unambiguous. Date/Author:
+  2026-06-24, implementation agent.
 - Decision D-13: sparse repository projection uses GitHub-correct web, clone,
   SVN, and Git-protocol URLs even while current parsed fixtures still preserve
   legacy explicit values. Rationale: CodeRabbit correctly flagged that
@@ -491,11 +492,11 @@ Stop and escalate when any of these is reached.
   `/git/commits/{sha}`. Date/Author: 2026-06-24, implementation agent.
 - Decision D-16: ref projection preserves the full `refs/...` name under
   `/git/refs/...`, issue and pull-request URL classifications are derived from
-  typed field arrays, and the URL property collector treats scp-style SSH
-  values (`git@github.com:owner/repo.git`) as URL-like external fields.
-  Rationale: CodeRabbit found that stripping `refs/` breaks GitHub ref URL
-  round-tripping, while raw classification literals and missed SSH URLs reduce
-  test coverage. Date/Author: 2026-06-24, implementation agent.
+  typed field arrays, and the URL property collector treats scp-style SSH values
+  (`git@github.com:owner/repo.git`) as URL-like external fields. Rationale:
+  CodeRabbit found that stripping `refs/` breaks GitHub ref URL round-tripping,
+  while raw classification literals and missed SSH URLs reduce test coverage.
+  Date/Author: 2026-06-24, implementation agent.
 - Decision D-17: every top-level projector payload alias omits the derived URL
   fields from the stored entity type before adding them back as optional
   projection fields. Rationale: the projection contract says sparse stored
@@ -533,10 +534,10 @@ Stop and escalate when any of these is reached.
 - Decision D-21: GraphQL `url`, `permalink`, and `commitUrl` fields derive from
   `webBaseUrl`, not from REST API `url` fields. Rationale: GitHub GraphQL URL
   scalars represent browser-facing resources; REST self-links still derive from
-  `apiBaseUrl` through the REST projectors. The shared policy remains the source
-  of truth for path construction, but GraphQL consumes the web-facing projected
-  fields (`html_url`) for repository, issue, pull request, commit, and owner
-  URLs. Date/Author: 2026-06-25, implementation agent.
+  `apiBaseUrl` through the REST projectors. The shared policy remains the
+  source of truth for path construction, but GraphQL consumes the web-facing
+  projected fields (`html_url`) for repository, issue, pull request, commit,
+  and owner URLs. Date/Author: 2026-06-25, implementation agent.
 - Decision D-22: GraphQL owner conversion uses a stable shape discriminator
   (`organizations` exists only on stored users) rather than optional URL-field
   presence to choose user versus organization resource paths. Rationale: sparse
@@ -552,9 +553,9 @@ Stop and escalate when any of these is reached.
 - Decision D-24: refactor the pull-request transform instead of retaining the
   complexity suppression. Rationale: after URL derivation moved out of schemas,
   the remaining complexity was separable into issue-number validation, state
-  timestamp derivation, and ref coordinate normalization, which makes the schema
-  transform lint-clean without changing behaviour. Date/Author: 2026-06-25,
-  implementation agent.
+  timestamp derivation, and ref coordinate normalization, which makes the
+  schema transform lint-clean without changing behaviour. Date/Author:
+  2026-06-25, implementation agent.
 - Decision D-25: preserve the existing changelog release-entry shape for this
   branch. Rationale: the current file does not follow strict Common Changelog
   release headings, and converting historical entries would be unrelated churn;
@@ -573,7 +574,8 @@ Stop and escalate when any of these is reached.
   (thresholds in Constraint 7).
 - `docs/mocking-services-with-simulacrum-actors-and-stable-keyset-connections.md`
   — prior art for the simulator's actor and store model.
-- Prior ExecPlans for house style: `docs/execplans/1-2-2-expose-actor-context-to-handlers.md`,
+- Prior ExecPlans for house style:
+  `docs/execplans/1-2-2-expose-actor-context-to-handlers.md`,
   `docs/execplans/1-2-1-request-scoped-actor-resolution.md`.
 - GitHub REST URL semantics: `url` is the API URL, `html_url` the web URL;
   `{...}` fields are RFC 6570 URI Templates expanded client-side
@@ -613,8 +615,9 @@ How a request becomes a response today:
   `args.apiUrl ?? '/'`. Handlers read entities through selectors
   (`simulationStore.selectors.*`) and send them as JSON. Three helpers already
   derive host per request — `blobAsBase64`, `gitTrees`, `commitStatusResponse`
-  in `src/rest/utils.ts` receive `host: ${request.protocol}://${request.headers.host}`.
-  This is the pattern to generalize.
+  in `src/rest/utils.ts` receive
+  `host: ${request.protocol}://${request.headers.host}`. This is the pattern to
+  generalize.
 - GraphQL. `createHandler(simulationStore)` in `src/graphql/handler.ts` builds a
   Yoga server. Its `context({request})` parses the request actor into
   `GraphQLContext` (`src/graphql/resolvers.ts`). Resolvers call the module-level
@@ -633,16 +636,17 @@ Where URLs are baked today (all to be made override-only in Milestone 3):
   host `api.github.com`/`github.com` (override-preserving).
 - `src/store/entities/pull-request.ts:80-122` — `url`, `html_url`, `issue_url`.
 - `src/store/entities/organization.ts:10-97` — env var + reverse-parsed base.
-- `src/store/entities/commit.ts:70-97` — `url`, `html_url`, tree and parent URLs.
+- `src/store/entities/commit.ts:70-97` — `url`, `html_url`, tree and parent
+  URLs.
 - `src/store/entities/ref.ts:69-91` — `url`, `object.url`.
 - `src/store/entities/branch.ts:5-38` — `commit.url`, `protection_url`.
 
 Where stored URLs are read (all to be routed through projection):
 
 - REST: `repos/list-for-org`, `apps/list-repos-accessible-to-installation`,
-  `apps/create-installation-access-token` (repositories via
-  `allReposWithOrgs`); `issues/get`, `issues/list-for-repo`; `pulls/get`,
-  `pulls/list`; `git/get-commit`; `git/get-ref`; `repos/list-branches`; and the
+  `apps/create-installation-access-token` (repositories via `allReposWithOrgs`);
+  `issues/get`, `issues/list-for-repo`; `pulls/get`, `pulls/list`;
+  `git/get-commit`; `git/get-ref`; `repos/list-branches`; and the
   `orgs/list-memberships-for-authenticated-user` handler, which reads
   `organization.url` to build `${organization.url}/memberships/...`
   (`src/rest/index.ts:337-342`) — a concrete regression if org URLs become
@@ -665,20 +669,18 @@ Field host classification (the central policy, defined once in Milestone 2):
   `notifications_url`, `pulls_url`, `releases_url`, `stargazers_url`,
   `statuses_url`, `subscribers_url`, `subscription_url`, `tags_url`,
   `teams_url`, `trees_url`, `hooks_url`. Issue: `url`, `repository_url`. Pull
-  request: `url`, `issue_url`. Organization: `url`, `repos_url`,
-  `events_url`, `hooks_url`, `issues_url`, `members_url`,
-  `public_members_url`. Commit: top-level `url` and `parents[].url` use
-  `/commits/{sha}`; nested tree URLs and `commit.parents[].url` use Git data
-  endpoints. Ref: `url`, `object.url`. Branch: `commit.url`,
-  `protection_url`.
+  request: `url`, `issue_url`. Organization: `url`, `repos_url`, `events_url`,
+  `hooks_url`, `issues_url`, `members_url`, `public_members_url`. Commit:
+  top-level `url` and `parents[].url` use `/commits/{sha}`; nested tree URLs and
+  `commit.parents[].url` use Git data endpoints. Ref: `url`, `object.url`.
+  Branch: `commit.url`, `protection_url`.
 - Web-host fields — derived from `webBaseUrl` (= origin, no API root). Each
-  entity keeps its GitHub web path shape. Repository:
-  `html_url` (`${webBaseUrl}/${full_name}`). `homepage` is repository metadata,
-  not a navigation URL, so it is preserved only when explicitly stored. Issue:
-  `html_url`
-  (`${webBaseUrl}/${owner}/${repo}/issues/${number}`). Pull request: `html_url`
-  (`${webBaseUrl}/${owner}/${repo}/pull/${number}`). Commit: `html_url`
-  (`${webBaseUrl}/${owner}/${repo}/commit/${sha}`).
+  entity keeps its GitHub web path shape. Repository: `html_url`
+  (`${webBaseUrl}/${full_name}`). `homepage` is repository metadata, not a
+  navigation URL, so it is preserved only when explicitly stored. Issue:
+  `html_url` (`${webBaseUrl}/${owner}/${repo}/issues/${number}`). Pull request:
+  `html_url` (`${webBaseUrl}/${owner}/${repo}/pull/${number}`). Commit:
+  `html_url` (`${webBaseUrl}/${owner}/${repo}/commit/${sha}`).
 - External fixed fields — never host-rewritten (Constraint 5). `git_url`
   (`git://github.com/${full_name}.git`), `ssh_url`
   (`git@github.com:${full_name}.git`), `clone_url`
@@ -702,9 +704,9 @@ template, and confirm the two `apiRoot`-threading paths.
 
 - Add `tests/url-templates.golden.test.ts`: seed one repository, one issue, one
   pull request, one organization, one commit, one ref, and one branch through
-  the existing schemas, and snapshot every URL field with `bun:test`'s `to
-  MatchSnapshot`. This captures the current literals (including the `git_url`
-  defect) byte-for-byte as the pre-refactor baseline.
+  the existing schemas, and snapshot every URL field with `bun:test`'s
+  `to MatchSnapshot`. This captures the current literals (including the
+  `git_url` defect) byte-for-byte as the pre-refactor baseline.
 - Confirm, by reading, where `createHandler` is invoked (expected:
   `src/extend-api.ts`) and how `apiRoot` reaches it; record the exact path in
   this section before changing it. The REST `apiRoot` is already a parameter of
@@ -743,16 +745,18 @@ Behaviour:
 - `normalizeApiRoot` is total: `'/'` and `''` → `''`; ensures a single leading
   slash; strips trailing slashes; collapses internal `//`; trims whitespace;
   `'api/v3'` → `'/api/v3'`.
-- `buildBaseUrls`: `apiBaseUrl = ${protocol}://${host}${normalizeApiRoot(apiRoot)}`,
-  `webBaseUrl = ${protocol}://${host}`. If `host` is empty/whitespace, fall back
-  to `fallbackBaseUrl` (Decision D-7) and, failing that, throw
+- `buildBaseUrls`:
+  `apiBaseUrl = ${protocol}://${host}${normalizeApiRoot(apiRoot)}`,
+  `webBaseUrl = ${protocol}://${host}`. If `host` is empty/whitespace, fall
+  back to `fallbackBaseUrl` (Decision D-7) and, failing that, throw
   `Error('SIMULACAT: cannot derive base URL; request Host header missing')`.
   Construct via the WHATWG `URL` where practical so IPv6 (`[::1]:port`) and
   ports survive.
 - The adapter-specific extractors do not live here as framework-bound code;
-  instead the REST handler builds `{protocol: request.protocol, host:
-  request.headers.host ?? ''}` and the GraphQL context builds `{protocol, host:
-  request.headers.get('host') ?? ''}` and both call `buildBaseUrls`.
+  instead the REST handler builds
+  `{protocol: request.protocol, host: request.headers.host ?? ''}` and the
+  GraphQL context builds `{protocol, host: request.headers.get('host') ?? ''}`
+  and both call `buildBaseUrls`.
 
 Tests (`tests/request-url.test.ts`), Red first:
 
@@ -762,8 +766,8 @@ Tests (`tests/request-url.test.ts`), Red first:
 - Unit for `buildBaseUrls` over `apiRoot ∈ {'/', '/api/v3'}` and hosts
   `127.0.0.1:54321`, `[::1]:3300`, `Example.COM`, bare `localhost`.
 - Property test (fast-check): for any non-empty host and any apiRoot, the
-  resulting `apiBaseUrl` parses with `new URL`, has no `//` after the authority,
-  and round-trips its host.
+  resulting `apiBaseUrl` parses with `new URL`, has no `//` after the
+  authority, and round-trips its host.
 - Negative: empty/whitespace host throws the greppable error.
 
 Validation: `bun test tests/request-url.test.ts` — red before, green after.
@@ -808,22 +812,22 @@ so the projectors are proven correct before the store changes:
   API/web field of any projected entity contains `localhost:3300`,
   `api.github.com`, or `github.com`; external fields may.
 - RFC 6570 expansion contract test: expand each templated field (with a minimal
-  in-test expander or a dev-only `uri-templates` dependency — record in Decision
-  Log if added) and assert the result is a syntactically valid absolute URL
-  whose host is the request host.
+  in-test expander or a dev-only `uri-templates` dependency — record in
+  Decision Log if added) and assert the result is a syntactically valid
+  absolute URL whose host is the request host.
 
 Validation: `bun test tests/urls.test.ts` — red before, green after.
 
 ### Milestone 3 — make the store host-agnostic
 
-Edit each entity schema so the `.transform()` keeps non-URL derivations
-(`id`, `node_id`, `full_name`, `closed_at`, default `user`, etc.) but **stops
+Edit each entity schema so the `.transform()` keeps non-URL derivations (`id`,
+`node_id`, `full_name`, `closed_at`, default `user`, etc.) but **stops
 synthesizing host URLs**. URL fields remain optional in the schema and are
 stored only when the caller supplied them.
 
 - `src/store/entities/repository.ts`: remove the `host` constant and the ~40
-  URL assignments; keep id/node_id/full_name/topics defaults. Keep URL fields as
-  optional passthrough. Widen `mirror_url` and `homepage` to
+  URL assignments; keep id/node_id/full_name/topics defaults. Keep URL fields
+  as optional passthrough. Widen `mirror_url` and `homepage` to
   `z.string().nullable().optional()`.
 - `src/store/entities/{issue,pull-request,commit,ref,branch}.ts`: drop the
   `api.github.com`/`github.com` URL synthesis; keep override passthrough.
@@ -867,8 +871,8 @@ Validation: `bun test tests/entities.test.ts tests/urls.test.ts` green;
   ```
 
 - Extend `makeListHandler`/`makeItemHandler` with an optional
-  `project?: (item, baseUrls) => unknown`; when present, map the selector output
-  through it using `baseUrlsFor(request)`.
+  `project?: (item, baseUrls) => unknown`; when present, map the selector
+  output through it using `baseUrlsFor(request)`.
 - Apply projectors: repositories in `repos/list-for-org`,
   `apps/list-repos-accessible-to-installation`,
   `apps/create-installation-access-token`; issues in `issues/get` /
@@ -877,10 +881,10 @@ Validation: `bun test tests/entities.test.ts tests/urls.test.ts` green;
 - Organization memberships: project the organization (via
   `projectOrganizationUrls`) before building `${org.url}/memberships/...`.
 - Update `blobAsBase64`, `gitTrees`, and `commitStatusResponse`
-  (`src/rest/utils.ts`) to accept `apiBaseUrl` (from `baseUrlsFor`) instead of a
-  bare `host`, so their `*_url` fields are API-root-aware. Within
+  (`src/rest/utils.ts`) to accept `apiBaseUrl` (from `baseUrlsFor`) instead of
+  a bare `host`, so their `*_url` fields are API-root-aware. Within
   `commitStatusResponse`, build the embedded repository sub-object's
-  `trees_url`/`archive_url` from the same projector table.
+  `trees_url` /`archive_url` from the same projector table.
 
 Tests: rewrite `tests/rest-utils.test.ts` to pass an explicit injected
 `apiBaseUrl` and assert full URLs equal `${injectedBase}/...` (exact, not
@@ -931,9 +935,9 @@ Validation: red before, green after. `make test` passes.
   external-field assertion and the golden snapshot accordingly. Commit
   separately from the host-derivation work.
 - Remove now-unnecessary `biome-ignore`/`oxlint-disable` suppressions that were
-  attached to the old giant transform literals (the data-table projectors should
-  satisfy the complexity/length gates without them). Do not remove suppressions
-  that still apply.
+  attached to the old giant transform literals (the data-table projectors
+  should satisfy the complexity/length gates without them). Do not remove
+  suppressions that still apply.
 
 Validation: `make lint` passes without the removed suppressions; `make test`
 green.
@@ -944,8 +948,8 @@ green.
   now implemented and point to `src/http/request-url.ts` and `src/urls/`.
 - `docs/api-reference.md`: confirm the repository/issue/PR URL rows describe
   request-derived URLs and document the override and `apiRoot` behaviour.
-- `docs/github-rest-api-audit.md` §"Store and Modelling Constraints": replace the
-  "URLs assume `localhost:3300`" constraint with the new request-derived
+- `docs/github-rest-api-audit.md` §"Store and Modelling Constraints": replace
+  the "URLs assume `localhost:3300`" constraint with the new request-derived
   behaviour and the external-field exceptions.
 - `docs/development.md`: document the URL-policy modules and the
   store-is-host-agnostic invariant for contributors; note the fast-check URL
@@ -985,8 +989,8 @@ Run a single suite while iterating, for example:
 bun test tests/request-url.test.ts 2>&1 | tee /tmp/test-one-simulacat-core-$(git branch --show-current).out
 ```
 
-After all deterministic gates pass for a milestone, request a CodeRabbit
-review and clear every concern before the next milestone:
+After all deterministic gates pass for a milestone, request a CodeRabbit review
+and clear every concern before the next milestone:
 
 ```bash
 coderabbit review --agent 2>&1 | tee /tmp/coderabbit-simulacat-core-$(git branch --show-current).out
@@ -1002,22 +1006,22 @@ Acceptance is behavioural and observable:
 1. A simulator started with `app.listen(0)` returns, for
    `GET /repos/{owner}/{repo}`, `url`/`html_url`/`*_url` fields whose host and
    port equal the bound instance — not `localhost:3300`, not `api.github.com`.
-   The same holds for issues, pull
-   requests, commits, refs, branches, and organization membership, and through
-   GraphQL.
+   The same holds for issues, pull requests, commits, refs, branches, and
+   organization membership, and through GraphQL.
 2. With `apiUrl: '/api/v3'`, API-host URLs include exactly one `/api/v3`
    segment and no double slash; `html_url` (web) does not include the API root.
 3. A fixture that seeds a custom `html_url` returns it unchanged while sibling
    URLs derive; a fixture setting `mirror_url: null` returns JSON `null`.
-4. A navigation hop (fetch repository → expand `commits_url` → fetch that commit)
-   stays on the same instance at every hop.
+4. A navigation hop (fetch repository → expand `commits_url` → fetch that
+   commit) stays on the same instance at every hop.
 5. The deny-list property test finds no `localhost:3300`/`api.github.com`/
    `github.com` in any API/web field across generated inputs.
 
 Red-Green-Refactor evidence to record per milestone:
 
 - Red: the new test fails for the expected reason (for example
-  "received `http://localhost:3300/...`, expected `http://127.0.0.1:<port>/...`").
+  "received `http://localhost:3300/...`, expected
+  `http://127.0.0.1:<port>/...`").
 - Green: minimal projector/wiring change makes it pass.
 - Refactor: tidy, rerun the focused suite and the four gates.
 
@@ -1077,16 +1081,17 @@ Delivered behaviour matches the acceptance criteria. REST and GraphQL payload
 URLs for repository, organization, branch, ref, commit, issue, and pull request
 entities are projected from the request host and configured API root. Stored
 fixtures are host-agnostic unless a caller explicitly seeds a URL override, and
-external repository fields such as `clone_url`, `ssh_url`, `svn_url`,
-`git_url`, `mirror_url`, and `homepage` are not simulator-host rewritten.
+external repository fields such as `clone_url`, `ssh_url`, `svn_url`, `git_url`,
+`mirror_url`, and `homepage` are not simulator-host rewritten.
 
 Final deterministic validation passed with `make check-fmt`, `make test`,
-`make typecheck`, `make lint`, and `make --no-print-directory markdownlint
-nixie`. The final full test run reported 308 passing tests, 4 snapshots, and
-30516 assertions. CodeRabbit review for each major milestone completed with
-`findings: 0`; the only tolerance event was the expected recoverable
-CodeRabbit rate limit before the final documentation review, handled with the
-requested randomized `vsleep` backoff.
+`make typecheck`, `make lint`, and
+`make --no-print-directory markdownlint nixie`. The final full test run
+reported 308 passing tests, 4 snapshots, and 30516 assertions. CodeRabbit
+review for each major milestone completed with `findings: 0`; the only
+tolerance event was the expected recoverable CodeRabbit rate limit before the
+final documentation review, handled with the requested randomized `vsleep`
+backoff.
 
 Follow-on task 1.4.2 should use the request-derived URL projectors as its
 payload baseline and add real `github3.py` navigation tests rather than

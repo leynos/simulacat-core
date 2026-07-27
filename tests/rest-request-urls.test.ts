@@ -183,20 +183,20 @@ describe('request-scoped REST URLs', () => {
     });
   });
 
-  it.each(requestUrlCases)('derives organization membership URLs from apiRoot $apiRoot', async ({
-    apiRoot,
-    rootPath
-  }) => {
-    await withServer(apiRoot, async (origin) => {
-      const apiBaseUrl = `${origin}${rootPath}`;
-      const membership = await fetchListItem<MembershipPayload>(`${apiBaseUrl}/user/memberships/orgs`, {
-        headers: {[requestActorHeader]: 'user:dev'}
-      });
+  it.each(requestUrlCases)(
+    'derives organization membership URLs from apiRoot $apiRoot',
+    async ({apiRoot, rootPath}) => {
+      await withServer(apiRoot, async (origin) => {
+        const apiBaseUrl = `${origin}${rootPath}`;
+        const membership = await fetchListItem<MembershipPayload>(`${apiBaseUrl}/user/memberships/orgs`, {
+          headers: {[requestActorHeader]: 'user:dev'}
+        });
 
-      expect(membership.organization_url).toBe(`${apiBaseUrl}/orgs/lovely-org`);
-      expect(membership.organization.url).toBe(`${apiBaseUrl}/orgs/lovely-org`);
-      expect(membership.organization.html_url).toBe(`${origin}/lovely-org`);
-      expect(membership.organization.repos_url).toBe(`${apiBaseUrl}/orgs/lovely-org/repos`);
-    });
-  });
+        expect(membership.organization_url).toBe(`${apiBaseUrl}/orgs/lovely-org`);
+        expect(membership.organization.url).toBe(`${apiBaseUrl}/orgs/lovely-org`);
+        expect(membership.organization.html_url).toBe(`${origin}/lovely-org`);
+        expect(membership.organization.repos_url).toBe(`${apiBaseUrl}/orgs/lovely-org/repos`);
+      });
+    }
+  );
 });

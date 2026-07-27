@@ -1,9 +1,8 @@
 # Add shared domain actions for write behaviour (1.3.1)
 
-This ExecPlan (execution plan) is a living document. The sections
-`Constraints`, `Tolerances`, `Risks`, `Progress`, `Surprises & Discoveries`,
-`Decision Log`, and `Outcomes & Retrospective` must be kept up to date as work
-proceeds.
+This ExecPlan (execution plan) is a living document. The sections `Constraints`,
+`Tolerances`, `Risks`, `Progress`, `Surprises & Discoveries`, `Decision Log`,
+and `Outcomes & Retrospective` must be kept up to date as work proceeds.
 
 Status: COMPLETE
 
@@ -60,15 +59,14 @@ escalation, not a workaround.
   belongs in the REST or use-case adapter before the command reaches the
   reducer. It depends only on the `GitHubRepository` *type* and pure key
   helpers. This is the domain/policy core; the starfx thunk is its driven
-  adapter. (See
-  `$hexagonal-architecture`: protect the boundary through module purity, do not
-  transplant a parallel `src/domain` tree against the repository's existing
-  `src/store` colocation convention.)
+  adapter. (See `$hexagonal-architecture`: protect the boundary through module
+  purity, do not transplant a parallel `src/domain` tree against the
+  repository's existing `src/store` colocation convention.)
 - No actor/authentication or permission enforcement is added here. Mutating
   routes accept any plausible `Authorization` header without validation, as the
-  architecture guide already specifies for write routes
-  (`docs/architecture.md` §Repository label slice, §GitHub client
-  compatibility). Actor-aware write authorization is a separate slice.
+  architecture guide already specifies for write routes (`docs/architecture.md`
+  §Repository label slice, §GitHub client compatibility). Actor-aware write
+  authorization is a separate slice.
 - No new request-host URL derivation. REST repository payloads keep their
   seeded/default URLs. Deriving URLs from the inbound host is roadmap 1.4.1 and
   must not be pulled in here.
@@ -92,8 +90,8 @@ Stop and escalate when any of these is breached:
 - Scope: more than ~12 source files changed, or more than ~500 net lines of
   non-test code. The spine plus one demonstrator should be well under this.
 - Interface: if any *existing* public signature in `src/index.ts`,
-  `src/store/index.ts` selectors, or REST handler context must change
-  (as opposed to additive new exports), stop and escalate.
+  `src/store/index.ts` selectors, or REST handler context must change (as
+  opposed to additive new exports), stop and escalate.
 - Dependencies: if any new runtime dependency is required, stop and escalate.
   The Dafny/Lean toolchain needed by the optional LemmaScript proof (see Risks
   and "Optional proof milestone") is itself a tolerance breach: it must be
@@ -114,24 +112,24 @@ Stop and escalate when any of these is breached:
 
 - Risk R1: awaiting a dispatched starfx thunk may not guarantee the store
   update is visible to an immediate, synchronous re-read in the *same* handler.
-  Severity: medium. Likelihood: low–medium.
-  Mitigation: the roadmap success criterion is satisfied across *separate* HTTP
-  requests (write request, then read request), where any microtask/IO boundary
-  has already flushed — so the cross-surface acceptance test is robust
-  regardless. For the *write response itself*, `updateRepositoryUseCase`
-  awaits dispatch, then re-selects the persisted repository before the PATCH
-  handler shapes its response. Stage B includes a focused store-level test
-  that dispatches the action and asserts the new state is observable before
-  re-selection, which pins this settlement behaviour down early.
+  Severity: medium. Likelihood: low–medium. Mitigation: the roadmap success
+  criterion is satisfied across *separate* HTTP requests (write request, then
+  read request), where any microtask/IO boundary has already flushed — so the
+  cross-surface acceptance test is robust regardless. For the *write response
+  itself*, `updateRepositoryUseCase` awaits dispatch, then re-selects the
+  persisted repository before the PATCH handler shapes its response. Stage B
+  includes a focused store-level test that dispatches the action and asserts
+  the new state is observable before re-selection, which pins this settlement
+  behaviour down early.
 - Risk R2: returning a full repository object via `return {status, json}` runs
   the OpenAPI response validator, which is known to choke on nullable fields in
-  the GitHub schema. Severity: low.
-  Mitigation: emit responses with `response.status(200).json(...)` (the
-  validator-bypassing path the existing handlers use; see the documented
-  `apps/get-org-installation` comment in `src/rest/index.ts`).
+  the GitHub schema. Severity: low. Mitigation: emit responses with
+  `response.status(200).json(...)` (the validator-bypassing path the existing
+  handlers use; see the documented `apps/get-org-installation` comment in
+  `src/rest/index.ts`).
 - Risk R3: the `repos/update` OpenAPI operation may be subject to request-body
-  schema validation by openapi-backend. Severity: low.
-  Mitigation: the simulator mounts OpenAPI with `additionalOptions.quick: true`
+  schema validation by openapi-backend. Severity: low. Mitigation: the
+  simulator mounts OpenAPI with `additionalOptions.quick: true`
   (`src/rest/index.ts`), which skips precompiled validation; the handler reads
   `request.body` defensively and coerces fields itself.
 - Risk R4: LemmaScript is a Tech Preview and its Dafny/Lean backend is a
@@ -143,10 +141,9 @@ Stop and escalate when any of these is breached:
 - Risk R5: the `GitHubActions` type is derived as
   `ReturnType<typeof inputActions>`; widening it from `{}` to a real action map
   could ripple into the `ExtendedSimulationStore` generic and caller extension
-  types. Severity: low–medium.
-  Mitigation: keep `buildDomainActions` strongly typed and run `make typecheck`
-  after the wiring change before touching handlers; the type surface is
-  exercised by `tests/extension-handlers.test.ts`.
+  types. Severity: low–medium. Mitigation: keep `buildDomainActions` strongly
+  typed and run `make typecheck` after the wiring change before touching
+  handlers; the type surface is exercised by `tests/extension-handlers.test.ts`.
 
 ## Progress
 
@@ -191,21 +188,21 @@ Stop and escalate when any of these is breached:
   `docs/api-reference.md`, but no `docs/developers-guide.md` or
   `docs/documentation-style-guide.md`. Impact: Stage D will update
   `docs/api-reference.md` for public/internal API reference material and
-  `docs/users-guide.md` for user-facing behaviour rather than creating a
-  new developer guide only to satisfy a stale plan reference.
+  `docs/users-guide.md` for user-facing behaviour rather than creating a new
+  developer guide only to satisfy a stale plan reference.
 - Observation: `githubRepositorySchema` already includes both `description`
   and `homepage`. Evidence: `src/store/entities/repository.ts` fields in
   `githubRepositorySchema`. Impact: the demonstrator whitelist can remain
   `description` plus `homepage`; no schema expansion is needed.
 - Observation: `repos/get` and `repos/update` are present in the bundled REST
-  schema. Evidence: `schema/api.github.com.json` operation IDs at lines
-  27824 and 27874. Impact: implementation can add explicit handlers for
-  existing OpenAPI operations rather than altering the schema.
+  schema. Evidence: `schema/api.github.com.json` operation IDs at lines 27824
+  and 27874. Impact: implementation can add explicit handlers for existing
+  OpenAPI operations rather than altering the schema.
 - Observation: `Query.repository` reads from `selectors.getRepository` and
   then converts through `toGraphql(..., 'Repository', repo)`. Evidence:
   `src/graphql/resolvers.ts:createResolvers`. Impact: a store write to the
-  repository table is observable through the existing GraphQL read path with
-  no resolver change.
+  repository table is observable through the existing GraphQL read path with no
+  resolver change.
 - Observation: Stage B red tests now cover the reducer contract, store action,
   use case, REST/GraphQL read-your-write behaviour, Gherkin acceptance, and
   action extension coexistence. Evidence:
@@ -215,36 +212,34 @@ Stop and escalate when any of these is breached:
   fails because `PATCH /repos/acme/awesome-repo` returns the OpenAPI example
   repository instead of persisted fixture state;
   `/tmp/red-shared-domain-feature-simulacat-core-1-3-1-shared-domain-actions-for-write-behaviour.out`
-  fails because REST and GraphQL reads still see the original descriptions;
-  and
+  fails because REST and GraphQL reads still see the original descriptions; and
   `/tmp/red-extension-actions-simulacat-core-1-3-1-shared-domain-actions-for-write-behaviour.out`
   fails because `simulationStore.actions.updateRepository` is undefined.
   Impact: implementation can now proceed against observed failing behaviour.
 - Observation: Stage C introduced the shared action spine under
-  `src/store/actions/`: a pure repository reducer and command builder, a
-  generic `createEntityUpdateThunk`, a `dispatchWrite` helper, and
+  `src/store/actions/`: a pure repository reducer and command builder, a generic
+  `createEntityUpdateThunk`, a `dispatchWrite` helper, and
   `updateRepositoryUseCase`. `src/store/index.ts` now wires
-  `buildDomainActions(args)` through the built-in action set.
-  Impact: future mutable slices can reuse the reducer/thunk/use-case shape
-  rather than mutating tables in route handlers.
+  `buildDomainActions(args)` through the built-in action set. Impact: future
+  mutable slices can reuse the reducer/thunk/use-case shape rather than
+  mutating tables in route handlers.
 - Observation: `starfx` table `set` replaces the entire table, while `add`
   upserts the provided entities into the existing table. Evidence:
-  `node_modules/starfx/dist/esm/store/slice/table.js`; the focused
-  two-owner store test initially lost `globex/awesome-repo` when the adapter
-  used `table.set({[id]: entity})`. Impact: shared update thunks must use
+  `node_modules/starfx/dist/esm/store/slice/table.js`; the focused two-owner
+  store test initially lost `globex/awesome-repo` when the adapter used
+  `table.set({[id]: entity})`. Impact: shared update thunks must use
   `table.add` for whole-entity upserts unless a future slice intentionally
   replaces the full table.
 - Observation: caller action extensions must remain possible alongside
   built-in actions, and schema extensions are optional in real use. Evidence:
-  `tests/extension-handlers.test.ts` exercises an action-only
-  `extendStore` configuration. Impact: `GitHubExtendStoreInput` now allows
-  extra action names and keeps `schema` optional, matching the existing
-  runtime extension contract.
+  `tests/extension-handlers.test.ts` exercises an action-only `extendStore`
+  configuration. Impact: `GitHubExtendStoreInput` now allows extra action names
+  and keeps `schema` optional, matching the existing runtime extension contract.
 - Observation: the Stage C focused gate passes for store actions,
   repository write integration, cross-owner Gherkin scenarios, and extension
-  coexistence. The full Stage C commit gates also pass:
-  `make check-fmt`, `make markdownlint`, `make typecheck`, `make lint`, and
-  `make test` (275 tests). Evidence:
+  coexistence. The full Stage C commit gates also pass: `make check-fmt`,
+  `make markdownlint`, `make typecheck`, `make lint`, and `make test` (275
+  tests). Evidence:
   `/tmp/focused-stage-c-simulacat-core-1-3-1-shared-domain-actions-for-write-behaviour.out`
   plus
   `/tmp/check-fmt-simulacat-core-1-3-1-shared-domain-actions-for-write-behaviour-stage-c.out`,
@@ -264,9 +259,8 @@ Stop and escalate when any of these is breached:
   `docs/api-reference.md`, the repository metadata write workflow in
   `docs/users-guide.md`, the shared write module boundary in
   `docs/architecture.md` and `docs/development.md`, and marks roadmap item
-  1.3.1 complete in `docs/roadmap.md`.
-  Impact: user-facing and roadmap documentation now matches the delivered
-  mutation spine.
+  1.3.1 complete in `docs/roadmap.md`. Impact: user-facing and roadmap
+  documentation now matches the delivered mutation spine.
 - Observation: CodeRabbit reviewed the Stage D documentation commit
   (`2783f27`) with zero findings after the required rate-limit backoff.
   Evidence:
@@ -280,56 +274,50 @@ Stop and escalate when any of these is breached:
   REST (`repos/list-for-org`) and GraphQL (`Query.repository`). Issues and pull
   requests have REST reads but no GraphQL reads yet (roadmap phase 2), so they
   cannot satisfy the "one REST and one GraphQL-facing read path" criterion
-  without expanding GraphQL coverage out of scope.
-  Date/Author: 2026-06-17, planning.
+  without expanding GraphQL coverage out of scope. Date/Author: 2026-06-17,
+  planning.
 - Decision: write only `description` and `homepage`.
   Rationale: benign descriptive metadata that is unambiguously not repository
   *policy*; avoids front-running phase 4 settings work while still proving a
   real, observable mutation. `description` is the asserted field because it is
-  already exposed by both surfaces.
-  Date/Author: 2026-06-17, planning.
+  already exposed by both surfaces. Date/Author: 2026-06-17, planning.
 - Decision: the reducer does not touch `updated_at`/`pushed_at`.
   Rationale: keeping the reducer a pure, clock-free function makes it
   unit-testable, property-testable, and (optionally) formally provable without
-  a time port. Timestamp-on-write is a later, separate concern.
-  Date/Author: 2026-06-17, planning.
+  a time port. Timestamp-on-write is a later, separate concern. Date/Author:
+  2026-06-17, planning.
 - Decision: place pure reducers under `src/store/actions/<entity>.ts` rather
-  than a new top-level `src/domain/` tree.
-  Rationale: the repository colocates entity logic under `src/store`
-  (`AGENTS.md`: "group by feature, not layer"); the hexagonal boundary is
-  enforced through *module purity* and an import lint, not through a parallel
-  directory transplant. This matches `$hexagonal-architecture`'s guidance to
-  protect boundaries rather than impose a pattern.
-  Date/Author: 2026-06-17, planning.
+  than a new top-level `src/domain/` tree. Rationale: the repository colocates
+  entity logic under `src/store` (`AGENTS.md`: "group by feature, not layer");
+  the hexagonal boundary is enforced through *module purity* and an import
+  lint, not through a parallel directory transplant. This matches
+  `$hexagonal-architecture`'s guidance to protect boundaries rather than impose
+  a pattern. Date/Author: 2026-06-17, planning.
 - Decision: the write response is built by **re-selecting the persisted entity
   after the dispatched action settles** (read-your-write), so the PATCH body is
-  identical to a subsequent GET.
-  Rationale: a PATCH response that diverges from GET is a contract bug
-  (Telefono). Cross-surface acceptance is still asserted across separate
-  requests, which is robust regardless of settlement.
-  This is the delivered response-construction path.
-  Date/Author: 2026-06-17, planning (revised after design review).
+  identical to a subsequent GET. Rationale: a PATCH response that diverges from
+  GET is a contract bug (Telefono). Cross-surface acceptance is still asserted
+  across separate requests, which is robust regardless of settlement. This is
+  the delivered response-construction path. Date/Author: 2026-06-17, planning
+  (revised after design review).
 - Decision: introduce an application-layer use case (`updateRepositoryUseCase`)
   and a thunk factory (`createEntityUpdateThunk`) even though only one action
-  ships now.
-  Rationale: design review (Pandalump/Doggylump) found that leaving
+  ships now. Rationale: design review (Pandalump/Doggylump) found that leaving
   guard+dispatch+reselect inline in the route would make the next slice copy
   route-local orchestration — the very smell 1.3.1 removes. The use case is the
   shared driving port; the factory is the shared driven-adapter seam. Together
   they are the actual reusable "spine" that PR lifecycle, labels, and reviews
-  build on.
-  Date/Author: 2026-06-17, planning (added after design review).
+  build on. Date/Author: 2026-06-17, planning (added after design review).
 - Decision: the demonstrator command type is
-  `Partial<Record<RepositoryWritableField, string | undefined>>`
-  (string-only values, with optional generated entries tolerated).
-  Rationale: `description` and `homepage` are both strings. Boolean policy
-  fields (e.g. `private`) are out of scope (phase 4); when a later slice needs
-  them the command/whitelist types widen to a field→value union. The
-  `undefined` allowance reflects exact optional property typing and property
-  test generation; `buildUpdateRepositoryCommand` still accepts only string
-  values from adapter bodies. Noted so the narrowing is a deliberate,
-  documented choice rather than an oversight.
-  Date/Author: 2026-06-17, planning (added after design review).
+  `Partial<Record<RepositoryWritableField, string | undefined>>` (string-only
+  values, with optional generated entries tolerated). Rationale: `description`
+  and `homepage` are both strings. Boolean policy fields (e.g. `private`) are
+  out of scope (phase 4); when a later slice needs them the command/whitelist
+  types widen to a field→value union. The `undefined` allowance reflects exact
+  optional property typing and property test generation;
+  `buildUpdateRepositoryCommand` still accepts only string values from adapter
+  bodies. Noted so the narrowing is a deliberate, documented choice rather than
+  an oversight. Date/Author: 2026-06-17, planning (added after design review).
 - Decision: LemmaScript proof is optional and gate-isolated.
   Rationale: it introduces a Dafny/Lean toolchain dependency (Tech Preview);
   fast-check property tests provide the primary invariant evidence in-repo.
@@ -337,14 +325,13 @@ Stop and escalate when any of these is breached:
 - Decision: move from draft to implementation on 2026-06-26.
   Rationale: the user explicitly requested implementation of this ExecPlan
   after the rebase, which satisfies the approval gate described by the
-  `execplans` skill for this already-authored plan.
-  Date/Author: 2026-06-26, implementation.
+  `execplans` skill for this already-authored plan. Date/Author: 2026-06-26,
+  implementation.
 - Decision: document the action-spine API in `docs/api-reference.md` rather
-  than `docs/developers-guide.md`.
-  Rationale: `docs/developers-guide.md` does not exist in this branch, while
-  `docs/api-reference.md` is the existing public API document and already
-  describes extension hooks. Creating a new guide would be a documentation
-  structure change unrelated to the write spine.
+  than `docs/developers-guide.md`. Rationale: `docs/developers-guide.md` does
+  not exist in this branch, while `docs/api-reference.md` is the existing
+  public API document and already describes extension hooks. Creating a new
+  guide would be a documentation structure change unrelated to the write spine.
   Date/Author: 2026-06-26, implementation.
 
 ## Context and orientation
@@ -359,8 +346,8 @@ the architecture guide at `docs/architecture.md` and the development guide at
 Key files a novice will touch or read:
 
 - `src/store/index.ts` — builds the store schema, the built-in action set
-  (`inputActions`, currently `() => ({})`), and selectors. `extendStore`
-  merges caller extensions. This is where the spine is wired in.
+  (`inputActions`, currently `() => ({})`), and selectors. `extendStore` merges
+  caller extensions. This is where the spine is wired in.
 - `src/store/entities/repository.ts` — `githubRepositorySchema`,
   `GitHubRepository`, `repositoryStoreKey({owner, name})`. The store key is
   `owner/name`.
@@ -383,8 +370,8 @@ uses):
   Inside a thunk, whole-entity upserts write state with
   `yield* schema.update(schema.<slice>.add({[key]: entity}))` (or `.merge` /
   `.patch` for partial field updates). `set` replaces the entire table and is
-  reserved for deliberate, complete-table replacement. The table slice
-  updaters are `add`, `set`, `remove`, `patch`, `merge`, `reset` (see starfx
+  reserved for deliberate, complete-table replacement. The table slice updaters
+  are `add`, `set`, `remove`, `patch`, `merge`, `reset` (see starfx
   `store/slice/table.d.ts`).
 - Actions are dispatched with
   `simulationStore.store.dispatch(simulationStore.actions.<name>(payload))`.
@@ -525,9 +512,9 @@ shared shaping helper:
   serialization point for a repository.
 - `'repos/update'` — `PATCH /repos/{owner}/{repo}`: guards with
   `requireRepository`; builds a command with the adapter-facing
-  `buildUpdateRepositoryCommand`;
-  calls `updateRepositoryUseCase(simulationStore, command)`; on `not-found`
-  responds `404` (shared `notFound`); on success responds `200` with
+  `buildUpdateRepositoryCommand`; calls
+  `updateRepositoryUseCase(simulationStore, command)`; on `not-found` responds
+  `404` (shared `notFound`); on success responds `200` with
   `shapeRepository(getState(), owner, repo)` — i.e. the **persisted,
   re-selected** entity, so the PATCH body is identical to a subsequent GET
   (read-your-write). The handler itself stays tiny; orchestration lives in the
@@ -553,7 +540,8 @@ Stage A — understand and propose (no code changes).
    129) and that `repos/list-for-org` returns repositories including
    `description`.
 3. Confirm `repos/update` and `repos/get` operationIds exist in
-   `schema/api.github.com.json` (they do: PATCH and GET `/repos/{owner}/{repo}`).
+   `schema/api.github.com.json` (they do: PATCH and GET
+   `/repos/{owner}/{repo}`).
 4. Finalize the writable field set. `description` is the asserted field and is
    confirmed present in `githubRepositorySchema`. Verify `homepage` is also in
    `githubRepositorySchema` (`src/store/entities/repository.ts`); if it is not,
@@ -600,11 +588,11 @@ named below.
      `simulationStore.actions` and typecheck — so widening `GitHubActions` from
      `{}` does not break caller action extensions.
 2. `tests/repository-write.test.ts` (integration, `bun:test`): start a server
-   with `simulation({initialState}).listen(0)`; `PATCH
-   /repos/{owner}/{repo}` with a JSON body `{description: '...'}`; assert `200`
-   and that the response body carries the new description; then issue a **REST
-   read** (`GET /repos/{owner}/{repo}` and `GET /orgs/{org}/repos`) and a
-   **GraphQL read** (`POST /graphql` with
+   with `simulation({initialState}).listen(0)`; `PATCH /repos/{owner}/{repo}`
+   with a JSON body `{description: '...'}`; assert `200` and that the response
+   body carries the new description; then issue a **REST read**
+   (`GET /repos/{owner}/{repo}` and `GET /orgs/{org}/repos`) and a **GraphQL
+   read** (`POST /graphql` with
    `query { repository(owner, name) { description } }`) and assert both reflect
    the new description. Mirror `tests/repositories.test.ts` and
    `tests/graphql.test.ts` for the request idioms.
@@ -636,10 +624,10 @@ Stage C — implementation (minimal change to pass the red tests).
    `buildDomainActions(args)`. Run `make typecheck` immediately (Risk R5).
 6. Edit `src/rest/index.ts` — add the `shapeRepository` helper and the
    `'repos/update'` and `'repos/get'` handlers as specified in Interfaces. The
-   handlers stay tiny (parse params/body, parse the request body with Zod,
-   call the use case, shape the result); orchestration lives in the use case,
-   not the route. Prefer small extracted helpers over complexity suppressions
-   to stay within the maintainability gates.
+   handlers stay tiny (parse params/body, parse the request body with Zod, call
+   the use case, shape the result); orchestration lives in the use case, not
+   the route. Prefer small extracted helpers over complexity suppressions to
+   stay within the maintainability gates.
 7. Export the new public types/functions from `src/index.ts` that a consumer or
    later slice would reasonably need (`UpdateRepositoryCommand`,
    `applyRepositoryUpdate`, `createEntityUpdateThunk`). Keep exports additive.
@@ -658,9 +646,9 @@ Stage D — refactor, documentation, cleanup.
    that REST/GraphQL handlers must call shared actions rather than editing
    state locally, and the property-test expectation for write invariants.
 3. Update `docs/users-guide.md`: document the new observable behaviour — a
-   `PATCH /repos/{owner}/{repo}` updates `description`/`homepage` and the change
-   is visible through REST and GraphQL reads; note that other `repos/update`
-   fields are accepted but not yet applied.
+   `PATCH /repos/{owner}/{repo}` updates `description`/`homepage` and the
+   change is visible through REST and GraphQL reads; note that other
+   `repos/update` fields are accepted but not yet applied.
 4. Update `docs/api-reference.md`: document the internal action-spine API
    (`buildDomainActions`, `applyRepositoryUpdate`, `dispatchWrite`), the
    hexagonal boundary, and how a future slice adds a new action.
@@ -681,9 +669,9 @@ bun test tests/store-actions.test.ts 2>&1 | tee /tmp/red-store-actions.out
 bun test tests/repository-write.test.ts 2>&1 | tee /tmp/red-repo-write.out
 ```
 
-Expected: failures referencing missing modules
-(`src/store/actions/...`) and missing `repos/update`/`repos/get` routes
-(404 / unhandled), and a GraphQL/REST description mismatch.
+Expected: failures referencing missing modules (`src/store/actions/...`) and
+missing `repos/update`/`repos/get` routes (404 / unhandled), and a GraphQL/REST
+description mismatch.
 
 Green (after implementation):
 
@@ -721,23 +709,22 @@ action"):
 1. Start a simulator seeded with an organization `acme` and a repository
    `acme/awesome-repo` (description `Generic repository description`).
 2. `PATCH /repos/acme/awesome-repo` with body
-   `{"description": "Patched via shared action"}` returns `200` and a body
-   whose `description` is `Patched via shared action`.
-3. `GET /repos/acme/awesome-repo` returns `description = "Patched via shared
-   action"` (REST read path #1).
+   `{"description": "Patched via shared action"}` returns `200` and a body whose
+   `description` is `Patched via shared action`.
+3. `GET /repos/acme/awesome-repo` returns
+   `description = "Patched via shared action"` (REST read path #1).
 4. `GET /orgs/acme/repos` returns the repository with the same description
    (REST read path #2, pre-existing route).
 5. `POST /graphql` with
    `query { repository(owner: "acme", name: "awesome-repo") { description } }`
-   returns `data.repository.description = "Patched via shared action"`
-   (GraphQL read path).
+   returns `data.repository.description = "Patched via shared action"` (GraphQL
+   read path).
 
 Red-Green-Refactor evidence to record in this section as work proceeds:
 
 - Red: paste the failing transcript from `/tmp/red-*.out` showing the tests
   fail for the intended reasons (missing modules/routes, mismatched
-  description).
-  Evidence captured on 2026-06-26:
+  description). Evidence captured on 2026-06-26:
   - `/tmp/red-store-actions-simulacat-core-1-3-1-shared-domain-actions-for-write-behaviour.out`
     shows `Cannot find module '../src/store/actions/repository.ts'`.
   - `/tmp/red-repository-write-simulacat-core-1-3-1-shared-domain-actions-for-write-behaviour.out`
@@ -791,9 +778,10 @@ breach** and must be approved before being attempted. Therefore:
 - If the maintainer approves the toolchain, add the proof as an **additive,
   separately-gated** artefact: annotate `src/store/actions/repository.ts` (or a
   proof-only mirror) with `//@ ensures`/`//@ requires` and run
-  `bunx lsc gen --backend=dafny` / `bunx lsc check --backend=dafny`, keeping the
-  generated `.dfy.gen`/`.dfy` under a `proofs/` path with its own make target —
-  never in the default `make all` path until the team decides otherwise.
+  `bunx lsc gen --backend=dafny` / `bunx lsc check --backend=dafny`, keeping
+  the generated `.dfy.gen`/`.dfy` under a `proofs/` path with its own make
+  target — never in the default `make all` path until the team decides
+  otherwise.
 - If approval is withheld, record in the Decision Log that fast-check property
   tests are the chosen substitute and why (no Dafny/Lean dependency in the gate
   for a single descriptive-field reducer).
@@ -802,22 +790,29 @@ This proof remains optional and non-blocking for plan completion.
 
 ## Idempotence and recovery
 
-All steps are re-runnable. The new modules and handlers are additive; re-running
-Stage C edits is safe (idempotent file writes / unique handler keys). If a gate
-fails mid-way, fix forward and re-run the specific gate via `tee`. No
-destructive operations are involved; no migrations, no data deletion. Reverting
-is a `git revert`/branch reset away because work is committed in small,
-gated increments.
+All steps are re-runnable. The new modules and handlers are additive;
+re-running Stage C edits is safe (idempotent file writes / unique handler
+keys). If a gate fails mid-way, fix forward and re-run the specific gate via
+`tee`. No destructive operations are involved; no migrations, no data deletion.
+Reverting is a `git revert`/branch reset away because work is committed in
+small, gated increments.
 
 ## Artefacts and notes
 
-- OpenAPI `repos/update` request body exposes: `name, description, homepage,
-  private, visibility, security_and_analysis, has_issues, has_projects,
-  has_wiki, is_template, default_branch, allow_squash_merge,
+- OpenAPI `repos/update` request body exposes:
+
+  ```text
+  name, description, homepage, private, visibility,
+  security_and_analysis, has_issues, has_projects, has_wiki,
+  is_template, default_branch, allow_squash_merge,
   allow_merge_commit, allow_rebase_merge, allow_auto_merge,
-  delete_branch_on_merge, allow_update_branch, use_squash_pr_title_as_default,
-  squash_merge_commit_title, squash_merge_commit_message, merge_commit_title,
-  merge_commit_message, archived, allow_forking, web_commit_signoff_required`.
+  delete_branch_on_merge, allow_update_branch,
+  use_squash_pr_title_as_default, squash_merge_commit_title,
+  squash_merge_commit_message, merge_commit_title,
+  merge_commit_message, archived, allow_forking,
+  web_commit_signoff_required
+  ```
+
   Only `description` and `homepage` are applied here; the rest are accepted and
   ignored (policy fields are roadmap phase 4).
 - starfx table slice updaters available on `schema.repositories`: `add`, `set`,
@@ -862,24 +857,23 @@ unless full replacement is explicitly intended.
 - 2026-07-15 — Addressed review feedback after re-verifying each report against
   the live branch. The REST response now shapes an already-resolved repository
   through `getRepositoryWithOwner`, preserving user-owned repository reads and
-  writes; both behavioural and Gherkin coverage now exercise that path.
-  PATCH input is validated with Zod, GraphQL description assertions share one
-  helper, and scenario servers close in an `After` hook. The public action
-  surface has compile-time assertions, while bounded PATCH-only outcome metrics
-  and optional diagnostic logs cover the new write boundary. The markdownlint
-  pin was intentionally unchanged because `Makefile`, `package.json`, and
+  writes; both behavioural and Gherkin coverage now exercise that path. PATCH
+  input is validated with Zod, GraphQL description assertions share one helper,
+  and scenario servers close in an `After` hook. The public action surface has
+  compile-time assertions, while bounded PATCH-only outcome metrics and
+  optional diagnostic logs cover the new write boundary. The markdownlint pin
+  was intentionally unchanged because `Makefile`, `package.json`, and
   `bun.lock` already resolve `markdownlint-cli2` at 0.22.1.
 - 2026-06-17 — Initial draft, then revised after a Logisphere design review.
-  What changed: added an application-layer use case
-  (`updateRepositoryUseCase`) and a thunk factory (`createEntityUpdateThunk`)
-  so the spine is a genuine reuse seam rather than route-local orchestration;
-  changed the write response to re-select the persisted entity (PATCH body ==
-  GET body); added a Stage-A settlement spike and a `homepage` schema check;
-  added a type-regression guard test for the `GitHubActions` widening;
-  recorded the string-only command type as a deliberate, documented narrowing.
-  Why: the review found the original draft centralized the reducer but not the
-  orchestration, which would have let the next slice reintroduce the
-  route-local writes 1.3.1 exists to remove. Effect on remaining work: Stage C
-  gains two small files (`repository-use-case.ts`, the factory in
-  `actions/index.ts`); the REST handlers shrink to thin adapters; no change to
-  the success criterion.
+  What changed: added an application-layer use case (`updateRepositoryUseCase`)
+  and a thunk factory (`createEntityUpdateThunk`) so the spine is a genuine
+  reuse seam rather than route-local orchestration; changed the write response
+  to re-select the persisted entity (PATCH body == GET body); added a Stage-A
+  settlement spike and a `homepage` schema check; added a type-regression guard
+  test for the `GitHubActions` widening; recorded the string-only command type
+  as a deliberate, documented narrowing. Why: the review found the original
+  draft centralized the reducer but not the orchestration, which would have let
+  the next slice reintroduce the route-local writes 1.3.1 exists to remove.
+  Effect on remaining work: Stage C gains two small files
+  (`repository-use-case.ts`, the factory in `actions/index.ts`); the REST
+  handlers shrink to thin adapters; no change to the success criterion.

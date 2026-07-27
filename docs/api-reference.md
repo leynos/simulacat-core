@@ -53,10 +53,10 @@ state, REST handlers, GraphQL resolvers, and a few convenience routes.
   either the selected user or an unauthenticated failure result while recording
   the same actor observability as built-in handlers.
 
-`src/rest/actor-context.ts` exports `requireRestUserActor(request,
-simulationStore, surface)` for REST and extension handlers that should read
-middleware-attached context or fall back to request headers when middleware did
-not run.
+`src/rest/actor-context.ts` exports
+`requireRestUserActor(request, simulationStore, surface)` for REST and
+extension handlers that should read middleware-attached context or fall back to
+request headers when middleware did not run.
 
 ## Exported fixture schemas
 
@@ -134,38 +134,38 @@ remain later work.
 
 ### `githubOrganizationSchema`
 
-| Field         | Type                       | Required        | Default                     | Notes                                                 |
-| ------------- | -------------------------- | --------------- | --------------------------- | ----------------------------------------------------- |
-| `login`       | `string`                   | Yes             | None                        | Canonical organization key in the seeded store.       |
-| `id`          | `number`                   | No              | `4000`                      | Preserved when supplied explicitly.                   |
-| `type`        | `'User' \| 'Organization'` | No              | `'Organization'`            | Controls generated installation `target_type`.        |
-| `description` | `string`                   | No              | `'Generic org description'` | Used in GraphQL organization payloads.                |
-| `avatar_url`  | `string`                   | No              | GitHub octocat error image  | Exposed through GraphQL owner fields.                 |
-| `name`        | `string`                   | No              | Falls back to `login`       | Human-readable display name.                          |
-| `email`       | `string`                   | No              | Generated email address     | Falls back to a Faker-generated address when omitted. |
+| Field         | Type                       | Required | Default                     | Notes                                                 |
+| ------------- | -------------------------- | -------- | --------------------------- | ----------------------------------------------------- |
+| `login`       | `string`                   | Yes      | None                        | Canonical organization key in the seeded store.       |
+| `id`          | `number`                   | No       | `4000`                      | Preserved when supplied explicitly.                   |
+| `type`        | `'User' \| 'Organization'` | No       | `'Organization'`            | Controls generated installation `target_type`.        |
+| `description` | `string`                   | No       | `'Generic org description'` | Used in GraphQL organization payloads.                |
+| `avatar_url`  | `string`                   | No       | GitHub octocat error image  | Exposed through GraphQL owner fields.                 |
+| `name`        | `string`                   | No       | Falls back to `login`       | Human-readable display name.                          |
+| `email`       | `string`                   | No       | Generated email address     | Falls back to a Faker-generated address when omitted. |
 
 ### `githubRepositorySchema`
 
-| Field            | Type                    | Required   | Default                                              | Notes                                                    |
-| ---------------- | ----------------------- | ---------- | ---------------------------------------------------- | -------------------------------------------------------- |
-| `owner`          | `string`                | Yes        | None                                                 | Used with `name` to form the canonical `owner/name` key. |
-| `name`           | `string`                | Yes        | None                                                 | Repository name within the owner namespace.              |
-| `id`             | `number`                | No         | Generated from a resettable counter seeded at `3000` | Preserved when supplied explicitly.                      |
-| `node_id`        | `string`                | No         | Base64 `Repository:owner/name`                       | Preserved when supplied explicitly.                      |
-| `full_name`      | `string`                | No         | Derived as `${owner}/${name}`                        | Recomputed during schema transform.                      |
-| `visibility`     | `'public' \| 'private'` | No         | `'public'`                                           | Mapped into GraphQL repository visibility.               |
-| `default_branch` | `string`                | No         | `'main'`                                             | Used for the placeholder `defaultBranchRef`.             |
-| `url`            | `string`                | No         | Derived at response time                             | Uses the request host and `apiUrl` unless seeded.        |
+| Field            | Type                    | Required | Default                                              | Notes                                                    |
+| ---------------- | ----------------------- | -------- | ---------------------------------------------------- | -------------------------------------------------------- |
+| `owner`          | `string`                | Yes      | None                                                 | Used with `name` to form the canonical `owner/name` key. |
+| `name`           | `string`                | Yes      | None                                                 | Repository name within the owner namespace.              |
+| `id`             | `number`                | No       | Generated from a resettable counter seeded at `3000` | Preserved when supplied explicitly.                      |
+| `node_id`        | `string`                | No       | Base64 `Repository:owner/name`                       | Preserved when supplied explicitly.                      |
+| `full_name`      | `string`                | No       | Derived as `${owner}/${name}`                        | Recomputed during schema transform.                      |
+| `visibility`     | `'public' \| 'private'` | No       | `'public'`                                           | Mapped into GraphQL repository visibility.               |
+| `default_branch` | `string`                | No       | `'main'`                                             | Used for the placeholder `defaultBranchRef`.             |
+| `url`            | `string`                | No       | Derived at response time                             | Uses the request host and `apiUrl` unless seeded.        |
 
 ### `githubBranchSchema`
 
-| Field       | Type                             | Required | Default  | Notes                                                                                          |
-| ----------- | -------------------------------- | -------- | -------- | ---------------------------------------------------------------------------------------------- |
-| `owner`     | `string`                         | Yes      | None     | Used with `repo` and `name` to form the canonical branch key.                                  |
-| `repo`      | `string`                         | Yes      | None     | Repository component of the canonical branch key.                                              |
-| `name`      | `string`                         | No       | `'main'` | Branch or ref name.                                                                            |
-| `protected` | `boolean`                        | No       | `true`   | Mirrors the REST branch payload field.                                                         |
-| `commit`    | `{ sha?: string; url?: string }` | No       | `{}`     | `commit.sha` is generated; `commit.url` is projected unless seeded.                            |
+| Field       | Type                             | Required | Default  | Notes                                                               |
+| ----------- | -------------------------------- | -------- | -------- | ------------------------------------------------------------------- |
+| `owner`     | `string`                         | Yes      | None     | Used with `repo` and `name` to form the canonical branch key.       |
+| `repo`      | `string`                         | Yes      | None     | Repository component of the canonical branch key.                   |
+| `name`      | `string`                         | No       | `'main'` | Branch or ref name.                                                 |
+| `protected` | `boolean`                        | No       | `true`   | Mirrors the REST branch payload field.                              |
+| `commit`    | `{ sha?: string; url?: string }` | No       | `{}`     | `commit.sha` is generated; `commit.url` is projected unless seeded. |
 
 ### `githubBlobSchema`
 
@@ -279,29 +279,29 @@ flat route list.
 
 ### GraphQL fields
 
-| Surface                                 | Classification       | Current behaviour                                                                         |
-| --------------------------------------- | -------------------- | ----------------------------------------------------------------------------------------- |
-| `viewer`                                | Partially scriptable | Uses GraphQL request actor context to resolve the selected `user:<login>` actor.          |
-| `user(login: String!)`                  | Fully scriptable     | Store-backed user lookup by login.                                                        |
-| `organization(login: String!)`          | Fully scriptable     | Store-backed organization lookup by login.                                                |
-| `repository(...)`                       | Fully scriptable     | Store-backed repository lookup with case-insensitive owner/name matching.                 |
-| `repositoryOwner(login: String!)`       | Fully scriptable     | Resolves to either a user or organization from the store.                                 |
-| `Repository.id`                         | Fully scriptable     | Exposes the repository `node_id`, derived as base64 `Repository:owner/name` by default.   |
-| `Repository.owner`                      | Fully scriptable     | Derived from seeded owner data and mapped into the GraphQL owner shape.                   |
-| `Repository.defaultBranchRef`           | Fully scriptable     | Returns a seeded default-branch ref when present, otherwise the legacy placeholder.       |
-| `Repository.ref(qualifiedName:)`        | Fully scriptable     | Returns a seeded ref, including a commit target when that commit is seeded.               |
-| `Repository.refs(refPrefix:)`           | Fully scriptable     | Returns seeded refs matching the supplied prefix.                                         |
-| `Repository.issue(number:)`             | Fully scriptable     | Returns a seeded issue by repository and number.                                          |
-| `Repository.issues`                     | Fully scriptable     | Returns seeded repository issues through a Relay connection.                              |
-| `Repository.pullRequest(number:)`       | Fully scriptable     | Returns a seeded pull request by repository and number.                                   |
-| `Repository.pullRequests`               | Fully scriptable     | Returns seeded repository pull requests through a Relay connection.                       |
-| `Repository.languages`                  | Schema-stubbed       | Exposed through the schema, but still derived from lightweight placeholder data.          |
-| `Repository.repositoryTopics`           | Schema-stubbed       | Returns topic names from repository fixture metadata rather than a richer topic model.    |
-| `User.organizations`                    | Fully scriptable     | Relay connection backed by the user's seeded organization logins.                         |
-| `Organization.teams`                    | Placeholder-only     | Always returns an empty connection today.                                                 |
-| `Organization.membersWithRole`          | Placeholder-only     | Always returns an empty connection today.                                                 |
-| `RepositoryOwner.repositories`          | Fully scriptable     | Relay connection backed by repositories whose owner matches the seeded login.             |
-| `Repository.collaborators`              | Placeholder-only     | No collaborator model exists, so callers only see placeholder empty results when exposed. |
+| Surface                           | Classification       | Current behaviour                                                                         |
+| --------------------------------- | -------------------- | ----------------------------------------------------------------------------------------- |
+| `viewer`                          | Partially scriptable | Uses GraphQL request actor context to resolve the selected `user:<login>` actor.          |
+| `user(login: String!)`            | Fully scriptable     | Store-backed user lookup by login.                                                        |
+| `organization(login: String!)`    | Fully scriptable     | Store-backed organization lookup by login.                                                |
+| `repository(...)`                 | Fully scriptable     | Store-backed repository lookup with case-insensitive owner/name matching.                 |
+| `repositoryOwner(login: String!)` | Fully scriptable     | Resolves to either a user or organization from the store.                                 |
+| `Repository.id`                   | Fully scriptable     | Exposes the repository `node_id`, derived as base64 `Repository:owner/name` by default.   |
+| `Repository.owner`                | Fully scriptable     | Derived from seeded owner data and mapped into the GraphQL owner shape.                   |
+| `Repository.defaultBranchRef`     | Fully scriptable     | Returns a seeded default-branch ref when present, otherwise the legacy placeholder.       |
+| `Repository.ref(qualifiedName:)`  | Fully scriptable     | Returns a seeded ref, including a commit target when that commit is seeded.               |
+| `Repository.refs(refPrefix:)`     | Fully scriptable     | Returns seeded refs matching the supplied prefix.                                         |
+| `Repository.issue(number:)`       | Fully scriptable     | Returns a seeded issue by repository and number.                                          |
+| `Repository.issues`               | Fully scriptable     | Returns seeded repository issues through a Relay connection.                              |
+| `Repository.pullRequest(number:)` | Fully scriptable     | Returns a seeded pull request by repository and number.                                   |
+| `Repository.pullRequests`         | Fully scriptable     | Returns seeded repository pull requests through a Relay connection.                       |
+| `Repository.languages`            | Schema-stubbed       | Exposed through the schema, but still derived from lightweight placeholder data.          |
+| `Repository.repositoryTopics`     | Schema-stubbed       | Returns topic names from repository fixture metadata rather than a richer topic model.    |
+| `User.organizations`              | Fully scriptable     | Relay connection backed by the user's seeded organization logins.                         |
+| `Organization.teams`              | Placeholder-only     | Always returns an empty connection today.                                                 |
+| `Organization.membersWithRole`    | Placeholder-only     | Always returns an empty connection today.                                                 |
+| `RepositoryOwner.repositories`    | Fully scriptable     | Relay connection backed by repositories whose owner matches the seeded login.             |
+| `Repository.collaborators`        | Placeholder-only     | No collaborator model exists, so callers only see placeholder empty results when exposed. |
 
 Anything not listed in the tables above should be treated as unsupported until
 the package adds either explicit scripting or documented schema-stubbed

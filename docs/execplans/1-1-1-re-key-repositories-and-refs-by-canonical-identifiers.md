@@ -1,39 +1,37 @@
 # Re-key repositories and refs by canonical identifiers
 
-This ExecPlan (execution plan) is a living document. The sections
-`Constraints`, `Tolerances`, `Risks`, `Progress`, `Surprises & Discoveries`,
-`Decision Log`, and `Outcomes & Retrospective` must be kept up to date as work
-proceeds.
+This ExecPlan (execution plan) is a living document. The sections `Constraints`,
+`Tolerances`, `Risks`, `Progress`, `Surprises & Discoveries`, `Decision Log`,
+and `Outcomes & Retrospective` must be kept up to date as work proceeds.
 
 Status: COMPLETE
 
-Roadmap reference: docs/roadmap.md task `1.1.1` under §1.1
-"Prove repository identity is owner-scoped and ref-safe".
+Roadmap reference: docs/roadmap.md task `1.1.1` under §1.1 "Prove repository
+identity is owner-scoped and ref-safe".
 
 ## Purpose / big picture
 
-Today Simulacat Core can only seed one repository called `awesome-repo`
-across the whole simulation, even if the seed data places it under two
-different owners. The store tables themselves are already keyed by
-`owner/name` and `owner/repo:ref`, but downstream identity derivations
-(notably the `node_id` assignment inside the `githubRepositorySchema`
-transform in `src/store/entities/repository.ts` and the hard-coded
-`node_id: 'node_id'` in `blobAsBase64` in `src/rest/utils.ts`) collapse
-back onto the unqualified name, and there are no exported keyed
-selectors or fixture builders that consumers can rely on. The goal of
-this change is to make `(owner, name)` the only canonical handle for a
-repository and `(owner, repo, name)` the only canonical handle for a
-branch or ref, end-to-end, so that two repositories sharing a name
-under different owners coexist and remain independently addressable
-through REST, GraphQL, and the exported store selectors.
+Today Simulacat Core can only seed one repository called `awesome-repo` across
+the whole simulation, even if the seed data places it under two different
+owners. The store tables themselves are already keyed by `owner/name` and
+`owner/repo:ref`, but downstream identity derivations (notably the `node_id`
+assignment inside the `githubRepositorySchema` transform in
+`src/store/entities/repository.ts` and the hard-coded `node_id: 'node_id'` in
+`blobAsBase64` in `src/rest/utils.ts`) collapse back onto the unqualified name,
+and there are no exported keyed selectors or fixture builders that consumers
+can rely on. The goal of this change is to make `(owner, name)` the only
+canonical handle for a repository and `(owner, repo, name)` the only canonical
+handle for a branch or ref, end-to-end, so that two repositories sharing a name
+under different owners coexist and remain independently addressable through
+REST, GraphQL, and the exported store selectors.
 
-Observable outcome: a new behavioural test seeds two organizations
-(`acme` and `globex`) each with a repository called `awesome-repo` and a
-branch called `main`, then exercises every public surface — REST
-`/orgs/{org}/repos`, REST `/repos/{owner}/{repo}/branches`, GraphQL
-`repository(owner, name)`, GraphQL `Repository.id`, and the new keyed
-selectors — and proves each surface returns the per-owner data without
-cross-talk and with distinct, owner-qualified `node_id` values.
+Observable outcome: a new behavioural test seeds two organizations (`acme` and
+`globex`) each with a repository called `awesome-repo` and a branch called
+`main`, then exercises every public surface — REST `/orgs/{org}/repos`, REST
+`/repos/{owner}/{repo}/branches`, GraphQL `repository(owner, name)`, GraphQL
+`Repository.id`, and the new keyed selectors — and proves each surface returns
+the per-owner data without cross-talk and with distinct, owner-qualified
+`node_id` values.
 
 ## Constraints
 
@@ -42,33 +40,32 @@ suggestions; violation requires escalation, not workarounds.
 
 - The public package surface declared in `package.json` `exports` and
   `src/index.ts` must remain backward compatible. Adding new exports is
-  permitted; renaming, removing, or changing the type of existing exports
-  is not.
+  permitted; renaming, removing, or changing the type of existing exports is
+  not.
 - `githubInitialStoreSchema` must continue to accept all input shapes the
   current published fixtures use. New required fields are not permitted on
   existing schemas.
 - The simulator must not introduce authentication or authorization
-  enforcement as a side effect (per `docs/github-rest-api-audit.md`
-  §Store and Modelling Constraints). Identity rekeying is independent of
-  actor work, which lives in roadmap task 1.2.
+  enforcement as a side effect (per `docs/github-rest-api-audit.md` §Store and
+  Modelling Constraints). Identity rekeying is independent of actor work, which
+  lives in roadmap task 1.2.
 - `convertObjByKey` already throws on duplicate keys. That contract must
   remain: seeding two repositories with identical `owner/name` is an error.
 - No new external runtime dependency. `fast-check` is acceptable as a
-  `devDependency` because the roadmap task explicitly calls for property
-  tests; it is already present, so reuse the existing range.
-  `@aboviq/bun-test-cucumber` is acceptable as a `devDependency` only;
-  no part of the published package surface may import it.
+  `devDependency` because the roadmap task explicitly calls for property tests;
+  it is already present, so reuse the existing range.
+  `@aboviq/bun-test-cucumber` is acceptable as a `devDependency` only; no part
+  of the published package surface may import it.
 - The `features/` directory and the harness configuration files
-  (`test-plugins.ts`, `bunfig.toml` `preload` entry) belong to the
-  testing seam, not to the published library. They must not be added
-  to the `files` whitelist in `package.json`, and nothing exported by
-  the package may import them.
+  (`test-plugins.ts`, `bunfig.toml` `preload` entry) belong to the testing
+  seam, not to the published library. They must not be added to the `files`
+  whitelist in `package.json`, and nothing exported by the package may import
+  them.
 - Domain logic (key construction, identity invariants) must live in the
   store entities under `src/store/entities/*` and pure helpers; REST and
-  GraphQL adapters must consume those keys rather than re-derive identity.
-  This honours the `hexagonal-architecture` boundary: the store is the
-  domain, REST and GraphQL are ports, and they must not invent their own
-  identity scheme.
+  GraphQL adapters must consume those keys rather than re-derive identity. This
+  honours the `hexagonal-architecture` boundary: the store is the domain, REST
+  and GraphQL are ports, and they must not invent their own identity scheme.
 - Files must stay under 400 lines (AGENTS.md). If a new selector module
   pushes a file past that, split by feature.
 
@@ -84,19 +81,17 @@ suggestions; violation requires escalation, not workarounds.
   `markdownlint-cli2` as a `devDependency` is pre-approved because the
   Makefile's `markdownlint` target depends on it and the binary is not
   otherwise resolvable in the gating environment. Adding
-  `@aboviq/bun-test-cucumber` as a `devDependency` is pre-approved
-  because it is the chosen Gherkin runner for this task; if its API
-  proves insufficient (for example, missing Background or Scenario
-  Outline support that the scenarios rely on), stop and escalate
-  before forking off a custom harness.
+  `@aboviq/bun-test-cucumber` as a `devDependency` is pre-approved because it
+  is the chosen Gherkin runner for this task; if its API proves insufficient
+  (for example, missing Background or Scenario Outline support that the
+  scenarios rely on), stop and escalate before forking off a custom harness.
 - Iterations: if `make check-fmt`, `make lint`, or `make test` still fail
-  after three remediation attempts on the same milestone, stop and
-  escalate.
+  after three remediation attempts on the same milestone, stop and escalate.
 - Time: if a single milestone (A through D) takes more than four hours of
   active work, stop and escalate.
 - Ambiguity: if any consumer of the package outside this repository can be
-  shown to depend on the legacy `node_id: repo.name` shape, stop and
-  present options before changing it.
+  shown to depend on the legacy `node_id: repo.name` shape, stop and present
+  options before changing it.
 - Schema regeneration: if `bun run generate` produces unexpected diffs in
   `src/__generated__/resolvers-types.ts`, stop and inspect rather than
   committing the regenerated file blindly.
@@ -104,59 +99,45 @@ suggestions; violation requires escalation, not workarounds.
 ## Risks
 
 - Risk: existing snapshots, fixture files, or downstream consumers depend
-  on the unqualified `node_id: repo.name` value.
-  Severity: medium.
-  Likelihood: low.
-  Mitigation: grep `repository-mock-data/`, `tests/`, and the bundled
+  on the unqualified `node_id: repo.name` value. Severity: medium. Likelihood:
+  low. Mitigation: grep `repository-mock-data/`, `tests/`, and the bundled
   `example/` for the literal field `node_id` and for direct reads of
   `repo.name` against repository fixtures before changing the encoding.
   Document the new encoding (base64 of `Repository:owner/name`) in
   `docs/api-reference.md` and `docs/architecture.md`.
 - Risk: the GraphQL `Repository.id` falls back to `repo.full_name` when
-  the numeric `id` is absent in `convertRepositoryToGraphql`. Any test
-  relying on a string `id` may now see a different value once that
-  fallback is tightened to the canonical key.
-  Severity: low.
-  Likelihood: medium.
-  Mitigation: expose `repo.node_id` as GraphQL `Repository.id` so normal
-  parsed fixtures exercise the canonical node identity. Keep the numeric
-  REST `id` field available on repository fixtures and REST payloads only.
+  the numeric `id` is absent in `convertRepositoryToGraphql`. Any test relying
+  on a string `id` may now see a different value once that fallback is
+  tightened to the canonical key. Severity: low. Likelihood: medium.
+  Mitigation: expose `repo.node_id` as GraphQL `Repository.id` so normal parsed
+  fixtures exercise the canonical node identity. Keep the numeric REST `id`
+  field available on repository fixtures and REST payloads only.
 - Risk: `convertObjByKey` collisions in seeded fixtures previously masked
-  by the loose key derivation will now surface as parse errors.
-  Severity: low.
-  Likelihood: low.
-  Mitigation: keep `convertObjByKey` semantics. Add an explicit unit test
-  asserting the duplicate-key error message includes the offending
-  `owner/name` so the failure is self-explanatory for users.
+  by the loose key derivation will now surface as parse errors. Severity: low.
+  Likelihood: low. Mitigation: keep `convertObjByKey` semantics. Add an
+  explicit unit test asserting the duplicate-key error message includes the
+  offending `owner/name` so the failure is self-explanatory for users.
 - Risk: `fast-check` integration drift.
-  Severity: low.
-  Likelihood: low.
-  Mitigation: `fast-check` is already a `devDependency` in
-  `package.json` (`^4.3.0`). Reuse it; do not bump or change the range
-  as part of this task.
+  Severity: low. Likelihood: low. Mitigation: `fast-check` is already a
+  `devDependency` in `package.json` (`^4.3.0`). Reuse it; do not bump or change
+  the range as part of this task.
 - Risk: `@aboviq/bun-test-cucumber` is at version `0.2.0` and its
-  documented API surface is small. Background, Scenario Outline, Data
-  Tables, Doc Strings, tags, and hooks are not explicitly documented,
-  and the harness requires a `loadFeatures(...)` entry file because
-  Bun's glob handling cannot self-discover `.feature` files.
-  Severity: medium.
-  Likelihood: medium.
-  Mitigation: keep the Gherkin scenarios within the documented happy
-  path (plain `Given`/`When`/`Then` plus `Background`); avoid
-  Scenario Outline and Data Tables in this task and express
-  per-scenario variation by enumerating scenarios. Pin the
-  `devDependency` with a caret range and capture the harness version
-  in the commit body. If the harness misbehaves under Bun, fall back
-  to plain `bun test` describe/it suites that consume the same
-  `.feature` files via a small parser, recording the fallback in
-  `Decision log`. The `.feature` files remain the deliverable in
-  either case.
+  documented API surface is small. Background, Scenario Outline, Data Tables,
+  Doc Strings, tags, and hooks are not explicitly documented, and the harness
+  requires a `loadFeatures(...)` entry file because Bun's glob handling cannot
+  self-discover `.feature` files. Severity: medium. Likelihood: medium.
+  Mitigation: keep the Gherkin scenarios within the documented happy path (plain
+  `Given`/`When`/`Then` plus `Background`); avoid Scenario Outline and Data
+  Tables in this task and express per-scenario variation by enumerating
+  scenarios. Pin the `devDependency` with a caret range and capture the harness
+  version in the commit body. If the harness misbehaves under Bun, fall back to
+  plain `bun test` describe/it suites that consume the same `.feature` files
+  via a small parser, recording the fallback in `Decision log`. The `.feature`
+  files remain the deliverable in either case.
 - Risk: regenerated `src/__generated__/resolvers-types.ts` diffs creep
-  into the change set.
-  Severity: low.
-  Likelihood: medium.
-  Mitigation: run `bun run generate` once at the start, commit any
-  unrelated drift in a separate commit if it appears, then proceed.
+  into the change set. Severity: low. Likelihood: medium. Mitigation: run
+  `bun run generate` once at the start, commit any unrelated drift in a
+  separate commit if it appears, then proceed.
 
 ## Progress
 
@@ -182,15 +163,14 @@ Use timestamps to measure rates of progress and detect tolerance breaches.
 ## Surprises & discoveries
 
 - 2026-05-06T20:41:58+02:00: branch is already named
-  `1-1-1-re-key-repositories-and-refs-by-canonical-identifiers` and the
-  initial working tree is clean, so no branch rename is required before
-  implementation.
+  `1-1-1-re-key-repositories-and-refs-by-canonical-identifiers` and the initial
+  working tree is clean, so no branch rename is required before implementation.
 - 2026-05-06T20:41:58+02:00: `fast-check` and `markdownlint-cli2` are already
   present in `devDependencies`, matching the plan tolerances; no dependency
   change is required for those tools.
 - 2026-05-06T20:44:22+02:00: `@aboviq/bun-test-cucumber` works under the
-  project test runner with the documented `test-plugins.ts` preload and
-  explicit `loadFeatures(...)` entry file. The red-phase failure is the planned
+  project test runner with the documented `test-plugins.ts` preload and explicit
+  `loadFeatures(...)` entry file. The red-phase failure is the planned
   repository identity failure: both owner-scoped repositories currently expose
   the same unqualified `node_id` value.
 - 2026-05-06T20:47:11+02:00: the existing GraphQL converter test expected the
@@ -220,60 +200,51 @@ Use timestamps to measure rates of progress and detect tolerance breaches.
 ## Decision log
 
 - Decision: treat `owner/name` and `owner/repo:ref` as the single source
-  of truth for repository and ref identity, exposing a public helper
-  module `src/store/keys.ts` that re-exports `repositoryStoreKey`,
-  `branchStoreKey`, and `blobStoreKey` plus typed parsing helpers.
-  Rationale: avoids ad hoc string concatenation in adapters and keeps
-  identity construction in one place, consistent with the
-  `hexagonal-architecture` skill's port/adapter separation.
-  Date/Author: 2026-05-02, plan author.
+  of truth for repository and ref identity, exposing a public helper module
+  `src/store/keys.ts` that re-exports `repositoryStoreKey`, `branchStoreKey`,
+  and `blobStoreKey` plus typed parsing helpers. Rationale: avoids ad hoc
+  string concatenation in adapters and keeps identity construction in one
+  place, consistent with the `hexagonal-architecture` skill's port/adapter
+  separation. Date/Author: 2026-05-02, plan author.
 - Decision: encode repository `node_id` as
-  `Buffer.from('Repository:' + repositoryStoreKey(repo)).toString('base64')`
-  by analogy with the organization `node_id` derivation already present
-  in the `githubOrganizationSchema` transform in
-  `src/store/entities/organization.ts`.
-  Rationale: matches the existing pattern in the codebase, is owner-
-  qualified, and stays close to GitHub's actual GraphQL node-ID style.
-  Date/Author: 2026-05-02, plan author.
+  `Buffer.from('Repository:' + repositoryStoreKey(repo)).toString('base64')` by
+  analogy with the organization `node_id` derivation already present in the
+  `githubOrganizationSchema` transform in `src/store/entities/organization.ts`.
+  Rationale: matches the existing pattern in the codebase, is owner- qualified,
+  and stays close to GitHub's actual GraphQL node-ID style. Date/Author:
+  2026-05-02, plan author.
 - Decision: do not introduce a generic "actor" or "viewer" abstraction in
   this task. That belongs to roadmap task 1.2 and would expand scope.
-  Rationale: roadmap §1.2 is a separate step with its own success
-  criteria.
+  Rationale: roadmap §1.2 is a separate step with its own success criteria.
   Date/Author: 2026-05-02, plan author.
 - Decision: express the cross-owner behavioural tests as Gherkin
   feature files under `features/`, run them through
-  `@aboviq/bun-test-cucumber`, and treat the `.feature` files as
-  deliverable artefacts.
-  Rationale: the cross-owner contract is exactly the kind of
-  user-visible behaviour Gherkin is good at capturing, the `.feature`
-  file becomes a living specification a non-developer can read, and
-  the harness is a thin wrapper over `bun test` so the existing
-  gating surface (`make test`) keeps working unchanged. Property
-  tests stay on `fast-check` because algebraic invariants over
-  arbitrary inputs are a poor fit for Gherkin's example-driven
-  register, and pure-helper unit tests stay on plain `bun test` for
-  the same reason.
-  Date/Author: 2026-05-06, plan author.
+  `@aboviq/bun-test-cucumber`, and treat the `.feature` files as deliverable
+  artefacts. Rationale: the cross-owner contract is exactly the kind of
+  user-visible behaviour Gherkin is good at capturing, the `.feature` file
+  becomes a living specification a non-developer can read, and the harness is a
+  thin wrapper over `bun test` so the existing gating surface (`make test`)
+  keeps working unchanged. Property tests stay on `fast-check` because
+  algebraic invariants over arbitrary inputs are a poor fit for Gherkin's
+  example-driven register, and pure-helper unit tests stay on plain `bun test`
+  for the same reason. Date/Author: 2026-05-06, plan author.
 - Decision: do not introduce LemmaScript for this task.
   Rationale: the identity rules are total string transformations over
   delimiter-free key segments, and the `fast-check` properties directly
-  exercise the collision and round-trip invariants that matter to consumers.
-  A separate proof artefact would restate those properties without increasing
-  confidence in this codebase.
-  Date/Author: 2026-05-06, implementation agent.
+  exercise the collision and round-trip invariants that matter to consumers. A
+  separate proof artefact would restate those properties without increasing
+  confidence in this codebase. Date/Author: 2026-05-06, implementation agent.
 - Decision: document canonical-key behaviour in `README.md` and
   `docs/development.md` instead of `docs/users-guide.md` and
-  `docs/developers-guide.md`.
-  Rationale: the requested guide files are absent; `README.md` is the existing
-  user-facing entry point and `docs/development.md` is the existing contributor
-  guide.
-  Date/Author: 2026-05-06, implementation agent.
+  `docs/developers-guide.md`. Rationale: the requested guide files are absent;
+  `README.md` is the existing user-facing entry point and `docs/development.md`
+  is the existing contributor guide. Date/Author: 2026-05-06, implementation
+  agent.
 - Decision: GraphQL `Repository.id` exposes repository `node_id`, not the
-  numeric REST `id`.
-  Rationale: GraphQL node IDs are opaque node identifiers and the observable
-  outcome for this task requires owner-qualified repository identity through
-  GraphQL. REST payloads still preserve the numeric `id` field separately.
-  Date/Author: 2026-05-06, implementation agent.
+  numeric REST `id`. Rationale: GraphQL node IDs are opaque node identifiers
+  and the observable outcome for this task requires owner-qualified repository
+  identity through GraphQL. REST payloads still preserve the numeric `id` field
+  separately. Date/Author: 2026-05-06, implementation agent.
 
 ## Outcomes & retrospective
 
@@ -297,9 +268,9 @@ Simulacat Core is a thin GitHub layer over `@simulacrum/foundation-simulator`.
 Reading order for a newcomer:
 
 1. `docs/architecture.md` §High-level flow and §State model: the request
-   is parsed by Zod schemas in `src/store/entities.ts`, converted into
-   keyed tables by `convertInitialStateToStoreState`, then exposed
-   through REST handlers in `src/rest/index.ts` and GraphQL resolvers in
+   is parsed by Zod schemas in `src/store/entities.ts`, converted into keyed
+   tables by `convertInitialStateToStoreState`, then exposed through REST
+   handlers in `src/rest/index.ts` and GraphQL resolvers in
    `src/graphql/resolvers.ts`.
 2. `docs/api-reference.md` §Exported fixture schemas: lists the public
    fixture entry points (`githubRepositorySchema`, `githubBranchSchema`,
@@ -310,64 +281,61 @@ Reading order for a newcomer:
 Key files that this task touches:
 
 - `src/store/entities/repository.ts` — Zod schema, transform, and
-  `repositoryStoreKey`. The transform currently sets
-  `node_id: repo.name`, which is the principal bug.
+  `repositoryStoreKey`. The transform currently sets `node_id: repo.name`,
+  which is the principal bug.
 - `src/store/entities/branch.ts` — `githubBranchSchema` and
-  `branchStoreKey`. Already canonical; will be reused, not changed,
-  except for an exported parse helper.
+  `branchStoreKey`. Already canonical; will be reused, not changed, except for
+  an exported parse helper.
 - `src/store/entities/blob.ts` — `blobStoreKey`. Already canonical.
 - `src/store/entities.ts` — aggregates entity schemas and contains
-  `convertInitialStateToStoreState` and `convertObjByKey`. The
-  duplicate-key error messaging lives here.
+  `convertInitialStateToStoreState` and `convertObjByKey`. The duplicate-key
+  error messaging lives here.
 - `src/store/index.ts` — slice/selector wiring. Lacks `getRepository`
   and `getBranch` keyed selectors; this plan adds them.
 - `src/rest/index.ts` — REST handlers. The `repos/list-branches` and
-  `git/get-tree` operations currently use linear `.find` scans; the
-  plan switches them to the new keyed selectors and confirms each
-  lookup requires both `owner` and the entity name.
+  `git/get-tree` operations currently use linear `.find` scans; the plan
+  switches them to the new keyed selectors and confirms each lookup requires
+  both `owner` and the entity name.
 - `src/rest/utils.ts` — `blobAsBase64` currently emits a hard-coded
   `node_id: 'node_id'` placeholder. The plan replaces it with an
   owner-qualified encoding derived from `blobStoreKey`.
 - `src/graphql/resolvers.ts` — the `repository(owner, name)` resolver
-  already filters by both fields case-insensitively; the plan rewires
-  it to call the new keyed selector.
+  already filters by both fields case-insensitively; the plan rewires it to
+  call the new keyed selector.
 - `src/graphql/converters/repository.ts` — emits `Repository.id` and
   `defaultBranchRef.id`. Both must be owner-qualified.
 - `tests/repositories.test.ts`, `tests/graphql.test.ts`,
-  `tests/entities.test.ts` — the existing test surfaces that anchor
-  regression coverage.
+  `tests/entities.test.ts` — the existing test surfaces that anchor regression
+  coverage.
 
 Term definitions:
 
 - "Canonical key": the deterministic string that uniquely identifies an
-  entity across all owners. For repositories, `${owner}/${name}`. For
-  branches, `${owner}/${repo}:${name}`. For blobs,
-  `${owner}/${repo}:${path|sha}`.
+  entity across all owners. For repositories, `${owner}/${name}`. For branches,
+  `${owner}/${repo}:${name}`. For blobs, `${owner}/${repo}:${path|sha}`.
 - "Owner namespace": the set of repositories, branches, and blobs whose
   `owner` field equals a given user or organization `login`. Two owner
-  namespaces may contain entities with identical short names without
-  collision.
+  namespaces may contain entities with identical short names without collision.
 - "Identity leakage": any code path where an entity's identity is
-  derived from a substring of its canonical key, such that two entities
-  in different owner namespaces could be confused.
+  derived from a substring of its canonical key, such that two entities in
+  different owner namespaces could be confused.
 - "Gherkin": the keyword-driven specification language behind Cucumber,
   used in `.feature` files. In this task it is parsed and executed by
-  `@aboviq/bun-test-cucumber`, a Bun-native cucumber runner whose
-  function-based `Given`, `When`, and `Then` decorators register step
-  definitions and whose `loadFeatures(...)` entry point makes Bun's
-  test runner discover the scenarios.
+  `@aboviq/bun-test-cucumber`, a Bun-native cucumber runner whose function-based
+  `Given`, `When`, and `Then` decorators register step definitions and whose
+  `loadFeatures(...)` entry point makes Bun's test runner discover the
+  scenarios.
 
 ## Plan of work
 
 ### Stage A — behavioural tests for cross-owner coexistence (red phase)
 
-The behavioural tests for this stage are expressed as Gherkin so that
-the `.feature` files themselves are the deliverable artefacts: a
-non-developer reader can verify the cross-owner coexistence contract
-by reading the scenarios. The Bun runner harness used here is
-`@aboviq/bun-test-cucumber` (MIT, currently `0.2.0`), which integrates
-Gherkin scenarios into Bun's native test runner via function-based
-`Given`, `When`, and `Then` step definitions.
+The behavioural tests for this stage are expressed as Gherkin so that the
+`.feature` files themselves are the deliverable artefacts: a non-developer
+reader can verify the cross-owner coexistence contract by reading the
+scenarios. The Bun runner harness used here is `@aboviq/bun-test-cucumber`
+(MIT, currently `0.2.0`), which integrates Gherkin scenarios into Bun's native
+test runner via function-based `Given`, `When`, and `Then` step definitions.
 
 1. Install the harness and wire it in:
 
@@ -375,16 +343,14 @@ Gherkin scenarios into Bun's native test runner via function-based
    bun add -d @aboviq/bun-test-cucumber
    ```
 
-   Add `test-plugins.ts` at the project root configuring the plugin,
-   and add a `preload` entry to `bunfig.toml` so the plugin runs
-   before tests start. Both files are owned by the testing seam and
-   must not leak into the published package surface (verify via
-   `package.json` `files` and `exports`).
+   Add `test-plugins.ts` at the project root configuring the plugin, and add a
+   `preload` entry to `bunfig.toml` so the plugin runs before tests start. Both
+   files are owned by the testing seam and must not leak into the published
+   package surface (verify via `package.json` `files` and `exports`).
 
 2. Create `features/cross-owner-identity.feature`. The file is
-   versioned alongside source code and is the canonical specification
-   of the cross-owner coexistence contract. The scenarios cover, at a
-   minimum:
+   versioned alongside source code and is the canonical specification of the
+   cross-owner coexistence contract. The scenarios cover, at a minimum:
 
    ```gherkin
    Feature: Repository identity is owner-scoped and ref-safe
@@ -425,43 +391,41 @@ Gherkin scenarios into Bun's native test runner via function-based
    ```
 
 3. Add the matching step definitions in
-   `tests/cross-owner-identity.steps.ts`. Steps must use the harness's
-   `Given`/`When`/`Then` decorators, share a typed scenario state via
-   `withState<ScenarioState>()`, and must not bypass the simulator's
-   public surface — REST calls go through `fetch` against a started
-   server, GraphQL goes through the same surface, and seed errors are
-   surfaced through the published `simulation()` factory.
+   `tests/cross-owner-identity.steps.ts`. Steps must use the harness's `Given`/
+   `When`/`Then` decorators, share a typed scenario state via
+   `withState<ScenarioState>()`, and must not bypass the simulator's public
+   surface — REST calls go through `fetch` against a started server, GraphQL
+   goes through the same surface, and seed errors are surfaced through the
+   published `simulation()` factory.
 
 4. Add `tests/cross-owner-identity.features.test.ts` (or a single
-   `tests/features.test.ts` if more `.feature` files land later) that
-   calls `loadFeatures('features/**/*.feature')` so Bun's test runner
-   discovers the scenarios. The harness's documented limitation that
-   feature globs cannot self-discover under Bun makes this entry file
-   mandatory.
+   `tests/features.test.ts` if more `.feature` files land later) that calls
+   `loadFeatures('features/**/*.feature')` so Bun's test runner discovers the
+   scenarios. The harness's documented limitation that feature globs cannot
+   self-discover under Bun makes this entry file mandatory.
 
 5. Add a focused, non-Gherkin unit test in
-   `tests/store-keys.test.ts` for `repositoryStoreKey`,
-   `branchStoreKey`, and `blobStoreKey`, covering the happy path and
-   an explicit case where two inputs differ only in `owner` and yield
-   different keys. This unit test is intentionally separate from the
-   Gherkin suite because it exercises pure helpers, not user-visible
-   behaviour, and Gherkin would be the wrong register for it.
+   `tests/store-keys.test.ts` for `repositoryStoreKey`, `branchStoreKey`, and
+   `blobStoreKey`, covering the happy path and an explicit case where two
+   inputs differ only in `owner` and yield different keys. This unit test is
+   intentionally separate from the Gherkin suite because it exercises pure
+   helpers, not user-visible behaviour, and Gherkin would be the wrong register
+   for it.
 
 6. Run `bun test` and confirm the new feature scenarios fail (red
    phase). Capture the failing transcript in `Concrete steps` below.
 
-Validation gate for Stage A: at least one of the Gherkin scenarios
-fails — specifically the "Repository node_id values are owner-
-qualified and distinct" scenario is expected to fail because of the
-unqualified `node_id` assignment in the `githubRepositorySchema`
-transform.
+Validation gate for Stage A: at least one of the Gherkin scenarios fails —
+specifically the "Repository node_id values are owner- qualified and distinct"
+scenario is expected to fail because of the unqualified `node_id` assignment in
+the `githubRepositorySchema` transform.
 
 ### Stage B — owner-qualified identity in the store and adapters
 
 1. In `src/store/entities/repository.ts`, replace the transform's
    `node_id: repo.name` line with the snippet shown below. Preserve any
-   caller-supplied `node_id`. This mirrors the organization schema's
-   existing approach.
+   caller-supplied `node_id`. This mirrors the organization schema's existing
+   approach.
 
    ```ts
    node_id:
@@ -479,9 +443,9 @@ transform.
    - `parseRepositoryStoreKey(key: string): {owner: string; name: string}`
    - `parseBranchStoreKey(key: string): {owner: string; repo: string; name: string}`
 
-   The parsing helpers must validate input and throw a descriptive
-   `Error` when the key is malformed (for example, missing `/` or
-   missing `:`). Re-export the new helpers from `src/index.ts`.
+   The parsing helpers must validate input and throw a descriptive `Error` when
+   the key is malformed (for example, missing `/` or missing `:`). Re-export
+   the new helpers from `src/index.ts`.
 3. In `src/store/index.ts`, add the following selectors to
    `inputSelectors`:
    - `getRepository(state, owner, name): GitHubRepository | undefined`
@@ -494,8 +458,8 @@ transform.
      — derived from the existing `selectTableAsList` filter, but
      scoped through the new helpers so adapters do not duplicate the
      filter predicate.
-   Keep the existing selectors unchanged. The new selectors must accept
-   `state` first to match the foundation simulator selector contract.
+   Keep the existing selectors unchanged. The new selectors must accept `state`
+   first to match the foundation simulator selector contract.
 4. In `src/rest/index.ts`, refactor:
    - `repos/list-branches` (line ~133) to look up the repository via
      `getRepository(getState(), owner, repo)` and the branches via
@@ -510,18 +474,18 @@ transform.
    This is consistent with the new repository encoding and keeps blob
    identities owner-qualified.
 6. In `src/graphql/resolvers.ts`, change the `repository` resolver to
-   call `simulationStore.selectors.getRepository(state, owner, name)`.
-   Preserve case-insensitive matching by lower-casing both `owner` and
-   `name` before the lookup, but only after confirming the existing
-   `convertObjByKey` keying preserves the original casing. If a
-   case-insensitive match is required, fall back to a list scan and add
-   a follow-up note in `Surprises`. Otherwise the lookup is exact.
+   call `simulationStore.selectors.getRepository(state, owner, name)`. Preserve
+   case-insensitive matching by lower-casing both `owner` and `name` before the
+   lookup, but only after confirming the existing `convertObjByKey` keying
+   preserves the original casing. If a case-insensitive match is required, fall
+   back to a list scan and add a follow-up note in `Surprises`. Otherwise the
+   lookup is exact.
 7. In `src/graphql/converters/repository.ts`, inside
    `convertRepositoryToGraphql`, replace the existing `defaultBranchId`
-   derivation with the snippet shown below so the default branch
-   identity is owner-qualified. Set GraphQL `Repository.id` from
-   `repo.node_id`, falling back to `repositoryNodeId(repo.owner, repo.name)`
-   only for defensive converter inputs where `node_id` is unavailable.
+   derivation with the snippet shown below so the default branch identity is
+   owner-qualified. Set GraphQL `Repository.id` from `repo.node_id`, falling
+   back to `repositoryNodeId(repo.owner, repo.name)` only for defensive
+   converter inputs where `node_id` is unavailable.
 
    ```ts
    const defaultBranchId = Buffer.from(
@@ -533,14 +497,14 @@ transform.
    ).toString('base64');
    ```
 
-Validation gate for Stage B: `make check-fmt`, `make lint`, and
-`make test` all pass; the Stage A tests now go green.
+Validation gate for Stage B: `make check-fmt`, `make lint`, and `make test` all
+pass; the Stage A tests now go green.
 
 ### Stage C — invariant property tests
 
 1. Confirm whether `fast-check` is already a `devDependency`. If not,
-   add it via `bun add -d fast-check` and commit `package.json` and
-   `bun.lock` together.
+   add it via `bun add -d fast-check` and commit `package.json` and `bun.lock`
+   together.
 2. Add `tests/store-keys.property.test.ts` (or co-locate with the
    key unit tests) covering the following invariants with `fast-check`:
    - For all `(owner1, name1, owner2, name2)` where
@@ -553,64 +517,61 @@ Validation gate for Stage B: `make check-fmt`, `make lint`, and
    - The branch and blob equivalents of the above two properties.
    - For all repository fixtures, the derived `node_id` is non-empty,
      base64-decodable, and starts with `Repository:`.
-   Use small string arbitraries that exclude `/` and `:` to avoid
-   ambiguous encodings; document that constraint in the test file.
+   Use small string arbitraries that exclude `/` and `:` to avoid ambiguous
+   encodings; document that constraint in the test file.
 3. The roadmap mentions LemmaScript for "introduced axioms or
-   contractual business logic". Decision: do not introduce LemmaScript
-   here. The invariants are already total functions over strings and
-   are fully covered by the property tests; a LemmaScript proof would
-   restate the property without adding rigour. Record this decision in
-   `Decision log` once the implementation reaches this stage.
+   contractual business logic". Decision: do not introduce LemmaScript here.
+   The invariants are already total functions over strings and are fully
+   covered by the property tests; a LemmaScript proof would restate the
+   property without adding rigour. Record this decision in `Decision log` once
+   the implementation reaches this stage.
 
-Validation gate for Stage C: `make test` passes including the new
-property tests; the property tests run in fewer than five seconds in
-the default Bun test environment.
+Validation gate for Stage C: `make test` passes including the new property
+tests; the property tests run in fewer than five seconds in the default Bun
+test environment.
 
 ### Stage D — fixture builders, documentation, and gating
 
 1. Add a small public builder API in `src/store/builders.ts` exposing
    `buildRepositoryFixture({owner, name, ...overrides})` and
-   `buildBranchFixture({owner, repo, name, ...overrides})`. These
-   builders run their inputs through the existing Zod schemas and
-   return the parsed entity. They are intended as the seed of the
-   broader fixture-builder work in roadmap §1.3.2 and explicitly do
-   not cover that task's full scope.
+   `buildBranchFixture({owner, repo, name, ...overrides})`. These builders run
+   their inputs through the existing Zod schemas and return the parsed entity.
+   They are intended as the seed of the broader fixture-builder work in roadmap
+   §1.3.2 and explicitly do not cover that task's full scope.
 2. Re-export the builders from `src/index.ts` so consumers can import
    them without reaching into internals.
 3. Update `docs/api-reference.md` §Exported fixture schemas to mention
-   the canonical keys and the owner-qualified `node_id` encoding.
-   Update the surrounding prose to make clear that two repositories
-   with the same name under different owners coexist.
+   the canonical keys and the owner-qualified `node_id` encoding. Update the
+   surrounding prose to make clear that two repositories with the same name
+   under different owners coexist.
 4. Update `docs/architecture.md` §State model to describe the
-   canonical keys explicitly. Add a short subsection to
-   `docs/development.md` describing the Gherkin testing seam: where
-   `.feature` files live, how step definitions are organized, how
-   `loadFeatures()` is wired in, and that `bun test` (and therefore
-   `make test`) runs the scenarios alongside the rest of the suite.
+   canonical keys explicitly. Add a short subsection to `docs/development.md`
+   describing the Gherkin testing seam: where `.feature` files live, how step
+   definitions are organized, how `loadFeatures()` is wired in, and that
+   `bun test` (and therefore `make test`) runs the scenarios alongside the rest
+   of the suite.
 5. The user request mentions `docs/users-guide.md` and
-   `docs/developers-guide.md`. Those files do not exist in this
-   repository. The closest equivalents are `README.md` (user-facing)
-   and `docs/development.md` (contributor-facing). Update both with
-   short notes referencing the canonical keys, and record this
-   substitution in `Decision log` for transparency.
-6. Tick the `1.1.1` checkbox in `docs/roadmap.md` only after `make
-   check-fmt`, `make lint`, `make typecheck`, and `make test` all
-   pass. `make typecheck` runs the repository's established
-   `bun check:types` alias.
+   `docs/developers-guide.md`. Those files do not exist in this repository. The
+   closest equivalents are `README.md` (user-facing) and `docs/development.md`
+   (contributor-facing). Update both with short notes referencing the canonical
+   keys, and record this substitution in `Decision log` for transparency.
+6. Tick the `1.1.1` checkbox in `docs/roadmap.md` only after `make check-fmt`,
+   `make lint`, `make typecheck`, and `make test` all pass. `make typecheck`
+   runs the repository's established `bun check:types` alias.
 7. Run `make markdownlint` to confirm the documentation changes pass
    markdown lint, and `bun fmt` to format any updated markdown.
 
-Validation gate for Stage D: full quality gate (`make check-fmt`,
-`make lint`, `make typecheck`, `make test`) passes; documentation lint passes;
-`docs/roadmap.md` shows the task as complete; the existing branch is
-pushed or updated per the user instructions.
+Validation gate for Stage D: full quality gate (`make check-fmt`, `make lint`,
+`make typecheck`, `make test`) passes; documentation lint passes;
+`docs/roadmap.md` shows the task as complete; the existing branch is pushed or
+updated per the user instructions.
 
 ## Concrete steps
 
-Run all commands from the project worktree root (the directory
-containing `package.json` and `Makefile`). Substitute the actual path
-on the executor's machine; the absolute path is intentionally not
-recorded here because it is environment-specific.
+Run all commands from the project worktree root (the directory containing
+`package.json` and `Makefile`). Substitute the actual path on the executor's
+machine; the absolute path is intentionally not recorded here because it is
+environment-specific.
 
 1. Sanity check the working tree:
 
@@ -620,10 +581,9 @@ recorded here because it is environment-specific.
    ```
 
    Expect a clean tree on the branch
-   `1-1-1-re-key-repositories-and-refs-by-canonical-identifiers`. That
-   branch was renamed and pushed alongside the draft of this plan, so
-   no further rename is required before opening the implementation
-   pull request (PR).
+   `1-1-1-re-key-repositories-and-refs-by-canonical-identifiers`. That branch
+   was renamed and pushed alongside the draft of this plan, so no further
+   rename is required before opening the implementation pull request (PR).
 
 2. Capture the baseline test result so regressions are easy to spot:
 
@@ -640,8 +600,8 @@ recorded here because it is environment-specific.
      2>&1 | tee /tmp/test-simulacat-core-1-1-1-stageA.out
    ```
 
-   Expect failures on the "node_id values are owner-qualified and
-   distinct" scenario before any source changes.
+   Expect failures on the "node_id values are owner-qualified and distinct"
+   scenario before any source changes.
 
 4. Implement Stage B and re-run the gates sequentially (per AGENTS.md
    guidance to avoid parallel runs):
@@ -680,49 +640,45 @@ recorded here because it is environment-specific.
    git push origin 1-1-1-re-key-repositories-and-refs-by-canonical-identifiers
    ```
 
-   The branch and the planning PR were created at draft time, so this
-   step is normally just `git push`. The PR title must keep the
-   `(1.1.1)` roadmap tag, and the body must reference this ExecPlan
-   path. When updating the body, use `$'...'` heredoc syntax with real
-   newlines, per the system instructions.
+   The branch and the planning PR were created at draft time, so this step is
+   normally just `git push`. The PR title must keep the `(1.1.1)` roadmap tag,
+   and the body must reference this ExecPlan path. When updating the body, use
+   `$'...'` heredoc syntax with real newlines, per the system instructions.
 
 ## Validation and acceptance
 
 Acceptance is a behavioural statement, not a code-shape statement.
 
 - A consumer can seed two organizations, each with a repository called
-  `awesome-repo` and a branch called `main`. Issuing
-  `GET /orgs/acme/repos` returns the `acme` repository only; issuing
-  `GET /orgs/globex/repos` returns the `globex` repository only;
-  issuing `GET /repos/acme/awesome-repo/branches` returns the `acme`
-  branch only; the GraphQL query
-  `repository(owner: "acme", name: "awesome-repo")` returns the
-  `acme` repository with a `Repository.id` distinct from the
-  equivalent `globex` query.
+  `awesome-repo` and a branch called `main`. Issuing `GET /orgs/acme/repos`
+  returns the `acme` repository only; issuing `GET /orgs/globex/repos` returns
+  the `globex` repository only; issuing `GET /repos/acme/awesome-repo/branches`
+  returns the `acme` branch only; the GraphQL query
+  `repository(owner: "acme", name: "awesome-repo")` returns the `acme`
+  repository with a `Repository.id` distinct from the equivalent `globex` query.
 - The two repositories' `node_id` values are owner-qualified, distinct,
   base64-decodable strings beginning with `Repository:`.
 - Seeding two repositories with identical `owner/name` produces a
-  parse-time error from `convertObjByKey` whose message includes the
-  duplicated key.
+  parse-time error from `convertObjByKey` whose message includes the duplicated
+  key.
 - The new property tests pass deterministically and run in under five
   seconds locally.
 
 Quality criteria (what "done" means):
 
 - Tests: `make test` passes, including the new Gherkin scenarios under
-  `features/`, the focused store-key unit tests, and the property
-  tests under `tests/store-keys.property.test.ts`.
+  `features/`, the focused store-key unit tests, and the property tests under
+  `tests/store-keys.property.test.ts`.
 - Lint and types: `make lint` and `bun check:types` (invoked via
   `make typecheck`) pass without warnings.
 - Format: `make check-fmt` reports no changes.
 - Markdown: `make markdownlint` exits cleanly.
 - Documentation: `docs/api-reference.md`, `docs/architecture.md`,
-  `README.md`, and `docs/development.md` reflect the canonical-key
-  contract; `docs/development.md` additionally documents the Gherkin
-  testing seam.
+  `README.md`, and `docs/development.md` reflect the canonical-key contract;
+  `docs/development.md` additionally documents the Gherkin testing seam.
 - Deliverable artefacts: `features/cross-owner-identity.feature` is
-  committed and tracked in version control as the human-readable
-  specification of the cross-owner coexistence contract.
+  committed and tracked in version control as the human-readable specification
+  of the cross-owner coexistence contract.
 
 Quality method (how compliance is checked):
 
@@ -733,15 +689,14 @@ Quality method (how compliance is checked):
 
 ## Idempotence and recovery
 
-All steps are re-runnable. The new code paths are additive (a new
-selectors file, a new keys module, new tests) plus targeted edits to
-two `node_id` lines and a small set of resolver and adapter call
-sites. If a step fails partway, fix the underlying cause and re-run
-the gate from Stage B onward; the test suite is the source of truth
-for whether a checkpoint has been reached. No destructive operations
-are required at any stage; the branch was already renamed during draft
-creation, so recovery only requires pushing or updating the existing
-branch.
+All steps are re-runnable. The new code paths are additive (a new selectors
+file, a new keys module, new tests) plus targeted edits to two `node_id` lines
+and a small set of resolver and adapter call sites. If a step fails partway,
+fix the underlying cause and re-run the gate from Stage B onward; the test
+suite is the source of truth for whether a checkpoint has been reached. No
+destructive operations are required at any stage; the branch was already
+renamed during draft creation, so recovery only requires pushing or updating
+the existing branch.
 
 ## Artefacts and notes
 
@@ -775,8 +730,8 @@ const node_id =
 
 ## Interfaces and dependencies
 
-At the end of this milestone the following names must exist with
-these signatures:
+At the end of this milestone the following names must exist with these
+signatures:
 
 ```ts
 // src/store/keys.ts
@@ -832,16 +787,16 @@ export const buildBranchFixture: (
 ) => GitHubBranch;
 ```
 
-Existing public exports must remain unchanged in signature: this
-includes `simulation`, `extendStore`, `githubInitialStoreSchema`,
+Existing public exports must remain unchanged in signature: this includes
+`simulation`, `extendStore`, `githubInitialStoreSchema`,
 `githubRepositorySchema`, `githubBranchSchema`, `githubBlobSchema`,
 `githubOrganizationSchema`, `githubUserSchema`, and
 `convertInitialStateToStoreState`.
 
 ## Out of scope
 
-The following items are explicitly out of scope for task 1.1.1 and
-will be tackled in later roadmap items:
+The following items are explicitly out of scope for task 1.1.1 and will be
+tackled in later roadmap items:
 
 - Pull requests, issues, commits, and refs beyond the existing branch
   representation (roadmap 1.1.2).
@@ -849,29 +804,27 @@ will be tackled in later roadmap items:
   (roadmap 1.2).
 - Centralized write actions (roadmap 1.3.1).
 - Full actor-aware fixture builders (roadmap 1.3.2). The minimal
-  builders introduced here cover only repositories and branches and
-  do not yet model actor context.
+  builders introduced here cover only repositories and branches and do not yet
+  model actor context.
 - Tree-object modelling, status mutability, and any work flagged for
-  later phases in `docs/github-rest-api-audit.md` §Recommended
-  Follow-Ups.
+  later phases in `docs/github-rest-api-audit.md` §Recommended Follow-Ups.
 
 ## Revision note
 
 - 2026-05-04: Code review pass. Replaced absolute file:line references
-  with symbolic references (function or transform names) so the plan
-  survives line-number drift. Standardized the plan's documentation
-  lint command on `make markdownlint` to match the project's gating
-  surface. Removed first-person plural ("we") in favour of neutral or
-  passive voice. Switched non-Oxford "parameterized" and "stabilizes"
-  to the en-GB-oxendict "-ize" spellings. Defined "pull request (PR)"
-  on first use. Reflowed the Concrete steps preamble to drop the
-  environment-specific absolute path and to reflect that the branch
-  rename and planning PR were completed during the draft phase.
+  with symbolic references (function or transform names) so the plan survives
+  line-number drift. Standardized the plan's documentation lint command on
+  `make markdownlint` to match the project's gating surface. Removed
+  first-person plural ("we") in favour of neutral or passive voice. Switched
+  non-Oxford "parameterized" and "stabilizes" to the en-GB-oxendict "-ize"
+  spellings. Defined "pull request (PR)" on first use. Reflowed the Concrete
+  steps preamble to drop the environment-specific absolute path and to reflect
+  that the branch rename and planning PR were completed during the draft phase.
 - 2026-05-06: Adopted `@aboviq/bun-test-cucumber` as the Gherkin
-  runner for Stage A behavioural tests. Added the harness as a
-  pre-approved `devDependency`, introduced a `features/` directory
-  whose `.feature` files are the deliverable specification artefacts,
-  and split Stage A into a Gherkin scenario suite plus a focused
-  pure-helper unit test. Property tests stay on `fast-check`. Updated
-  Constraints, Tolerances, Risks, Decision log, Validation and
-  acceptance, and the Stage A and Stage D concrete steps accordingly.
+  runner for Stage A behavioural tests. Added the harness as a pre-approved
+  `devDependency`, introduced a `features/` directory whose `.feature` files
+  are the deliverable specification artefacts, and split Stage A into a Gherkin
+  scenario suite plus a focused pure-helper unit test. Property tests stay on
+  `fast-check`. Updated Constraints, Tolerances, Risks, Decision log,
+  Validation and acceptance, and the Stage A and Stage D concrete steps
+  accordingly.

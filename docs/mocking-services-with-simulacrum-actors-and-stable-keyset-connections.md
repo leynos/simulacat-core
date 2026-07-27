@@ -20,8 +20,8 @@ fixtures
 The most important design constraint is that REST handlers, GraphQL resolvers,
 scenario routes, webhook emitters, and inspection tools must all read from and
 write to the same canonical state. If each route carries its own miniature
-reality, tests will eventually discover that one endpoint lives in
-springtime while another endpoint reports a snowstorm.
+reality, tests will eventually discover that one endpoint lives in springtime
+while another endpoint reports a snowstorm.
 
 ## 1. Treat Simulacrum as a simulator substrate
 
@@ -182,8 +182,8 @@ GET /plans -> plans.json
 
 That works for early UI wiring, contract exploration, and smoke tests. It fails
 as soon as an application needs to perform a write, list a changed entity,
-enforce visibility, paginate consistently, retry a transient failure, or observe
-a webhook.
+enforce visibility, paginate consistently, retry a transient failure, or
+observe a webhook.
 
 Use static JSON for shape.
 
@@ -732,8 +732,8 @@ lawbook, many windows.
 
 ## 9. Centralize mutations as actions
 
-Every write should pass through a domain action. Do not let a REST handler patch
-one table while a GraphQL mutation patches another table differently.
+Every write should pass through a domain action. Do not let a REST handler
+patch one table while a GraphQL mutation patches another table differently.
 
 ```typescript
 type DomainEvent =
@@ -892,9 +892,9 @@ They work only when the result set never changes, the actor never changes, no
 filtering changes, and no items appear or disappear between page requests. That
 describes a museum display, not a service simulation.
 
-A robust simulator should use stable keyset cursors. A keyset cursor encodes the
-last item’s stable sort key, plus enough scope to prove that the cursor belongs
-to this exact connection view.
+A robust simulator should use stable keyset cursors. A keyset cursor encodes
+the last item’s stable sort key, plus enough scope to prove that the cursor
+belongs to this exact connection view.
 
 For example:
 
@@ -1012,10 +1012,10 @@ const connectionScope = ({
   ].join('|');
 ```
 
-For a public, anonymous collection, include `actor=anonymous`. For a tenant-wide
-administrator, include the administrator’s actor cache key unless every
-administrator sees exactly the same rows. Be conservative: if actor identity can
-affect visibility, put it in the scope.
+For a public, anonymous collection, include `actor=anonymous`. For a
+tenant-wide administrator, include the administrator’s actor cache key unless
+every administrator sees exactly the same rows. Be conservative: if actor
+identity can affect visibility, put it in the scope.
 
 ## 13. Encode cursors opaquely
 
@@ -1067,9 +1067,8 @@ class CursorError extends Error {
 }
 ```
 
-If a simulator handles sensitive test data, sign cursor payloads with an
-HMAC. For most local and CI simulation, scope validation and opaque encoding
-suffice.
+If a simulator handles sensitive test data, sign cursor payloads with an HMAC.
+For most local and CI simulation, scope validation and opaque encoding suffice.
 
 ## 14. Compare sort keys precisely
 
@@ -1417,8 +1416,8 @@ visibility.
 ## 17. Handle writes between pages deliberately
 
 Stable keyset cursors give simulations sane behaviour when data changes between
-page requests, but they do not make changing data magically static. Decide which
-semantics are wanted.
+page requests, but they do not make changing data magically static. Decide
+which semantics are wanted.
 
 Most simulated services should use live keyset semantics:
 
@@ -1478,8 +1477,8 @@ behaviour of many operational systems and keep the simulator lean.
 
 ## 18. Convert connections to REST wire formats
 
-Internal connection helpers do not force GraphQL-only output. REST can adapt the
-same connection to its own shape.
+Internal connection helpers do not force GraphQL-only output. REST can adapt
+the same connection to its own shape.
 
 ```typescript
 type RestListResponse<Item> = {
@@ -1711,8 +1710,8 @@ shoes. They get far.
 
 ## 21. Use OpenAPI as scaffolding
 
-OpenAPI-backed mocks stand up a broad surface quickly. Keep that broad
-surface honest by promoting important operations into store-backed handlers.
+OpenAPI-backed mocks stand up a broad surface quickly. Keep that broad surface
+honest by promoting important operations into store-backed handlers.
 
 A healthy progression:
 
@@ -1727,14 +1726,14 @@ Operation exists in schema
   -> emits domain events
 ```
 
-For operations that remain schema-stubbed, document that fact. Example responses
-work well for shallow integration tests, but they do not prove that the
-simulator models service behaviour.
+For operations that remain schema-stubbed, document that fact. Example
+responses work well for shallow integration tests, but they do not prove that
+the simulator models service behaviour.
 
 ## 22. Model errors as carefully as successes
 
-Error semantics deserve first-class treatment. The simulator should help
-client code practise failure.
+Error semantics deserve first-class treatment. The simulator should help client
+code practise failure.
 
 Use these defaults:
 
@@ -2095,8 +2094,8 @@ inspection route reports capability matrix
 
 ## 28. Benchmark selectors before optimizing everything else
 
-Most simulator slowness comes from repeated filtering and nested resolver scans,
-not from JSON serialization or cursor encoding.
+Most simulator slowness comes from repeated filtering and nested resolver
+scans, not from JSON serialization or cursor encoding.
 
 A simple micro-benchmark can smoke out the goblins:
 
@@ -2151,8 +2150,8 @@ const sortTicketsForConnection = (
   [...rows].sort((left, right) => compareRows(sort, left, right));
 ```
 
-Only cache sorted lists when profiling says it helps. Sorting a few hundred rows
-per request often costs less than maintaining elaborate cache invalidation
+Only cache sorted lists when profiling says it helps. Sorting a few hundred
+rows per request often costs less than maintaining elaborate cache invalidation
 machinery. Avoid building machinery that does not need to exist.
 
 ## 29. Keep concurrency realistic but bounded
@@ -2213,8 +2212,8 @@ router.post('/dangerous-operation', async (request, response) => {
 });
 ```
 
-This gives precise tests for cancellation, retry storms, duplicate
-submission, and out-of-order completion.
+This gives precise tests for cancellation, retry storms, duplicate submission,
+and out-of-order completion.
 
 ## 30. Organize the simulator package by responsibility
 
@@ -2570,12 +2569,12 @@ That list is where pagination bugs go to lose their tiny hats.
 Make the simulator boringly truthful.
 
 A strong Simulacrum-based simulator does not need to mirror an entire external
-service. It needs to model the behaviour a client application actually relies on,
-with stable identity, actor-aware visibility, deterministic state transitions,
-honest capability boundaries, fast selectors, scenario control, and stable
-keyset cursors.
+service. It needs to model the behaviour a client application actually relies
+on, with stable identity, actor-aware visibility, deterministic state
+transitions, honest capability boundaries, fast selectors, scenario control,
+and stable keyset cursors.
 
-The reward is a test harness that does not merely return expected JSON. It hosts
-a small pocket universe with laws. Client applications can poke it, page through
-it, mutate it, authenticate to it, retry against it, and still receive answers
-that make sense.
+The reward is a test harness that does not merely return expected JSON. It
+hosts a small pocket universe with laws. Client applications can poke it, page
+through it, mutate it, authenticate to it, retry against it, and still receive
+answers that make sense.

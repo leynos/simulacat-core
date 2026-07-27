@@ -1,4 +1,4 @@
-.PHONY: all check-fmt typecheck lint biomejs oxlint test build clean generate markdownlint nixie spelling spelling-config spelling-phrase-check spelling-helper-test
+.PHONY: all fmt check-fmt typecheck lint biomejs oxlint test build clean generate markdownlint nixie spelling spelling-config spelling-phrase-check spelling-helper-test
 
 MDLINT ?= bunx --package markdownlint-cli2@0.23.0 markdownlint-cli2
 XARGS_R := $(shell if xargs --help 2>&1 | grep -q '\\-r'; then printf -- '-r'; fi)
@@ -20,6 +20,10 @@ SPELLING_HELPER_PYTEST = PYTHONPATH=scripts $(UV_ENV) $(UV) run --no-project \
 	--with pytest-cov==7.0.0 python -m pytest
 
 all: check-fmt typecheck lint test spelling
+
+fmt:
+	bun run fmt
+	mdformat-all
 
 check-fmt:
 	bunx @biomejs/biome check --linter-enabled=false --assist-enabled=false .
