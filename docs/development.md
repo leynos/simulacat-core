@@ -34,6 +34,17 @@ The normal contributor gate is:
 repository's preferred order. The `lint` target runs the `biomejs` and `oxlint`
 sub-targets.
 
+## CI runner contract
+
+Repository-owned Linux CI jobs use the uncached `namespace-profile-default`
+profile: Ubuntu 22.04 on amd64 with 4 vCPU and 16 GB memory. The profile
+deliberately has no repository-specific cache volume during the pilot.
+
+`.github/actionlint.yaml` records the `namespace-profile-default` and
+`namespace-profile-default-arm64` labels for Actionlint. Keep that
+configuration aligned with workflow runner labels. Native wheel matrices and
+externally controlled reusable workflows retain their caller-selected runners.
+
 ## URL derivation
 
 The GitHub store is host-agnostic. Entity schemas preserve caller-supplied URL
