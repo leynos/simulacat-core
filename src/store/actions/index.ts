@@ -119,9 +119,13 @@ const createEntityUpdateSupervisor = <Command>(keyOf: (command: Command) => stri
 
 /** Store action inputs required by the built-in domain action set. */
 export type DomainActionArgs<State extends AnyState = AnyState> = {
+  /** Thunk factory the store exposes for creating action creators. */
   thunks: StoreThunks;
+  /** Store schema seams the built-in domain actions read and write. */
   schema: {
+    /** Applies one or more store updaters inside a store transaction. */
     update: SchemaUpdate<State>;
+    /** Repository table used to read the current fixture and write it back. */
     repositories: EntityTable<GitHubRepository, State>;
   };
 };
@@ -179,6 +183,7 @@ export const createEntityUpdateThunk = <Command, Entity extends AnyState, State 
  */
 export const buildDomainActions = <State extends AnyState>(args: DomainActionArgs<State>) => {
   return {
+    /** Applies whitelisted metadata changes to one repository fixture. */
     updateRepository: createEntityUpdateThunk<UpdateRepositoryCommand, GitHubRepository, State>({
       name: 'updateRepository',
       thunks: args.thunks,

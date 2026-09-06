@@ -79,12 +79,13 @@ export type RepositoryCoords = {
  * // 'UmVwb3NpdG9yeTphY21lL3dpZGdldHM='
  * ```
  *
- * @param owner Repository owner login.
- * @param name Repository name.
+ * @param parts Repository store key parts.
+ * @param parts.owner Repository owner login.
+ * @param parts.name Repository name.
  * @returns Base64-encoded Repository node id.
  */
-export const repositoryNodeId = ({owner, name}: RepositoryStoreKeyParts): string => {
-  return Buffer.from(`Repository:${repositoryStoreKey({owner, name})}`).toString('base64');
+export const repositoryNodeId = (parts: RepositoryStoreKeyParts): string => {
+  return Buffer.from(`Repository:${repositoryStoreKey(parts)}`).toString('base64');
 };
 
 /**
@@ -96,13 +97,14 @@ export const repositoryNodeId = ({owner, name}: RepositoryStoreKeyParts): string
  * // 'UmVmOmFjbWUvd2lkZ2V0czpyZWZzL2hlYWRzL21haW4='
  * ```
  *
- * @param owner Repository owner login.
- * @param repo Repository name.
- * @param qualifiedName Qualified ref name.
+ * @param parts Ref store key parts.
+ * @param parts.owner Repository owner login.
+ * @param parts.repo Repository name.
+ * @param parts.qualifiedName Qualified ref name.
  * @returns Base64-encoded Ref node id.
  */
-export const refNodeId = ({owner, repo, qualifiedName}: RefStoreKeyParts): string => {
-  return Buffer.from(`Ref:${refStoreKey({owner, repo, qualifiedName})}`).toString('base64');
+export const refNodeId = (parts: RefStoreKeyParts): string => {
+  return Buffer.from(`Ref:${refStoreKey(parts)}`).toString('base64');
 };
 
 /**
@@ -114,13 +116,14 @@ export const refNodeId = ({owner, repo, qualifiedName}: RefStoreKeyParts): strin
  * // 'Q29tbWl0OmFjbWUvd2lkZ2V0czphYmMxMjM='
  * ```
  *
- * @param owner Repository owner login.
- * @param repo Repository name.
- * @param sha Commit SHA.
+ * @param parts Commit store key parts.
+ * @param parts.owner Repository owner login.
+ * @param parts.repo Repository name.
+ * @param parts.sha Commit SHA.
  * @returns Base64-encoded Commit node id.
  */
-export const commitNodeId = ({owner, repo, sha}: CommitStoreKeyParts): string => {
-  return Buffer.from(`Commit:${commitStoreKey({owner, repo, sha})}`).toString('base64');
+export const commitNodeId = (parts: CommitStoreKeyParts): string => {
+  return Buffer.from(`Commit:${commitStoreKey(parts)}`).toString('base64');
 };
 
 /**
@@ -132,13 +135,14 @@ export const commitNodeId = ({owner, repo, sha}: CommitStoreKeyParts): string =>
  * // 'SXNzdWU6YWNtZS93aWRnZXRzIzc='
  * ```
  *
- * @param owner Repository owner login.
- * @param repo Repository name.
- * @param number Positive issue number.
+ * @param parts Issue store key parts.
+ * @param parts.owner Repository owner login.
+ * @param parts.repo Repository name.
+ * @param parts.number Positive issue number.
  * @returns Base64-encoded Issue node id.
  */
-export const issueNodeId = ({owner, repo, number}: IssueStoreKeyParts): string => {
-  return Buffer.from(`Issue:${issueStoreKey({owner, repo, number})}`).toString('base64');
+export const issueNodeId = (parts: IssueStoreKeyParts): string => {
+  return Buffer.from(`Issue:${issueStoreKey(parts)}`).toString('base64');
 };
 
 /**
@@ -151,13 +155,14 @@ export const issueNodeId = ({owner, repo, number}: IssueStoreKeyParts): string =
  * // 'UHVsbFJlcXVlc3Q6YWNtZS93aWRnZXRzITM='
  * ```
  *
- * @param owner Repository owner login.
- * @param repo Repository name.
- * @param number Positive pull request number.
+ * @param parts Pull request store key parts.
+ * @param parts.owner Repository owner login.
+ * @param parts.repo Repository name.
+ * @param parts.number Positive pull request number.
  * @returns Base64-encoded PullRequest node id.
  */
-export const pullRequestNodeId = ({owner, repo, number}: PullRequestStoreKeyParts): string => {
-  return Buffer.from(`PullRequest:${pullRequestStoreKey({owner, repo, number})}`).toString('base64');
+export const pullRequestNodeId = (parts: PullRequestStoreKeyParts): string => {
+  return Buffer.from(`PullRequest:${pullRequestStoreKey(parts)}`).toString('base64');
 };
 
 /**

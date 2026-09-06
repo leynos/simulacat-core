@@ -8,8 +8,11 @@ import {
 
 /** Input accepted when building an update command from an HTTP request body. */
 export type BuildUpdateRepositoryCommandInput = {
+  /** Login of the account or organization owning the repository. */
   owner: string;
+  /** Repository name within the owner's namespace. */
   name: string;
+  /** Untrusted request body; unsupported fields are discarded. */
   body: unknown;
 };
 
