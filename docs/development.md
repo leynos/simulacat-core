@@ -40,13 +40,20 @@ CI runs `bun audit` after the gates and fails on any advisory. Almost every
 advisory this repository sees is in a transitive dependency of the GraphQL code
 generator, Express or the foundation simulator, so there is no direct
 dependency to bump. The `overrides` block in `package.json` is how those are
-answered: each entry names the lowest version that clears the advisory while
-staying within the dependant's major, so the resolution stays compatible.
+answered.
+
+An override applies to every dependent package at once, so before adding or
+raising one, check the range each dependent declares, not merely its major
+version. A dependent that names an exact version is the case to watch: forcing
+anything else on it silently replaces the version it asked for. Choose the
+lowest version that clears the advisory and satisfies every declared range. If
+no single version does, prefer upgrading the dependent that pins the vulnerable
+version over forcing a version past its declared range.
 
 Run `bun audit` before pushing. When it reports something new, raise the
 matching `overrides` entry rather than the direct dependency, run `bun install`
-to refresh `bun.lock`, and run `make test` afterwards, because an override
-changes what every dependant resolves to.
+to refresh `bun.lock`, and run `make test` afterwards because an override
+changes what every dependent resolves to.
 
 ## URL derivation
 
