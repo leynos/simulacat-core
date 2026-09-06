@@ -32,13 +32,80 @@ The normal contributor gate is:
 
 `make all` runs `check-fmt`, `typecheck`, `docs-check`, `lint`, `test`, and
 `spelling` in the repository's preferred order. The `lint` target runs the
-`biomejs` and `oxlint` sub-targets. The `docs-check` target (`bun run
-docs:check`) is the zero-tolerance documentation gate: TypeDoc's
-`notDocumented` validation over the package entry point (`typedoc.json`),
-requiring a JSDoc block on every declaration in the public surface, treating
-warnings as errors, and emitting no documentation artefacts. Zod schema
-constants are tagged `@internal` so their field definitions stay out of the
-documented surface.
+`biomejs` and `oxlint` sub-targets.
+
+
+### The documentation gate
+
+`make docs-check` is a zero-tolerance documentation gate. It runs TypeDoc
+over the package entry point (`bun run docs:check`, configured by
+`typedoc.json`) and fails on a single omission. It is not advisory: `make all`
+depends on it, CI runs `make all`, and a warning is an error.
+
+What it checks, over everything reachable from `src/index.ts`:
+
+- **Every declaration carries a JSDoc block.** Enums, enum members, variables,
+  functions, classes, interfaces, properties, methods, accessors, and type
+  aliases all count. An undocumented property of an exported object type fails
+  the gate just as an undocumented function does.
+- **Every reference resolves.** A `{@link Foo}` naming something TypeDoc
+  cannot resolve, or that resolves outside the documented surface, fails the
+  gate.
+
+It sits after `typecheck` in `make all` so the generated GraphQL types in
+`src/__generated__/` already exist when TypeDoc reads them, and it runs with
+`emit: "none"`, so a clean run writes no files.
+
+Run it locally with:
+
+```bash
+make typecheck   # only needed once, to generate the GraphQL types
+make docs-check
+```
+
+A failure names the qualified symbol and the file it is declared in, so the
+output reads as a work list.
+
+
+#### How to document an export
+
+Place a JSDoc block immediately above the declaration. For an object type,
+document each field at its own field site rather than describing the shape in
+the type's summary, because the gate checks the fields individually:
+
+```ts
+/** Command payload used to update benign repository metadata. */
+export type UpdateRepositoryCommand = {
+  /** Login of the account or organization owning the repository. */
+  owner: string;
+  /** Repository name within the owner's namespace. */
+  name: string;
+};
+```
+
+Three conventions follow from how TypeDoc and the Oxlint `df12` JSDoc rules
+interact:
+
+- **Do not destructure in an exported signature.** Oxlint's
+  `df12/require-public-jsdoc` wants one `@param` per bound name, while TypeDoc
+  binds a destructured parameter to a single name and warns that the rest are
+  unused. Take the parameter whole, document it as `@param parts` plus nested
+  `@param parts.owner` entries, and destructure in the body if you need to.
+  `src/store/keys.ts` is the worked example.
+- **Tag validation seams `@internal`.** The zod schema constants carry
+  `/** … @internal */` blocks; their meaning is carried by the named output
+  types, so `excludeInternal` keeps their field definitions out of the
+  documented surface.
+- **Map external symbols.** A `{@link}` to a type from a dependency cannot
+  resolve into this package's documentation. Add it to
+  `externalSymbolLinkMappings` in `typedoc.json` with the URL of the upstream
+  documentation, as `FoundationSimulator` is.
+
+`tests/docs-gate.contract.test.ts` asserts the chain that makes this a real
+gate: that the CI job runs `make all` unconditionally, that `make all` depends
+on `docs-check` after `typecheck`, that `docs-check` runs `bun run docs:check`,
+and that `typedoc.json` still turns validation warnings into errors. Removing
+any one of those links turns that test red.
 
 ### Dependency advisories
 

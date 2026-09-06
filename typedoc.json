@@ -15,10 +15,10 @@
   "validation": {
     "notDocumented": true,
     "notExported": false,
-    "invalidLink": false,
-    "invalidPath": false,
+    "invalidLink": true,
+    "invalidPath": true,
     "rewrittenLink": false,
-    "unusedMergeModuleWith": false
+    "unusedMergeModuleWith": true
   },
 
   "requiredToBeDocumented": [
@@ -33,6 +33,12 @@
     "Accessor",
     "TypeAlias"
   ],
+
+  "externalSymbolLinkMappings": {
+    "@simulacrum/foundation-simulator": {
+      "FoundationSimulator": "https://www.npmjs.com/package/@simulacrum/foundation-simulator"
+    }
+  },
 
   "treatValidationWarningsAsErrors": true
 }
