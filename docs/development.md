@@ -34,6 +34,20 @@ The normal contributor gate is:
 repository's preferred order. The `lint` target runs the `biomejs` and `oxlint`
 sub-targets.
 
+### Dependency advisories
+
+CI runs `bun audit` after the gates and fails on any advisory. Almost every
+advisory this repository sees is in a transitive dependency of the GraphQL code
+generator, Express or the foundation simulator, so there is no direct
+dependency to bump. The `overrides` block in `package.json` is how those are
+answered: each entry names the lowest version that clears the advisory while
+staying within the dependant's major, so the resolution stays compatible.
+
+Run `bun audit` before pushing. When it reports something new, raise the
+matching `overrides` entry rather than the direct dependency, run `bun install`
+to refresh `bun.lock`, and run `make test` afterwards, because an override
+changes what every dependant resolves to.
+
 ## URL derivation
 
 The GitHub store is host-agnostic. Entity schemas preserve caller-supplied URL
