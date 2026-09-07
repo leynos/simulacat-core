@@ -45,10 +45,17 @@ export const githubBranchSchema = z
     };
   });
 
+/** A validated Git branch fixture, addressed by repository and branch name. */
 export interface GitHubBranch extends z.infer<typeof githubBranchSchema> {}
 
 /**
  * Derives the canonical store key for a Git branch.
+ *
+ * @example
+ * ```ts
+ * branchStoreKey({owner: 'acme', repo: 'widgets', name: 'main'});
+ * // 'acme/widgets:main'
+ * ```
  *
  * @param branch Branch coordinate parts containing owner, repo, and name.
  * @returns The canonical key in `owner/repo:name` format.

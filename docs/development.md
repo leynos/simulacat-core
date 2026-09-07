@@ -34,7 +34,6 @@ The normal contributor gate is:
 `spelling` in the repository's preferred order. The `lint` target runs the
 `biomejs` and `oxlint` sub-targets.
 
-
 ### The documentation gate
 
 `make docs-check` is a zero-tolerance documentation gate. It runs TypeDoc
@@ -52,20 +51,19 @@ What it checks, over everything reachable from `src/index.ts`:
   cannot resolve, or that resolves outside the documented surface, fails the
   gate.
 
-It sits after `typecheck` in `make all` so the generated GraphQL types in
-`src/__generated__/` already exist when TypeDoc reads them, and it runs with
+It declares `typecheck` as a prerequisite, not merely a predecessor in the
+`all` list, so the generated GraphQL types in `src/__generated__/` exist when
+TypeDoc reads them even under `make -j` or after `make clean`. It runs with
 `emit: "none"`, so a clean run writes no files.
 
 Run it locally with:
 
 ```bash
-make typecheck   # only needed once, to generate the GraphQL types
 make docs-check
 ```
 
 A failure names the qualified symbol and the file it is declared in, so the
 output reads as a work list.
-
 
 #### How to document an export
 

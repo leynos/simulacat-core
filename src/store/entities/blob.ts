@@ -29,11 +29,18 @@ export const githubBlobSchema = z
     return blob;
   });
 
+/** A validated Git blob fixture, addressed by repository, path, and SHA. */
 export type GitHubBlob = z.infer<typeof githubBlobSchema>;
 
 /**
  * Derives the canonical store key for a Git blob, preferring `path` over
  * `sha` when both are present.
+ *
+ * @example
+ * ```ts
+ * blobStoreKey({owner: 'acme', repo: 'widgets', path: 'README.md', sha: 'abc123'});
+ * // 'acme/widgets:README.md'
+ * ```
  *
  * @param blob Blob coordinate parts containing owner, repo, path, and sha.
  * @returns The canonical key in `owner/repo:reference` format.

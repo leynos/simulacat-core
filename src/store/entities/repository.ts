@@ -30,16 +30,17 @@ export const resetNextRepositoryId = (newValue = 3000) => {
 };
 
 /**
- * Validates and normalizes a minimal GitHub repository fixture, filling in
- * the wide set of GitHub REST URLs, counters, and security settings that
- * callers omit. During transformation, `id` and `node_id` are generated when
- * absent, and `full_name` is derived from `owner`/`name`.
+ * Validates and normalizes a minimal GitHub repository fixture. It accepts
+ * the wide set of GitHub REST URL fields, which stay absent when omitted,
+ * and defaults the counters and security settings. During transformation,
+ * `id` and `node_id` are generated when absent, and `full_name` is always
+ * derived from `owner`/`name`.
  *
  * @internal
  */
 export const githubRepositorySchema = z
   .object({
-    /** Unique numeric identifier for the repository across the whole simulated instance. */
+    /** Numeric identifier for the repository, allocated from a counter when omitted. */
     id: z.number().optional(),
     /** The GraphQL global node identifier for the repository. */
     node_id: z.string().optional(),
@@ -49,22 +50,22 @@ export const githubRepositorySchema = z
     description: z.string().optional().default('Generic repository description'),
     /** Login of the account that owns the repository. */
     owner: z.string(),
-    /** Fully qualified `owner/name` identifier, derived automatically if omitted. */
+    /** Fully qualified `owner/name` identifier; always re-derived by the transform. */
     full_name: z.string().optional().default(''),
     /** Names of packages published from the repository. */
     packages: z.array(z.string()).optional(),
 
-    /** ISO 8601 timestamp recording when the repository was last pushed to. */
+    /** Last-push timestamp, an ISO 8601 string by convention; any string is accepted. */
     pushed_at: z
       .string()
       .optional()
       .default(() => faker.date.recent().toISOString()),
-    /** ISO 8601 timestamp recording when the repository was last updated. */
+    /** Last-update timestamp, an ISO 8601 string by convention; any string is accepted. */
     updated_at: z
       .string()
       .optional()
       .default(() => faker.date.recent().toISOString()),
-    /** ISO 8601 timestamp recording when the repository was created. */
+    /** Creation timestamp, an ISO 8601 string by convention; any string is accepted. */
     created_at: z
       .string()
       .optional()
@@ -220,7 +221,7 @@ export const githubRepositorySchema = z
         /** Advanced Security enablement state for the repository. */
         advanced_security: z
           .object({
-            /** Whether Advanced Security is `enabled` or `disabled`. */
+            /** Enablement state of Advanced Security; `enabled` or `disabled` in practice, but any string is accepted. */
             status: z.string()
           })
           .optional()
@@ -228,7 +229,7 @@ export const githubRepositorySchema = z
         /** Secret scanning enablement state for the repository. */
         secret_scanning: z
           .object({
-            /** Whether secret scanning is `enabled` or `disabled`. */
+            /** Enablement state of secret scanning; `enabled` or `disabled` in practice, but any string is accepted. */
             status: z.string()
           })
           .optional()
@@ -236,7 +237,7 @@ export const githubRepositorySchema = z
         /** Secret scanning push protection enablement state for the repository. */
         secret_scanning_push_protection: z
           .object({
-            /** Whether secret scanning push protection is `enabled` or `disabled`. */
+            /** Enablement state of secret scanning push protection; `enabled` or `disabled` in practice, but any string is accepted. */
             status: z.string()
           })
           .optional()
@@ -244,7 +245,7 @@ export const githubRepositorySchema = z
         /** Secret scanning non-provider pattern detection enablement state for the repository. */
         secret_scanning_non_provider_patterns: z
           .object({
-            /** Whether non-provider pattern secret scanning is `enabled` or `disabled`. */
+            /** Enablement state of non-provider pattern secret scanning; `enabled` or `disabled` in practice, but any string is accepted. */
             status: z.string()
           })
           .optional()

@@ -123,6 +123,12 @@ describe('`make all` reaches the documentation gate', () => {
     expect(prerequisites.indexOf('docs-check')).toBeGreaterThan(prerequisites.indexOf('typecheck'));
   });
 
+  // Ordering inside `all` is not ordering: `make -j all` may start `docs-check`
+  // before `typecheck` finishes, and `make docs-check` alone skips it entirely.
+  it('declares `typecheck` as a real prerequisite of `docs-check`', () => {
+    expect(makefilePrerequisites('docs-check')).toContain('typecheck');
+  });
+
   it('runs the gate command from the `docs-check` recipe', () => {
     expect(makefileRecipe('docs-check')).toContain('bun run docs:check');
   });

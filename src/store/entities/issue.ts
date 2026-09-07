@@ -53,7 +53,7 @@ export const githubIssueSchema = z
     owner: z.string().trim().min(1),
     /** Name of the repository the issue belongs to. */
     repo: z.string().trim().min(1),
-    /** Unique numeric identifier for the issue across the whole simulated instance. */
+    /** Numeric identifier for the issue; see the transform for the fallback. */
     id: z.number().optional(),
     /** The GraphQL global node identifier for the issue. */
     node_id: z.string().optional(),
@@ -73,11 +73,11 @@ export const githubIssueSchema = z
       .optional(),
     /** Pull request cross-reference, present only when the issue represents a pull request. */
     pull_request: issuePullRequestLinkSchema.optional(),
-    /** ISO 8601 timestamp recording when the issue was created. */
+    /** Creation timestamp, an ISO 8601 string by convention; any string is accepted. */
     created_at: z.string().optional().default(defaultTimestamp),
-    /** ISO 8601 timestamp recording when the issue was last updated. */
+    /** Last-update timestamp, an ISO 8601 string by convention; any string is accepted. */
     updated_at: z.string().optional().default(defaultTimestamp),
-    /** ISO 8601 timestamp recording when the issue was closed, or `null` while open. */
+    /** Close timestamp by convention an ISO 8601 string, or `null` while open; any string is accepted. */
     closed_at: z.string().nullable().optional(),
     /** REST API URL for the issue. */
     url: z.string().optional(),
@@ -91,7 +91,12 @@ export const githubIssueSchema = z
 
     return {
       ...issue,
-      /** Unique numeric identifier, offset from the issue number when omitted. */
+      /**
+       * Numeric identifier, defaulting to the configured issue offset plus
+       * `number`. That fallback is unique within a repository but not across
+       * repositories; supply `id` explicitly where instance-wide uniqueness
+       * matters.
+       */
       id: issue.id ?? ENTITY_ID_OFFSETS.ISSUE + issue.number,
       /** The GraphQL global node identifier, derived from the store key when omitted. */
       node_id: issue.node_id ?? Buffer.from(`Issue:${key}`).toString('base64'),

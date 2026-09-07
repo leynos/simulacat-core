@@ -54,8 +54,9 @@ const getNextInstallationId = (usedInstallationIds: Set<number>, nextInstallatio
 };
 
 /**
- * Validates and normalizes a minimal GitHub user fixture, deriving a display
- * name and contact email from `login` when they are omitted.
+ * Validates and normalizes a minimal GitHub user fixture. A missing display
+ * name is derived from `login`, and a missing contact email is then derived
+ * from that name; a caller-supplied value of either is preserved.
  *
  * @internal
  */
@@ -93,7 +94,7 @@ export const githubUserSchema = z
 /**
  * Validates and normalizes the full seeded initial store: users,
  * installations, organizations, repositories, branches, blobs, refs,
- * commits, and pull requests. During transformation, installations without
+ * commits, issues, and pull requests. During transformation, installations without
  * an `id` are allocated one, and any organization lacking a matching
  * installation account is granted a generated installation.
  *

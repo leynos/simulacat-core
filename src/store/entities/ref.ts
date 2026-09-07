@@ -57,7 +57,7 @@ export const githubRefSchema = z
     object: z.object({
       /** Type of Git object the ref points to. */
       type: refObjectTypeSchema.default('commit'),
-      /** SHA-1 hash of the object the ref points to. */
+      /** Identifier of the object the ref points to, a SHA-1 hash by convention; any non-empty string is accepted. */
       sha: z.string().trim().min(1),
       /** API URL for the object the ref points to. */
       url: z.string().optional()

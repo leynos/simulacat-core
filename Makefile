@@ -31,10 +31,12 @@ check-fmt:
 typecheck:
 	bun run check:types
 
-# Zero-tolerance documentation gate: TypeDoc's notDocumented validation over
-# the package entry point (typedoc.json). Runs after typecheck so the
-# generated GraphQL types already exist. Emits no documentation artefacts.
-docs-check:
+# Zero-tolerance documentation gate: TypeDoc's notDocumented and link
+# validation over the package entry point (typedoc.json). Depends on
+# typecheck, not merely ordered after it in `all`, so the generated GraphQL
+# types exist even under `make -j` or a bare `make docs-check`. Emits no
+# documentation artefacts.
+docs-check: typecheck
 	bun run docs:check
 
 lint: biomejs oxlint

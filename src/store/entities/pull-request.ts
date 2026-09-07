@@ -112,7 +112,7 @@ export const githubPullRequestSchema = z
     owner: z.string().trim().min(1),
     /** Name of the repository the pull request belongs to. */
     repo: z.string().trim().min(1),
-    /** Unique numeric identifier for the pull request across the whole simulated instance. */
+    /** Numeric identifier for the pull request; see the transform for the fallback. */
     id: z.number().optional(),
     /** The GraphQL global node identifier for the pull request. */
     node_id: z.string().optional(),
@@ -162,7 +162,12 @@ export const githubPullRequestSchema = z
 
     return {
       ...pullRequest,
-      /** Unique numeric identifier, offset from the pull request number when omitted. */
+      /**
+       * Numeric identifier, defaulting to the configured pull-request offset
+       * plus `number`. That fallback is unique within a repository but not
+       * across repositories; supply `id` explicitly where instance-wide
+       * uniqueness matters.
+       */
       id: pullRequest.id ?? ENTITY_ID_OFFSETS.PULL_REQUEST + pullRequest.number,
       /** The GraphQL global node identifier, derived from the store key when omitted. */
       node_id: pullRequest.node_id ?? Buffer.from(`PullRequest:${key}`).toString('base64'),
@@ -170,9 +175,9 @@ export const githubPullRequestSchema = z
       issue_number: issueNumber,
       /** Author of the pull request, defaulting to the `octocat` fixture account. */
       user: pullRequest.user ?? {login: 'octocat'},
-      /** Base (target) branch reference, normalized to the owning repository. */
+      /** Base (target) branch reference; a missing owner or repo defaults to the owning repository. */
       base: normalizePullRequestRef(pullRequest.base, pullRequest.owner, pullRequest.repo),
-      /** Head (source) branch reference, normalized to the owning repository. */
+      /** Head (source) branch reference; a missing owner or repo defaults to the owning repository. */
       head: normalizePullRequestRef(pullRequest.head, pullRequest.owner, pullRequest.repo),
       /** Close timestamp derived from the pull request state; null while open. */
       closed_at: deriveClosedAt(pullRequest),
