@@ -7,6 +7,12 @@
 import {faker} from '@faker-js/faker';
 import {z} from 'zod';
 
+/**
+ * Validates and normalizes a minimal GitHub organization fixture, deriving a
+ * display name, contact email, and Base64 `node_id` when they are omitted.
+ *
+ * @internal
+ */
 export const githubOrganizationSchema = z
   .object({
     id: z.number().default(() => faker.number.int({min: 4000, max: 9_999_999})),

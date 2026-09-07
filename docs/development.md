@@ -28,11 +28,83 @@ The normal contributor gate is:
 1. `bun fmt`
 2. `bun lint`
 3. `bun check:types`
-4. `bun test`
+4. `bun run docs:check`
+5. `bun test`
 
-`make all` runs `check-fmt`, `typecheck`, `lint`, `test`, and `spelling` in the
-repository's preferred order. The `lint` target runs the `biomejs` and `oxlint`
-sub-targets.
+`make all` runs `check-fmt`, `typecheck`, `docs-check`, `lint`, `test`, and
+`spelling` in the repository's preferred order, and is the gate CI runs. The
+`lint` target runs the `biomejs` and `oxlint` sub-targets.
+
+### The documentation gate
+
+`make docs-check` is a zero-tolerance documentation gate. It runs TypeDoc
+(`bun run docs:check`, configured by `typedoc.json`) over the package entry
+point, `src/index.ts`, and fails on a single omission. It is not advisory:
+`make all` depends on it, CI runs `make all`, and a warning is an error.
+
+What it checks, over everything reachable from `src/index.ts`:
+
+- **Every declaration carries a JSDoc block.** Enums, enum members, variables,
+  functions, classes, interfaces, properties, methods, accessors, and type
+  aliases all count. An undocumented property of an exported object type fails
+  the gate just as an undocumented function does.
+- **Every reference resolves.** A `{@link Foo}` naming something TypeDoc
+  cannot resolve, or that resolves outside the documented surface, fails the
+  gate.
+
+It declares `typecheck` as a prerequisite, not merely a predecessor in the
+`all` list, so the generated GraphQL types in `src/__generated__/` exist when
+TypeDoc reads them even under `make -j` or after `make clean`. It runs with
+`emit: "none"`, so a clean run writes no files.
+
+Run it locally with:
+
+```bash
+make docs-check
+```
+
+A failure names the qualified symbol and the file it is declared in, so the
+output reads as a work list.
+
+#### How to document an export
+
+Place a JSDoc block immediately above the declaration. For an object type,
+document each field at its own field site rather than describing the shape in
+the type's summary, because the gate checks the fields individually:
+
+```ts
+/** Command payload used to update benign repository metadata. */
+export type UpdateRepositoryCommand = {
+  /** Login of the account or organization owning the repository. */
+  owner: string;
+  /** Repository name within the owner's namespace. */
+  name: string;
+};
+```
+
+Three conventions follow from how TypeDoc and the Oxlint `df12` JSDoc rules
+interact:
+
+- **Do not destructure in an exported signature.** Oxlint's
+  `df12/require-public-jsdoc` wants one `@param` per bound name, while TypeDoc
+  binds a destructured parameter to a single name and warns that the rest are
+  unused. Take the parameter whole, document it as `@param parts` plus nested
+  `@param parts.owner` entries, and destructure in the body if you need to.
+  `src/store/keys.ts` is the worked example.
+- **Tag validation seams `@internal`.** The zod schema constants carry
+  `/** … @internal */` blocks; their meaning is carried by the named output
+  types, so `excludeInternal` keeps their field definitions out of the
+  documented surface.
+- **Map external symbols.** A `{@link}` to a type from a dependency cannot
+  resolve into this package's documentation. Add it to
+  `externalSymbolLinkMappings` in `typedoc.json` with the URL of the upstream
+  documentation, as `FoundationSimulator` is.
+
+`tests/docs-gate.contract.test.ts` asserts the chain that makes this a real
+gate: that the CI job runs `make all` unconditionally, that `make all` depends
+on `docs-check` after `typecheck`, that `docs-check` runs `bun run docs:check`,
+and that `typedoc.json` still turns validation warnings into errors. Removing
+any one of those links turns that test red.
 
 ### Dependency advisories
 
@@ -103,6 +175,7 @@ flowchart LR
 
   make_all --> check_fmt["check-fmt (Biome format-only check)"]
   make_all --> typecheck["typecheck (bun run check:types)"]
+  make_all --> docs_check["docs-check (TypeDoc notDocumented gate)"]
   make_all --> lint[lint]
   make_all --> test["test (bun run test)"]
   make_all --> spelling["spelling (shared en-GB-oxendict policy)"]
@@ -117,7 +190,8 @@ flowchart LR
   oxlint_rules --> jsdoc_gates[McCabe complexity, nesting depth, complex conditionals, and JSDoc gates]
 ```
 
-Caption: The `make all` target runs format checking, type-checking, linting,
+Caption: The `make all` target runs format checking, type-checking, the
+TypeDoc documentation gate, linting,
 tests, and spelling. Linting is delegated to the `biomejs` and `oxlint`
 sub-targets; Oxlint now owns the syntax-aware maintainability and JSDoc gates
 that were previously prototyped outside the Makefile.

@@ -9,8 +9,11 @@ export type RepositoryWritableField = (typeof REPOSITORY_WRITABLE_FIELDS)[number
 
 /** Command payload used to update benign repository metadata. */
 export type UpdateRepositoryCommand = {
+  /** Login of the account or organization owning the repository. */
   owner: string;
+  /** Repository name within the owner's namespace. */
   name: string;
+  /** Writable fields to apply; absent and non-string values are ignored. */
   changes: Partial<Record<RepositoryWritableField, string | undefined>>;
 };
 

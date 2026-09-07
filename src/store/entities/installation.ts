@@ -11,6 +11,12 @@ import {githubEntityPermissionSchema} from './shared.ts';
 
 const fallbackInstallationTimestamp = () => faker.date.recent().toISOString();
 
+/**
+ * Validates and normalizes a minimal GitHub App installation fixture,
+ * deriving `updated_at` from `created_at` when it is omitted.
+ *
+ * @internal
+ */
 export const githubAppInstallationSchema = z
   .object({
     id: z.number().optional(),

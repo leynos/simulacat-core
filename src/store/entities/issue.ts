@@ -20,9 +20,13 @@ type IssueStoreKeyInput = {
 export const issueStoreKey = (issue: IssueStoreKeyInput): string => `${issue.owner}/${issue.repo}#${issue.number}`;
 
 const issuePullRequestLinkSchema = z.object({
+  /** URL for retrieving the pull request's diff. */
   diff_url: z.string().url().optional(),
+  /** Web URL for viewing the pull request. */
   html_url: z.string().url().optional(),
+  /** URL for retrieving the pull request's patch file. */
   patch_url: z.string().url().optional(),
+  /** REST API URL for the pull request. */
   url: z.string().url().optional()
 });
 
@@ -40,28 +44,46 @@ const issuePullRequestLinkSchema = z.object({
  * or `updated_at` for closed issues and `null` otherwise.
  *
  * @returns The normalized `GitHubIssue` shape used by the store and adapters.
+ *
+ * @internal
  */
 export const githubIssueSchema = z
   .object({
+    /** Login of the account that owns the repository the issue belongs to. */
     owner: z.string().trim().min(1),
+    /** Name of the repository the issue belongs to. */
     repo: z.string().trim().min(1),
+    /** Numeric identifier for the issue; see the transform for the fallback. */
     id: z.number().optional(),
+    /** The GraphQL global node identifier for the issue. */
     node_id: z.string().optional(),
+    /** Issue number, unique within the owning repository. */
     number: z.number().int().positive(),
+    /** Current lifecycle state of the issue. */
     state: issueStateSchema.optional().default('open'),
+    /** Issue title. */
     title: z.string().trim().min(1),
+    /** Issue body text, in Markdown. */
     body: z.string().optional().default(''),
     user: z
       .object({
+        /** Username of the account that opened the issue. */
         login: z.string().trim().min(1)
       })
       .optional(),
+    /** Pull request cross-reference, present only when the issue represents a pull request. */
     pull_request: issuePullRequestLinkSchema.optional(),
+    /** Creation timestamp, an ISO 8601 string by convention; any string is accepted. */
     created_at: z.string().optional().default(defaultTimestamp),
+    /** Last-update timestamp, an ISO 8601 string by convention; any string is accepted. */
     updated_at: z.string().optional().default(defaultTimestamp),
+    /** Close timestamp by convention an ISO 8601 string, or `null` while open; any string is accepted. */
     closed_at: z.string().nullable().optional(),
+    /** REST API URL for the issue. */
     url: z.string().optional(),
+    /** Web URL for viewing the issue. */
     html_url: z.string().optional(),
+    /** REST API URL for the repository the issue belongs to. */
     repository_url: z.string().optional()
   })
   .transform((issue) => {
@@ -69,11 +91,21 @@ export const githubIssueSchema = z
 
     return {
       ...issue,
+      /**
+       * Numeric identifier, defaulting to the configured issue offset plus
+       * `number`. That fallback is unique within a repository but not across
+       * repositories; supply `id` explicitly where instance-wide uniqueness
+       * matters.
+       */
       id: issue.id ?? ENTITY_ID_OFFSETS.ISSUE + issue.number,
+      /** The GraphQL global node identifier, derived from the store key when omitted. */
       node_id: issue.node_id ?? Buffer.from(`Issue:${key}`).toString('base64'),
+      /** Author of the issue, defaulting to the `octocat` fixture account. */
       user: issue.user ?? {login: 'octocat'},
+      /** Close timestamp; populated only for closed issues, falling back to `updated_at`. */
       closed_at: issue.state === 'closed' ? (issue.closed_at ?? issue.updated_at) : null
     };
   });
 
-export type GitHubIssue = z.infer<typeof githubIssueSchema>;
+/** The normalized shape of a GitHub issue fixture produced by `githubIssueSchema`. */
+export interface GitHubIssue extends z.infer<typeof githubIssueSchema> {}
