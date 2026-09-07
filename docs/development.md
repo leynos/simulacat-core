@@ -28,18 +28,19 @@ The normal contributor gate is:
 1. `bun fmt`
 2. `bun lint`
 3. `bun check:types`
-4. `bun test`
+4. `bun run docs:check`
+5. `bun test`
 
 `make all` runs `check-fmt`, `typecheck`, `docs-check`, `lint`, `test`, and
-`spelling` in the repository's preferred order. The `lint` target runs the
-`biomejs` and `oxlint` sub-targets.
+`spelling` in the repository's preferred order, and is the gate CI runs. The
+`lint` target runs the `biomejs` and `oxlint` sub-targets.
 
 ### The documentation gate
 
 `make docs-check` is a zero-tolerance documentation gate. It runs TypeDoc
-over the package entry point (`bun run docs:check`, configured by
-`typedoc.json`) and fails on a single omission. It is not advisory: `make all`
-depends on it, CI runs `make all`, and a warning is an error.
+(`bun run docs:check`, configured by `typedoc.json`) over the package entry
+point, `src/index.ts`, and fails on a single omission. It is not advisory:
+`make all` depends on it, CI runs `make all`, and a warning is an error.
 
 What it checks, over everything reachable from `src/index.ts`:
 
