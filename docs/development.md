@@ -190,11 +190,11 @@ flowchart LR
   oxlint_rules --> jsdoc_gates[McCabe complexity, nesting depth, complex conditionals, and JSDoc gates]
 ```
 
-Caption: The `make all` target runs format checking, type-checking, the
-TypeDoc documentation gate, linting,
-tests, and spelling. Linting is delegated to the `biomejs` and `oxlint`
-sub-targets; Oxlint now owns the syntax-aware maintainability and JSDoc gates
-that were previously prototyped outside the Makefile.
+Caption: The `make all` target runs format checking, type-checking, the TypeDoc
+documentation gate, linting, tests, and spelling. Linting is delegated to the
+`biomejs` and `oxlint` sub-targets; Oxlint now owns the syntax-aware
+maintainability and JSDoc gates that were previously prototyped outside the
+Makefile.
 
 ## Linting rules
 
