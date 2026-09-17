@@ -11,6 +11,12 @@ bun install
 
 The package expects Bun to run scripts, tests, and formatting commands.
 
+`make fmt` and `make check-fmt` run `mdtablefix` (version 0.6.0, the same
+release CI installs); install it once with
+`cargo install --locked mdtablefix --version 0.6.0`. `make fmt` also runs
+`markdownlint-cli2`, which `bun install` provides as a project dev dependency,
+so no separate install step is needed.
+
 ## Day-to-day workflow
 
 Prefer the Makefile targets where available:
@@ -127,11 +133,17 @@ matching `overrides` entry rather than the direct dependency, run `bun install`
 to refresh `bun.lock`, and run `make test` afterwards because an override
 changes what every dependent resolves to.
 
-An override only reaches tooling that resolves through `bun.lock`. Invoking a
-CLI as `bunx --package <name>@<version>` installs a standalone tree that
-re-resolves the exact transitive versions that release pins, so it keeps
-running the vulnerable code even once `bun audit` is green. Declare such tools
-as development dependencies and run them from `node_modules` instead.
+An override only reaches tooling that resolves through `bun.lock`, so never
+invoke a CLI as `bunx --package <name>@<version>`. That form installs a
+standalone tree which re-resolves the exact transitive versions the named
+release pins, so it keeps running vulnerable code even once `bun audit` is
+green. Declare such tools as development dependencies and run them from
+`node_modules` instead.
+
+A tool that carries its own dependency graph, such as the pinned
+`markdownlint-cli2` action in CI or a copy already on `PATH`, sits outside
+`bun.lock` for the same reason. That is acceptable where the graph is pinned
+and reviewed, but `bun audit` says nothing about it.
 
 ## URL derivation
 
@@ -196,11 +208,11 @@ flowchart LR
   oxlint_rules --> jsdoc_gates[McCabe complexity, nesting depth, complex conditionals, and JSDoc gates]
 ```
 
-Caption: The `make all` target runs format checking, type-checking, the
-TypeDoc documentation gate, linting,
-tests, and spelling. Linting is delegated to the `biomejs` and `oxlint`
-sub-targets; Oxlint now owns the syntax-aware maintainability and JSDoc gates
-that were previously prototyped outside the Makefile.
+Caption: The `make all` target runs format checking, type-checking, the TypeDoc
+documentation gate, linting, tests, and spelling. Linting is delegated to the
+`biomejs` and `oxlint` sub-targets; Oxlint now owns the syntax-aware
+maintainability and JSDoc gates that were previously prototyped outside the
+Makefile.
 
 ## Linting rules
 

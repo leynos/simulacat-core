@@ -209,3 +209,9 @@ ______________________________________________________________________
 
 Contributions are welcome. Please read [AGENTS.md](AGENTS.md) before making
 changes, so your work matches the repository's build, testing, and commit rules.
+
+`make fmt` and `make check-fmt` run `mdtablefix` (version 0.6.0, the same
+release CI installs); install it once with
+`cargo install --locked mdtablefix --version 0.6.0`. `make fmt` also runs
+`markdownlint-cli2`, which `bun install` provides as a project dev dependency,
+so no separate install step is needed.
