@@ -133,6 +133,18 @@ matching `overrides` entry rather than the direct dependency, run `bun install`
 to refresh `bun.lock`, and run `make test` afterwards because an override
 changes what every dependent resolves to.
 
+An override only reaches tooling that resolves through `bun.lock`, so never
+invoke a CLI as `bunx --package <name>@<version>`. That form installs a
+standalone tree which re-resolves the exact transitive versions the named
+release pins, so it keeps running vulnerable code even once `bun audit` is
+green. Declare such tools as development dependencies and run them from
+`node_modules` instead.
+
+A tool that carries its own dependency graph, such as the pinned
+`markdownlint-cli2` action in CI or a copy already on `PATH`, sits outside
+`bun.lock` for the same reason. That is acceptable where the graph is pinned
+and reviewed, but `bun audit` says nothing about it.
+
 ## URL derivation
 
 The GitHub store is host-agnostic. Entity schemas preserve caller-supplied URL
