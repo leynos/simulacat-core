@@ -2,7 +2,7 @@
 
 # `make fmt` fixes Markdown in place, so the linter has to be a real
 # executable rather than a `bunx` resolution that may reach the registry.
-MDLINT ?= $(shell command -v markdownlint-cli2 2>/dev/null || printf '%s' "$$HOME/.bun/bin/markdownlint-cli2")
+MDLINT ?= $(shell command -v markdownlint-cli2 2>/dev/null || printf '%s' "node_modules/.bin/markdownlint-cli2")
 # `make fmt` and `make check-fmt` call mdtablefix directly. `--git` selects the
 # Markdown files Git tracks and `--include-untracked` adds the untracked files
 # Git does not ignore, so a new document is formatted before it is staged.
