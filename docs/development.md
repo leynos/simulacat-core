@@ -11,6 +11,12 @@ bun install
 
 The package expects Bun to run scripts, tests, and formatting commands.
 
+`make fmt` and `make check-fmt` run `mdtablefix` (version 0.6.0, the same
+release CI installs); install it once with
+`cargo install --locked mdtablefix --version 0.6.0`. `make fmt` also runs
+`markdownlint-cli2`, which `bun install` provides as a project dev dependency,
+so no separate install step is needed.
+
 ## Day-to-day workflow
 
 Prefer the Makefile targets where available:
@@ -190,11 +196,11 @@ flowchart LR
   oxlint_rules --> jsdoc_gates[McCabe complexity, nesting depth, complex conditionals, and JSDoc gates]
 ```
 
-Caption: The `make all` target runs format checking, type-checking, the
-TypeDoc documentation gate, linting,
-tests, and spelling. Linting is delegated to the `biomejs` and `oxlint`
-sub-targets; Oxlint now owns the syntax-aware maintainability and JSDoc gates
-that were previously prototyped outside the Makefile.
+Caption: The `make all` target runs format checking, type-checking, the TypeDoc
+documentation gate, linting, tests, and spelling. Linting is delegated to the
+`biomejs` and `oxlint` sub-targets; Oxlint now owns the syntax-aware
+maintainability and JSDoc gates that were previously prototyped outside the
+Makefile.
 
 ## Linting rules
 
