@@ -127,6 +127,12 @@ matching `overrides` entry rather than the direct dependency, run `bun install`
 to refresh `bun.lock`, and run `make test` afterwards because an override
 changes what every dependent resolves to.
 
+An override only reaches tooling that resolves through `bun.lock`. Invoking a
+CLI as `bunx --package <name>@<version>` installs a standalone tree that
+re-resolves the exact transitive versions that release pins, so it keeps
+running the vulnerable code even once `bun audit` is green. Declare such tools
+as development dependencies and run them from `node_modules` instead.
+
 ## URL derivation
 
 The GitHub store is host-agnostic. Entity schemas preserve caller-supplied URL

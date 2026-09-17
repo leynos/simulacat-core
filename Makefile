@@ -1,6 +1,10 @@
 .PHONY: all fmt check-fmt typecheck docs-check lint biomejs oxlint test build clean generate markdownlint nixie spelling spelling-config spelling-phrase-check spelling-helper-test
 
-MDLINT ?= bunx --package markdownlint-cli2@0.23.0 markdownlint-cli2
+# Resolve the linter from node_modules so it inherits the package.json
+# overrides. A `bunx --package markdownlint-cli2@<version>` form installs a
+# standalone tree instead, which re-resolves the exact transitive versions
+# the release pins and so bypasses any advisory override.
+MDLINT ?= ./node_modules/.bin/markdownlint-cli2
 XARGS_R := $(shell if xargs --help 2>&1 | grep -q '\\-r'; then printf -- '-r'; fi)
 UV ?= uv
 UV_ENV = UV_CACHE_DIR=.uv-cache UV_TOOL_DIR=.uv-tools
