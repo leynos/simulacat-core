@@ -12,6 +12,9 @@ accepted = []
 
 [patterns]
 ignore = [
+  # Inline code spans, which this repository's spelling check has always
+  # masked; preserved through the migration to the shared gate.
+  '`[^`\n]+`',
   # Changelog link labels use abbreviated Git commit identifiers.
   '\[[0-9a-f]{7}\]',
 ]
