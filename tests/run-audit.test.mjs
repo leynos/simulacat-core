@@ -9,7 +9,7 @@
  */
 
 import {describe, expect, it} from 'bun:test';
-import {chmodSync, mkdtempSync, rmSync, writeFileSync} from 'node:fs';
+import {chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {spawnSync} from 'node:child_process';
@@ -88,8 +88,16 @@ describe('checkLedger', () => {
     expect(problems[0]).toContain('YYYY-MM-DD');
   });
 
+  it('reports two entries for one advisory, whatever their ids', () => {
+    const second = {id: 'LATER', package: 'x', advisory: BRACES, expiresAt: '2027-01-01'};
+    expect(checkLedger([...LEDGER, second], BEFORE_EXPIRY)).toEqual([
+      `Audit exception BRACES and Audit exception LATER cover the same advisory ${BRACES}.`
+    ]);
+  });
+
   it('reports a duplicated entry id', () => {
-    expect(checkLedger([...LEDGER, ...LEDGER], BEFORE_EXPIRY)).toEqual([
+    const sameId = {...LEDGER[0], advisory: OTHER};
+    expect(checkLedger([...LEDGER, sameId], BEFORE_EXPIRY)).toEqual([
       'Audit exception BRACES is listed more than once.'
     ]);
   });
@@ -220,7 +228,8 @@ describe('scripts/run-audit.mjs (fake bun)', () => {
       const fixture = path.join(directory, 'report.json');
       writeFileSync(fixture, stdout);
       const bun = path.join(directory, 'bun');
-      writeFileSync(bun, `#!/bin/sh\ncat '${fixture}'\nexit ${status}\n`);
+      const argsFile = path.join(directory, 'args.txt');
+      writeFileSync(bun, `#!/bin/sh\nprintf '%s' "$*" > '${argsFile}'\ncat '${fixture}'\nexit ${status}\n`);
       chmodSync(bun, 0o755);
       const env = {...process.env, PATH: `${directory}:${process.env.PATH}`};
       if (referenceDate) env.AUDIT_REFERENCE_DATE = referenceDate;
@@ -229,13 +238,17 @@ describe('scripts/run-audit.mjs (fake bun)', () => {
         env,
         encoding: 'utf8'
       });
-      return {code: result.status, stdout: result.stdout, stderr: result.stderr};
+      return {code: result.status, stdout: result.stdout, stderr: result.stderr, args: readFileSync(argsFile, 'utf8')};
     } finally {
       rmSync(directory, {recursive: true, force: true});
     }
   }
 
   const braces = JSON.stringify(report(BRACES));
+
+  it('asks Bun for `audit --json`', () => {
+    expect(runCli({stdout: braces, status: 1, referenceDate: '2026-10-09'}).args).toBe('audit --json');
+  });
 
   it('passes a covered advisory', () => {
     const result = runCli({stdout: braces, status: 1, referenceDate: '2026-10-09'});
@@ -273,5 +286,19 @@ describe('scripts/run-audit.mjs (fake bun)', () => {
     const result = runCli({stdout: 'not json', status: 1, referenceDate: '2026-10-09'});
     expect(result.code).toBe(1);
     expect(result.stderr).toContain('Failed to parse bun audit JSON');
+  });
+});
+
+describe('audit gate wiring', () => {
+  const packageJson = JSON.parse(readFileSync(path.join(repositoryRoot, 'package.json'), 'utf8'));
+  const workflow = readFileSync(path.join(repositoryRoot, '.github/workflows/ci.yml'), 'utf8');
+
+  it('exposes the runner as the `audit` package script', () => {
+    expect(packageJson.scripts.audit).toBe('bun run scripts/run-audit.mjs');
+  });
+
+  it('has CI run the package script, not a bare `bun audit`', () => {
+    expect(workflow).toMatch(/- name: Audit dependencies\n\s+run: bun run audit\n/);
+    expect(workflow).not.toMatch(/run: bun audit\b/);
   });
 });

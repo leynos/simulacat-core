@@ -117,7 +117,8 @@ function expiryProblem(entry, now) {
  * Check every ledger entry, independently of what `bun audit` reports.
  *
  * An entry covers the whole of its stated `YYYY-MM-DD` day, so it fails from
- * the day after.
+ * the day after. Two entries for one advisory are refused too, because the later
+ * expiry would keep the advisory covered after the earlier one lapsed.
  *
  * @param entries The ledger entries.
  * @param now The reference time.
@@ -134,11 +135,23 @@ export function checkLedger(entries, now) {
     throw new TypeError('Invalid audit reference date');
   }
   const seen = new Set();
-  return entries.flatMap((entry) => {
+  const perEntry = entries.flatMap((entry) => {
     const repeated = entry.id !== undefined && seen.has(entry.id);
     seen.add(entry.id);
     return [...duplicateProblem(entry, repeated), ...expiryProblem(entry, now)];
   });
+  return [...perEntry, ...sharedAdvisoryProblems(entries)];
+}
+
+/** Name the advisories that more than one ledger entry covers, whatever their ids. */
+function sharedAdvisoryProblems(entries) {
+  const labelsByAdvisory = new Map();
+  for (const entry of entries) {
+    labelsByAdvisory.set(entry.advisory, [...(labelsByAdvisory.get(entry.advisory) ?? []), entryLabel(entry)]);
+  }
+  return [...labelsByAdvisory]
+    .filter(([, labels]) => labels.length > 1)
+    .map(([advisory, labels]) => `${labels.join(' and ')} cover the same advisory ${advisory}.`);
 }
 
 /** Pick the exit code: any failure is 1, otherwise Bun's status stands when nothing was covered. */

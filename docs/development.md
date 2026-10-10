@@ -140,6 +140,16 @@ needs a new major of the direct dependency, as `@graphql-tools/utils` 12 did),
 run `bun install` to refresh `bun.lock`, and run `make test` afterwards because
 an override changes what every dependent resolves to.
 
+The `@graphql-tools/utils` override (12.0.3) is a deliberate exception to that
+preference. GHSA-7mx3-vvmw-hjmv affects every release up to 12.0.0, and the
+dependants in `bun.lock` (the GraphQL code generator, `graphql-yoga` and the
+`@graphql-tools` packages) declare `^10` or `^11` at their locked versions.
+Their current releases declare `^12.0.3`, but reaching them means re-resolving
+about 250 packages, including 14 major crossings, which is out of scope for an
+audit fix. Remove the override once Dependabot's routine updates have moved
+those dependants to releases that declare `^12.0.3`; `bun audit` then still
+passes.
+
 An override only reaches tooling that resolves through `bun.lock`, so never
 invoke a CLI as `bunx --package <name>@<version>`. That form installs a
 standalone tree which re-resolves the exact transitive versions the named
