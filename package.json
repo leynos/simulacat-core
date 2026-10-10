@@ -57,6 +57,7 @@
     }
   },
   "scripts": {
+    "audit": "bun run scripts/run-audit.mjs",
     "bench": "bun test --bench",
     "build": "tsdown",
     "check:types": "bun run generate && bunx tsc --noEmit",

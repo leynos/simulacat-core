@@ -78,7 +78,7 @@ jobs:
           globs: '**/*.md'
 
       - name: Audit dependencies
-        run: bun audit
+        run: bun run audit
 
       - name: Build package
         run: make build

@@ -1,0 +1,11 @@
+[
+  {
+    "id": "BRACES_NESTED_PATTERN_DOS_2026_10",
+    "package": "simulacat-core",
+    "advisory": "GHSA-vfj7-8cjw-p6xm",
+    "introducedBy": "braces",
+    "reason": "braces 3.0.3 is the newest release and the advisory covers every release up to it, so there is no patched release. It reaches the tree through @graphql-codegen/cli > micromatch and markdownlint-cli2 > globby > fast-glob > micromatch (devDependencies that run code generation and Markdown linting over this repository's own configuration), and through @simulacrum/foundation-simulator > http-proxy-middleware > micromatch. The simulator is a production dependency, but its proxy middleware (dist/middleware/proxy.mjs) calls createProxyMiddleware with a target and no pathFilter, and http-proxy-middleware reaches micromatch only when a glob pathFilter is configured (the configured glob is the pattern; the request path is only the string matched), so no brace pattern is matched at runtime. Rationale and exposure: docs/dependency-policy-exception-braces-nested-patterns.md. Remove this entry once a patched braces exists or micromatch drops braces 3.",
+    "addedAt": "2026-10-10",
+    "expiresAt": "2026-12-09"
+  }
+]

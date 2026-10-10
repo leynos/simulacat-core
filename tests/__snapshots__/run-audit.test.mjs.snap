@@ -1,0 +1,29 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`formatOutcome prints the covered summary 1`] = `
+{
+  "err": [],
+  "out": [
+    "All reported advisories are covered by the audit exception ledger (1 advisory).",
+  ],
+}
+`;
+
+exports[`formatOutcome prints the unexpected advisories under their heading 1`] = `
+{
+  "err": [
+    "Unexpected vulnerabilities detected by bun audit:",
+    "- GHSA-aaaa-bbbb-cccc (other): other advisory",
+  ],
+  "out": [],
+}
+`;
+
+exports[`formatOutcome prints the expiry problem 1`] = `
+{
+  "err": [
+    "Audit exception BRACES for GHSA-vfj7-8cjw-p6xm expired on 2026-12-09.",
+  ],
+  "out": [],
+}
+`;
