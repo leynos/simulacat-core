@@ -325,8 +325,8 @@ escalation, not workarounds.
   module-splitting recommendation because it is a broad pre-existing refactor
   outside this actor-context plan and should land as a separate cleanup.
 - [x] (2026-06-01T00:00:00+02:00) Pushed
-  `1-2-2-expose-actor-context-to-handlers` to origin and updated draft PR
-  #15 with the implemented scope, review walkthrough, validation evidence, and
+  `1-2-2-expose-actor-context-to-handlers` to origin and updated draft PR #15
+  with the implemented scope, review walkthrough, validation evidence, and
   known deferred baseline refactor.
 - [x] (2026-06-08T00:00:00+02:00) Addressed follow-up review comments on PR
   #15. Normalized `requireUserActor` and `requireRestUserActor` around
