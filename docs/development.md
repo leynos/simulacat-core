@@ -15,7 +15,9 @@ The package expects Bun to run scripts, tests, and formatting commands.
 release CI installs); install it once with
 `cargo install --locked mdtablefix --version 0.6.1`. `make fmt` also runs
 `markdownlint-cli2`, which `bun install` provides as a project dev dependency,
-so no separate install step is needed.
+so no separate install step is needed. `.markdownlint-cli2.jsonc` sets
+`"gitignore": true`, so `markdownlint-cli2` skips files that Git ignores
+instead of linting generated or vendored Markdown.
 
 ## Day-to-day workflow
 
