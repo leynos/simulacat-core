@@ -1,5 +1,9 @@
 # Add first-class entities for early slices
 
+The developer guide has since been renamed to
+[developers-guide.md](../developers-guide.md). Historical references to
+`docs/development.md` below record the path used during this work.
+
 This ExecPlan (execution plan) is a living document. The sections `Constraints`,
 `Tolerances`, `Risks`, `Progress`, `Surprises & Discoveries`, `Decision Log`,
 and `Outcomes & Retrospective` must be kept up to date as work proceeds.

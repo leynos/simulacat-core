@@ -1,7 +1,14 @@
-# Development guide
+# Developers guide
 
-This repository uses Bun, Biome, TypeScript, and a small Makefile wrapper for
-the common contributor workflow.
+This guide covers setup, validation, and contribution workflows for Simulacat
+Core maintainers. The repository uses Bun, Biome, TypeScript, and a small
+Makefile wrapper for common tasks.
+
+The [architecture guide](architecture.md) explains the design and extension
+boundaries; the [repository layout](repository-layout.md) identifies the
+implementation, tests, and generated files. The
+[documentation contents](contents.md) links the shared standards and delivery
+records.
 
 ## Local setup
 
@@ -512,6 +519,18 @@ same branch:
 - `README.md` for user-facing guidance
 - `docs/api-reference.md` for surface-level API details
 - `docs/architecture.md` for structural changes
-- `docs/development.md` for contributor workflow changes
+- `docs/developers-guide.md` for contributor workflow changes
 
 All prose should use en-GB-oxendict spelling and wrap at 80 columns.
+
+## Shared developer standards
+
+The [documentation style guide](documentation-style-guide.md) defines the
+writing conventions for project documentation. The
+[complexity and refactoring guide](complexity-antipatterns-and-refactoring-strategies.md)
+provides strategies for simplifying code; the linting rules above remain the
+repository's enforced thresholds.
+
+Use the [repository layout](repository-layout.md) to locate implementation and
+test files, and the [documentation contents](contents.md) to find the relevant
+reference before changing a public contract.

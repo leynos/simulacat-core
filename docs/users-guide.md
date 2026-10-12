@@ -1,10 +1,80 @@
 # Users guide
 
+This guide is for library consumers and test-harness integrators. It covers
+installation, fixture seeding, configuration, shared writes, and request actors
+for the supported GitHub API simulation.
+
 ## Introduction
 
 Simulacat Core uses owner-qualified canonical keys so that repositories with
 identical short names owned by different accounts do not collide in seeded
 stores, REST responses, or GraphQL lookups.
+
+## Getting started
+
+Install the library in a Bun project:
+
+```bash
+bun add simulacat-core
+```
+
+Create `simulation.ts` with a small, explicit fixture:
+
+```typescript
+import {simulation, type InitialState} from 'simulacat-core';
+
+const initialState: InitialState = {
+  users: [{login: 'octocat', organizations: ['acme']}],
+  organizations: [{login: 'acme'}],
+  repositories: [{owner: 'acme', name: 'awesome-repo'}],
+  branches: [{owner: 'acme', repo: 'awesome-repo', name: 'main'}],
+  blobs: []
+};
+
+const app = simulation({initialState});
+app.listen(3300);
+```
+
+Start the simulator:
+
+```bash
+bun simulation.ts
+```
+
+Point a GitHub client at `http://localhost:3300`. A repository lookup reads the
+seeded store:
+
+```bash
+curl http://localhost:3300/repos/acme/awesome-repo
+curl -H 'x-simulacat-actor: user:octocat' http://localhost:3300/user
+```
+
+The first response describes `acme/awesome-repo`; the second selects the seeded
+`octocat` user. Stop the server with Ctrl+C when the session is finished.
+
+For a checkout of this repository, run `bun install` and `make build` before
+starting `node bin/start.cjs`. The CLI uses port `3300` by default; set `PORT`
+to choose another port. The library example above supplies its own fixtures.
+
+## Configuration and extensions
+
+`simulation()` accepts an `initialState` fixture and optional configuration:
+
+- `apiUrl` changes the mounted REST API root; it defaults to `/`.
+- `apiSchema` selects a bundled or custom OpenAPI schema.
+- `extend.extendStore` adds store slices, actions, or selectors.
+- `extend.openapiHandlers` adds or overrides OpenAPI operation handlers.
+- `extend.extendRouter` adds Express routes for a particular test harness.
+
+See the [API reference](api-reference.md) for argument details and supported
+operations, and the [architecture guide](architecture.md#extension-seams) for
+the responsibilities of each extension hook. Unlisted API operations should be
+treated as unsupported until documented.
+
+The sections below explain identity, fixture construction, shared writes, and
+request actors. Contributor setup and validation commands are in the
+[developers guide](developers-guide.md); the
+[documentation contents](contents.md) links the remaining references.
 
 ## Canonical key formats
 

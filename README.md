@@ -173,14 +173,18 @@ ______________________________________________________________________
 
 ## Learn more
 
+- [Documentation contents](docs/contents.md) — guides, standards, and delivery
+  records.
+- [Repository layout](docs/repository-layout.md) — source, tests, tooling, and
+  generated assets.
 - [API reference](docs/api-reference.md) — simulation arguments, exported
   schemas, and supported API operations.
 - [User guide](docs/users-guide.md) — canonical key formats, fixture builders,
   store key helpers, and breaking changes introduced in 1.1.1 and 1.2.1.
 - [Architecture guide](docs/architecture.md) — how seeded state flows through
   the store, REST, and GraphQL layers.
-- [Development guide](docs/development.md) — local workflows, quality gates, and
-  schema regeneration.
+- [Developers guide](docs/developers-guide.md) — local workflows, quality
+  gates, and schema regeneration.
 - [GitHub REST API audit](docs/github-rest-api-audit.md) — current REST
   coverage, scriptability, and gaps.
 - [GitHub GraphQL API audit](docs/github-graphql-api-audit.md) — current
