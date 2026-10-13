@@ -520,11 +520,10 @@ pieces—making it as difficult to follow as the original spaghetti.[^22]
    consolidated.[^10] Pair programming can also help maintain a balanced
    perspective during refactoring.[^24]
 
-6. **The “You Aren't Gonna Need It” (YAGNI) principle:** The initialism
-   summarizes the reminder that speculative features will probably go unused.
-   It helps avoid unnecessary abstractions and features, which can contribute
-   to Ravioli code if abstractions are created for anticipated but not actual
-   needs.[^25]
+6. **Avoid speculative features (YAGNI):** The principle recommends
+   implementing a feature only when there is a current need. Speculative
+   features and abstractions may go unused and can contribute to Ravioli
+   code.[^25]
 
 7. **Focus on System Flow:** While individual components in Ravioli code might
    be simple, the difficulty lies in tracing the overall execution flow. Ensure
@@ -672,16 +671,14 @@ making the system easier to test, extend, and evolve.
 The **Dispatcher pattern** often works in conjunction with the Command pattern.
 A dispatcher is a central component that receives requests (which could be
 command objects or simple identifiers) and routes them to the appropriate
-handler. For instance, a
-
-`switch` statement where each `case` calls a different method can be refactored
-by creating an interface for handlers, a concrete handler class for each
-original `case`, and a dispatcher (perhaps a map from case identifiers to
-handler instances) that looks up and invokes the correct handler. This
-transforms the control flow from a monolithic conditional block into a more
-manageable registration and lookup mechanism. The cognitive load is reduced
-because developers can focus on individual, self-contained handlers while
-trusting the dispatcher's routing logic.
+handler. For instance, a `switch` statement where each `case` calls a different
+method can be refactored by creating an interface for handlers, a concrete
+handler class for each original `case`, and a dispatcher (perhaps a map from
+case identifiers to handler instances) that looks up and invokes the correct
+handler. This transforms the control flow from a monolithic conditional block
+into a more manageable registration and lookup mechanism. The cognitive load is
+reduced because developers can focus on individual, self-contained handlers
+while trusting the dispatcher's routing logic.
 
 For example, a `switch` statement handling different message types:
 
@@ -702,7 +699,8 @@ void handleMessage(Message msg) {
 }
 ```
 
-Can be refactored using a dispatcher and command/handler objects:
+The switch statement can be refactored using a dispatcher and command/handler
+objects:
 
 ```java
 // After

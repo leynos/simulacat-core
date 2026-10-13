@@ -527,10 +527,12 @@ All prose should use en-GB-oxendict spelling and wrap at 80 columns.
 
 The [documentation style guide](documentation-style-guide.md) defines the
 writing conventions for project documentation. The
-[complexity and refactoring guide](complexity-antipatterns-and-refactoring-strategies.md)
-provides strategies for simplifying code; the linting rules above remain the
-repository's enforced thresholds.
+[complexity and refactoring guide][complexity-guide] provides strategies for
+simplifying code; the linting rules above remain the repository's enforced
+thresholds.
 
 Use the [repository layout](repository-layout.md) to locate implementation and
 test files, and the [documentation contents](contents.md) to find the relevant
 reference before changing a public contract.
+
+[complexity-guide]: complexity-antipatterns-and-refactoring-strategies.md

@@ -22,17 +22,17 @@
   schemas, and generated files.
 - [Documentation style guide](documentation-style-guide.md) — Apply the shared
   conventions for project documentation.
-- [Complexity antipatterns and refactoring strategies](complexity-antipatterns-and-refactoring-strategies.md)
-  — Recognize costly code patterns and choose refactoring approaches.
-- [Dependency policy exception: braces in nested patterns](dependency-policy-exception-braces-nested-patterns.md)
-  — Understand the repository's documented dependency policy exception.
+- [Complexity and refactoring guide][complexity-guide] — Recognize costly
+  code patterns and choose refactoring approaches.
+- [Dependency policy exception][dependency-policy] — Understand the
+  repository's documented policy exception for braces in nested patterns.
 
 ## Understand the design and API coverage
 
 - [Architecture](architecture.md) — Follow the simulator's main structural
   boundaries.
-- [Mocking services with Simulacrum actors and stable keyset connections](mocking-services-with-simulacrum-actors-and-stable-keyset-connections.md)
-  — Read the design rationale for actors and keyset connections.
+- [Actor and keyset connection design][actors-design] — Read the design
+  rationale for actors and keyset connections.
 - [GitHub REST API audit](github-rest-api-audit.md) — Review the REST surface
   coverage audit.
 - [GitHub GraphQL API audit](github-graphql-api-audit.md) — Review the GraphQL
@@ -42,18 +42,29 @@
 
 - [Roadmap](roadmap.md) — See the project's planned delivery slices.
 - [ExecPlans](execplans/) — Read implementation plans for roadmap slices:
-  - [1.1.1: Re-key repositories and refs by canonical identifiers](execplans/1-1-1-re-key-repositories-and-refs-by-canonical-identifiers.md)
-  - [1.1.2: First-class entities for early slices](execplans/1-1-2-first-class-entities-for-early-slices.md)
-  - [1.2.1: Request-scoped actor resolution](execplans/1-2-1-request-scoped-actor-resolution.md)
-  - [1.2.2: Expose actor context to handlers](execplans/1-2-2-expose-actor-context-to-handlers.md)
-  - [1.3.1: Shared domain actions for write behaviour](execplans/1-3-1-shared-domain-actions-for-write-behaviour.md)
-  - [1.4.1: Derive REST URLs](execplans/1-4-1-derive-rest-ur-ls.md)
+  - [1.1.1: Canonical repository and ref identifiers][plan-111]
+  - [1.1.2: First-class early entities][plan-112]
+  - [1.2.1: Request-scoped actor resolution][plan-121]
+  - [1.2.2: Actor context for handlers][plan-122]
+  - [1.3.1: Shared domain write actions][plan-131]
+  - [1.4.1: Derived REST URLs][plan-141]
 
 ## Shared standards source
 
 The complexity and refactoring guide and the documentation style guide are
 imported from the `documentation-library/` directory in
-[leynos/agent-helper-scripts](https://github.com/leynos/agent-helper-scripts/tree/d3da862950d9169e08454fb47d55f9bb079bf6b8/documentation-library).
-The import uses revision `d3da862950d9169e08454fb47d55f9bb079bf6b8`, the
-latest revision on the upstream default branch at import time. Local formatting
-adjustments may be required by this repository's Markdown gates.
+[leynos/agent-helper-scripts][upstream-library]. The import uses revision
+`d3da862950d9169e08454fb47d55f9bb079bf6b8`, the latest revision on the upstream
+default branch at import time. The complexity guide has three local grammar
+corrections; the documentation style guide is an unchanged import.
+
+[complexity-guide]: complexity-antipatterns-and-refactoring-strategies.md
+[dependency-policy]: dependency-policy-exception-braces-nested-patterns.md
+[actors-design]: mocking-services-with-simulacrum-actors-and-stable-keyset-connections.md
+[plan-111]: execplans/1-1-1-re-key-repositories-and-refs-by-canonical-identifiers.md
+[plan-112]: execplans/1-1-2-first-class-entities-for-early-slices.md
+[plan-121]: execplans/1-2-1-request-scoped-actor-resolution.md
+[plan-122]: execplans/1-2-2-expose-actor-context-to-handlers.md
+[plan-131]: execplans/1-3-1-shared-domain-actions-for-write-behaviour.md
+[plan-141]: execplans/1-4-1-derive-rest-ur-ls.md
+[upstream-library]: https://github.com/leynos/agent-helper-scripts/tree/d3da862950d9169e08454fb47d55f9bb079bf6b8/documentation-library
