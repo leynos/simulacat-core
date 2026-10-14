@@ -43,6 +43,15 @@ describe('tested users-guide examples marker validation', () => {
 
     expect(examples.map((example) => example.body)).toEqual(['const value = 1;\n', 'printf example\n']);
   });
+
+  it('preserves CRLF body bytes and the opener source coordinate', () => {
+    const markdown = ['<!-- tested-example: crlf-sample -->', '```typescript', 'const value = 1;', '```'].join('\r\n');
+    const [example] = parseDocumentedExamples({markdown, sourcePath: 'crlf-fixture.md'});
+
+    expect(example?.body).toBe('const value = 1;\r\n');
+    expect(example?.line).toBe(2);
+    expect(example?.sourcePath).toBe('crlf-fixture.md');
+  });
 });
 
 describe('tested users-guide examples invalid markers', () => {

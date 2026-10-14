@@ -20,6 +20,16 @@ export interface DocumentInput {
   sourcePath: string;
 }
 
+interface SourceDocument {
+  readonly lines: readonly string[];
+  readonly sourcePath: string;
+}
+
+interface SourceMarker {
+  document: SourceDocument;
+  markerIndex: number;
+}
+
 interface FenceOpening {
   character: '`' | '~';
   length: number;
@@ -28,8 +38,8 @@ interface FenceOpening {
 
 interface FenceContext {
   marker: string;
+  document: SourceDocument;
   opening: FenceOpening;
-  sourcePath: string;
   openingLine: number;
 }
 
@@ -57,23 +67,23 @@ export const loadUsersGuideExamples = async (): Promise<DocumentedExample[]> => 
  * @throws Error when a fence or marker is missing, malformed, or duplicated.
  */
 export const parseDocumentedExamples = (input: DocumentInput): DocumentedExample[] => {
-  const lines = input.markdown.split('\n');
+  const document: SourceDocument = {lines: input.markdown.split('\n'), sourcePath: input.sourcePath};
   const examples: DocumentedExample[] = [];
   const seenIds = new Set<string>();
 
-  for (let index = 0; index < lines.length; index += 1) {
-    const line = normalizedLine(lines[index] ?? '');
+  for (let index = 0; index < document.lines.length; index += 1) {
+    const line = normalizedLine(document.lines[index] ?? '');
 
     if (line.trimStart().startsWith('<!-- tested-example')) {
-      const context = validateMarkedFence(lines, index, input.sourcePath, seenIds);
-      const extracted = extractMarkedFence(lines, context);
+      const context = validateMarkedFence({document, markerIndex: index}, seenIds);
+      const extracted = extractMarkedFence(context);
       examples.push(extracted.example);
       index = extracted.closingIndex;
       continue;
     }
 
     if (parseOpening(line)) {
-      throw new Error(`${input.sourcePath}:${index + 1}: fenced example is missing a tested-example marker`);
+      throw new Error(`${document.sourcePath}:${index + 1}: fenced example is missing a tested-example marker`);
     }
   }
 
@@ -81,49 +91,50 @@ export const parseDocumentedExamples = (input: DocumentInput): DocumentedExample
 };
 
 /** Validates one marker, its adjacent opener, and source-order uniqueness. */
-const validateMarkedFence = (
-  lines: string[],
-  markerIndex: number,
-  sourcePath: string,
-  seenIds: Set<string>
-): FenceContext => {
-  const markerLine = normalizedLine(lines[markerIndex] ?? '');
-  const marker = parseMarker(markerLine, sourcePath, markerIndex + 1);
-  const openingLine = lines[markerIndex + 1];
+const validateMarkedFence = (sourceMarker: SourceMarker, seenIds: Set<string>): FenceContext => {
+  const {document, markerIndex} = sourceMarker;
+  const marker = parseMarker(sourceMarker);
+  const openingLine = document.lines[markerIndex + 1];
   const opening = openingLine === undefined ? undefined : parseOpening(openingLine);
 
   if (!opening) {
-    throw new Error(`${sourcePath}:${markerIndex + 1}: tested-example marker must immediately precede a fence`);
+    throw new Error(
+      `${document.sourcePath}:${markerIndex + 1}: tested-example marker must immediately precede a fence`
+    );
   }
 
   if (seenIds.has(marker)) {
-    throw new Error(`${sourcePath}:${markerIndex + 1}: duplicate tested-example identifier "${marker}"`);
+    throw new Error(`${document.sourcePath}:${markerIndex + 1}: duplicate tested-example identifier "${marker}"`);
   }
 
   seenIds.add(marker);
-  return {marker, opening, sourcePath, openingLine: markerIndex + 2};
+  return {marker, document, opening, openingLine: markerIndex + 2};
 };
 
 /** Extracts a validated marked fence while retaining its original body. */
-const extractMarkedFence = (lines: string[], context: FenceContext): ExtractedFence => {
-  const closingIndex = findClosingFence(lines, context);
-  const bodyLines = lines.slice(context.openingLine, closingIndex);
-  return {example: serializeMarkedFence(context, bodyLines), closingIndex};
+const extractMarkedFence = (context: FenceContext): ExtractedFence => {
+  const closingIndex = findClosingFence(context);
+  return {example: serializeMarkedFence(context, closingIndex), closingIndex};
 };
 
-/** Builds an example record with the source's original body line ending. */
-const serializeMarkedFence = (context: FenceContext, bodyLines: string[]): DocumentedExample => {
+/** Builds the public example from the validated source range. */
+const serializeMarkedFence = (context: FenceContext, closingIndex: number): DocumentedExample => {
+  const bodyLines = context.document.lines.slice(context.openingLine, closingIndex);
   return {
     id: context.marker,
     language: context.opening.language,
     body: bodyLines.length === 0 ? '' : `${bodyLines.join('\n')}\n`,
     line: context.openingLine,
-    sourcePath: context.sourcePath
+    sourcePath: context.document.sourcePath
   };
 };
 
 /** Validates one tested-example marker and returns its identifier. */
-const parseMarker = (line: string, sourcePath: string, lineNumber: number): string => {
+const parseMarker = (sourceMarker: SourceMarker): string => {
+  const {document, markerIndex} = sourceMarker;
+  const line = normalizedLine(document.lines[markerIndex] ?? '');
+  const lineNumber = markerIndex + 1;
+  const {sourcePath} = document;
   const match = /^<!-- tested-example:\s*(.*?)\s*-->$/.exec(line.trim());
   const identifier = match?.[1]?.trim();
 
@@ -149,13 +160,9 @@ const parseOpening = (sourceLine: string): FenceOpening | undefined => {
 
   const fence = match[2] ?? '';
   const information = match[3] ?? '';
-  const character = fence[0];
+  const character = fence.startsWith('`') ? '`' : '~';
 
-  if (character !== '`' && character !== '~') {
-    return undefined;
-  }
-
-  if (!allowsFenceInformation(character, information)) {
+  if (character === '`' && information.includes('`')) {
     return undefined;
   }
 
@@ -166,13 +173,10 @@ const parseOpening = (sourceLine: string): FenceOpening | undefined => {
   };
 };
 
-/** Allows information strings that obey the selected fence grammar. */
-const allowsFenceInformation = (character: '`' | '~', information: string): boolean => {
-  return character !== '`' || !information.includes('`');
-};
-
 /** Finds the closing fence for one validated opener. */
-const findClosingFence = (lines: string[], context: FenceContext): number => {
+const findClosingFence = (context: FenceContext): number => {
+  const {lines, sourcePath} = context.document;
+
   for (let index = context.openingLine; index < lines.length; index += 1) {
     const line = normalizedLine(lines[index] ?? '');
     const match = /^( {0,3})(`+|~+)[ \t]*$/.exec(line);
@@ -183,7 +187,7 @@ const findClosingFence = (lines: string[], context: FenceContext): number => {
     }
   }
 
-  throw new Error(`${context.sourcePath}:${context.openingLine}: unterminated tested-example fence`);
+  throw new Error(`${sourcePath}:${context.openingLine}: unterminated tested-example fence`);
 };
 
 /** Removes a carriage return for Markdown delimiter comparisons. */

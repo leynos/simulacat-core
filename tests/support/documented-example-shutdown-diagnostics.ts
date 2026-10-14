@@ -10,7 +10,18 @@ import type {OwnedProcessSnapshot, OwnedProcessTarget} from './documented-exampl
  * @returns Error containing actionable process state and captured output.
  */
 export const shutdownFailure = (target: OwnedProcessTarget, reason: string, cause?: unknown): Error => {
-  const state = target.snapshot();
+  return shutdownFailureFromSnapshot(target.snapshot(), reason, cause);
+};
+
+/**
+ * Builds the bounded diagnostic from one captured process observation.
+ *
+ * @param state Lifecycle facts and captured output from the failing observation.
+ * @param reason Shutdown phase that failed.
+ * @param cause Optional underlying signal, child, or close error.
+ * @returns Error containing actionable process state and captured output.
+ */
+export const shutdownFailureFromSnapshot = (state: OwnedProcessSnapshot, reason: string, cause?: unknown): Error => {
   const command = [state.command, ...state.args].join(' ');
   const details = [
     reason,

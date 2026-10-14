@@ -1,5 +1,5 @@
 /** @file Bounds shutdown of process groups owned by documented-example tests. */
-import {shutdownFailure} from './documented-example-shutdown-diagnostics.ts';
+import {shutdownFailure, shutdownFailureFromSnapshot} from './documented-example-shutdown-diagnostics.ts';
 import {
   DOCUMENTED_EXAMPLE_SHUTDOWN_LIMITS,
   type CommandResult,
@@ -29,6 +29,7 @@ type StopAttempt = {kind: 'stopped'; result: CommandResult} | {kind: 'pending'};
 type CloseWait = {kind: 'closed'; result: CommandResult} | {kind: 'timeout'};
 /** Budget form used for post-exit pipe closure. */
 type CloseBudget = {kind: 'duration'; milliseconds: number} | {kind: 'deadline'; at: number};
+type CloseWaitPolicy = {timeoutMs: number; failureMessage: string};
 /** Budget and phase-specific child-error message for one completion check. */
 type CompletionContext = {budget: CloseBudget; errorMessage: string};
 
@@ -70,14 +71,10 @@ const completedProcess = async (
   scheduler: ShutdownScheduler,
   context: CompletionContext
 ): Promise<CommandResult | undefined> => {
-  const state = target.snapshot();
-
-  if (state.error) {
-    throw shutdownFailure(target, context.errorMessage);
-  }
+  const state = checkedSnapshot(target, context.errorMessage);
 
   if (state.hasClosed) {
-    return await readClosedResult(target);
+    return await observeShutdownResult(target, 'the child close result was rejected', () => target.closed);
   }
 
   if (state.hasExited) {
@@ -85,6 +82,17 @@ const completedProcess = async (
   }
 
   return undefined;
+};
+
+/** Returns one lifecycle observation after preserving errors from that snapshot. */
+const checkedSnapshot = (target: OwnedProcessTarget, reason: string): OwnedProcessSnapshot => {
+  const state = target.snapshot();
+
+  if (state.error) {
+    throw shutdownFailureFromSnapshot(state, reason);
+  }
+
+  return state;
 };
 
 /** Requests SIGTERM and waits for exit or close within the graceful budget. */
@@ -251,10 +259,10 @@ const waitForProcessEvent = async (
   });
 
   try {
-    timer = scheduler.schedule(timeoutMs);
-    return await Promise.race([eventPromise, timer.promise.then((): ProcessEventWait => ({kind: 'timeout'}))]);
-  } catch (error) {
-    throw shutdownFailure(target, 'observing child shutdown failed', error);
+    return await observeShutdownResult(target, 'observing child shutdown failed', () => {
+      timer = scheduler.schedule(timeoutMs);
+      return Promise.race([eventPromise, timer.promise.then((): ProcessEventWait => ({kind: 'timeout'}))]);
+    });
   } finally {
     timer?.cancel();
     removeListener();
@@ -285,26 +293,18 @@ const finishExitedProcess = async (
   scheduler: ShutdownScheduler,
   budget: CloseBudget
 ): Promise<CommandResult> => {
-  const state = target.snapshot();
-
-  if (state.error) {
-    throw shutdownFailure(target, 'the child reported an error before pipe close');
-  }
+  const state = checkedSnapshot(target, 'the child reported an error before pipe close');
 
   if (state.hasClosed) {
-    return await readClosedResult(target);
+    return await observeShutdownResult(target, 'the child close result was rejected', () => target.closed);
   }
 
   target.releasePipes();
-  const timeoutMs = budget.kind === 'deadline' ? getRemainingTime(scheduler, budget.at) : budget.milliseconds;
-  const result = await waitForClosed(target, scheduler, timeoutMs);
+  const policy = closeWaitPolicy(scheduler, budget);
+  const result = await waitForClosed(target, scheduler, policy.timeoutMs);
 
   if (result === undefined) {
-    const reason =
-      budget.kind === 'deadline'
-        ? 'stdio did not close before the post-SIGKILL deadline'
-        : `stdio did not close within ${budget.milliseconds} ms after child exit`;
-    throw shutdownFailure(target, reason);
+    throw shutdownFailure(target, policy.failureMessage);
   }
 
   return result;
@@ -316,38 +316,53 @@ const waitForClosed = async (
   scheduler: ShutdownScheduler,
   timeoutMs: number
 ): Promise<CommandResult | undefined> => {
-  const state = target.snapshot();
-
-  if (state.error) {
-    throw shutdownFailure(target, 'the child reported an error while waiting for close');
-  }
+  const state = checkedSnapshot(target, 'the child reported an error while waiting for close');
 
   if (state.hasClosed) {
-    return await readClosedResult(target);
+    return await observeShutdownResult(target, 'the child close result was rejected', () => target.closed);
   }
 
   const timer = scheduler.schedule(timeoutMs);
 
   try {
-    const outcome: CloseWait = await Promise.race([
-      target.closed.then((result): CloseWait => ({kind: 'closed', result})),
-      timer.promise.then((): CloseWait => ({kind: 'timeout'}))
-    ]);
-    return outcome.kind === 'closed' ? outcome.result : undefined;
-  } catch (error) {
-    throw shutdownFailure(target, 'waiting for child close failed', error);
+    return await observeShutdownResult(target, 'waiting for child close failed', async () => {
+      const outcome: CloseWait = await Promise.race([
+        target.closed.then((result): CloseWait => ({kind: 'closed', result})),
+        timer.promise.then((): CloseWait => ({kind: 'timeout'}))
+      ]);
+      return outcome.kind === 'closed' ? outcome.result : undefined;
+    });
   } finally {
     timer.cancel();
   }
 };
 
-/** Resolves the close result after the lifecycle snapshot confirms closure. */
-const readClosedResult = async (target: OwnedProcessTarget): Promise<CommandResult> => {
+/** Applies the shared shutdown diagnostic to one asynchronous observation. */
+const observeShutdownResult = async <T>(
+  target: OwnedProcessTarget,
+  reason: string,
+  operation: () => Promise<T>
+): Promise<T> => {
   try {
-    return await target.closed;
+    return await operation();
   } catch (error) {
-    throw shutdownFailure(target, 'the child close result was rejected', error);
+    throw shutdownFailure(target, reason, error);
   }
+};
+
+/** Pairs each post-exit wait duration with its phase-specific timeout diagnostic. */
+const closeWaitPolicy = (scheduler: ShutdownScheduler, budget: CloseBudget): CloseWaitPolicy => {
+  if (budget.kind === 'deadline') {
+    return {
+      timeoutMs: getRemainingTime(scheduler, budget.at),
+      failureMessage: 'stdio did not close before the post-SIGKILL deadline'
+    };
+  }
+
+  return {
+    timeoutMs: budget.milliseconds,
+    failureMessage: `stdio did not close within ${budget.milliseconds} ms after child exit`
+  };
 };
 
 /** Returns the remaining time before a monotonic deadline. */
