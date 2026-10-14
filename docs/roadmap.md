@@ -98,7 +98,7 @@ Coverage.
 This step answers whether mutations and test fixtures can share one domain
 path. Its outcome informs pull request lifecycle work, issue mutations,
 webhooks, and external scenario recipes. See docs/architecture.md §Extension
-seams, docs/development.md §Testing expectations, and
+seams, docs/developers-guide.md §Testing expectations, and
 docs/github-rest-api-audit.md §Extension Surface.
 
 - [x] 1.3.1. Add shared domain actions for write behaviour.
@@ -653,8 +653,8 @@ docs/github-graphql-api-audit.md §Recommended Follow-Ups.
 
 This step answers whether common workflows can start from maintained builders
 instead of bespoke fixture graphs. Its outcome informs end-to-end scenario
-suites. See docs/development.md §Testing expectations and docs/architecture.md
-§Extension seams.
+suites. See docs/developers-guide.md §Testing expectations and
+docs/architecture.md §Extension seams.
 
 - [ ] 9.2.1. Publish scenario builders and fixture recipes.
   - Requires 9.1.1 and 1.3.2.
@@ -668,7 +668,7 @@ suites. See docs/development.md §Testing expectations and docs/architecture.md
 This step answers whether external harnesses can assert simulator side effects
 without bespoke handlers. Its outcome informs simulacat's pytest fixtures and
 future webhook delivery inspection. See docs/architecture.md §Extension seams
-and docs/development.md §Testing expectations, and
+and docs/developers-guide.md §Testing expectations, and
 ../simulacat/docs/simulacat-design.md §Step 5.2 – diagnostics and fault
 fixtures.
 
@@ -695,7 +695,7 @@ fixtures.
 
 This step answers whether the consumer slices work together rather than only as
 isolated endpoint tests. Its outcome informs webhook confidence and release
-readiness. See docs/development.md §Testing expectations,
+readiness. See docs/developers-guide.md §Testing expectations,
 docs/github-rest-api-audit.md §Test Coverage Observed, and
 docs/github-graphql-api-audit.md §Test Coverage Observed.
 
@@ -762,8 +762,8 @@ docs/github-rest-api-audit.md §Recommended Follow-Ups.
 ### 10.2. Make deliveries inspectable and replayable
 
 This step answers whether tests can assert webhook delivery deterministically.
-Its outcome informs app-integration adoption. See docs/development.md §Testing
-expectations and docs/api-reference.md §Capability matrix.
+Its outcome informs app-integration adoption. See docs/developers-guide.md
+§Testing expectations and docs/api-reference.md §Capability matrix.
 
 - [ ] 10.2.1. Add delivery inspection and replay helpers.
   - Carries legacy task label `6.1.2`.

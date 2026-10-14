@@ -1,7 +1,14 @@
-# Development guide
+# Developers guide
 
-This repository uses Bun, Biome, TypeScript, and a small Makefile wrapper for
-the common contributor workflow.
+This guide covers setup, validation, and contribution workflows for Simulacat
+Core maintainers. The repository uses Bun, Biome, TypeScript, and a small
+Makefile wrapper for common tasks.
+
+The [architecture guide](architecture.md) explains the design and extension
+boundaries; the [repository layout](repository-layout.md) identifies the
+implementation, tests, and generated files. The
+[documentation contents](contents.md) links the shared standards and delivery
+records.
 
 ## Local setup
 
@@ -485,6 +492,85 @@ test preload configured in `bunfig.toml`.
 and integration tests. Keep feature files focused on user-visible behaviour,
 and keep pure helper invariants in regular Bun tests.
 
+### Executable guide examples
+
+Every fenced example in the users guide has an immediately preceding
+`tested-example` marker. The shared loader in
+`tests/support/documented-examples.ts` reads the current Markdown and rejects
+missing, duplicate, or malformed markers and unclosed fences. Add a stable
+identifier and an execution handler when adding an example; the integration
+test rejects differences between the guide and handler inventories.
+
+`tests/documentation-examples.test.ts` executes all guide examples, while
+`features/documentation-examples.feature` exercises the quick start through the
+same executor. Both pack the checkout and install its archive in an owned
+consumer under `~/.cache/simulacat-core-documentation-examples`, outside the
+checkout. They type-check the extracted TypeScript against the package
+declarations and exercise real local HTTP endpoints. Example compilation
+follows the project's strict options and its existing `skipLibCheck` policy for
+dependency declarations. A negative control checks that an invalid call to the
+installed public API fails compilation. The BDD setup hook has a separate build
+timeout; existing scenario timeouts remain unchanged. Run `make test` to
+validate this contract, including fixture cleanup.
+
+#### Example process lifecycle and evidence
+
+The example harness installs the packed checkout into a temporary consumer under
+`~/.cache/simulacat-core-documentation-examples`. It resolves the checkout and
+cache paths before verifying that the consumer is outside the checkout, and
+owns removal of that consumer directory. Its child-process adapter captures
+stdout, stderr, exit status, and the separate stdio-close result. These modules
+describe test infrastructure, not the published package API. See the
+[fixture factory][fixture], [cache guard][fixture-location],
+[process adapter][child-adapter], and [shutdown types][shutdown-types].
+
+`OwnedProcessTarget` exposes lifecycle snapshots, the close promise, event
+subscriptions, owned-group signalling, and parent-pipe release.
+`ShutdownScheduler` supplies monotonic `now()` and cancellable `schedule()`
+operations. These ports let tests control time and process events without
+spawning real children.
+
+The defaults allow 3 seconds for graceful `SIGTERM` termination, 2 seconds
+after forced `SIGKILL`, and 2 seconds for ordinary post-exit pipe closure. A
+forced stop keeps one deadline for both process exit and pipe closure. The
+harness signals only a factory-owned live child whose positive integer process
+ID matches its process-group ID; it never signals after exit, close, or a child
+error. Parent pipes are released only after exit; shutdown returns the captured
+output and close result. Every wait cancels its timer and removes its listener
+when it finishes. The [shutdown state machine][shutdown-state] contains the
+phase-specific failure details.
+
+Each command receives its full `timeoutMs` command execution allowance. Expiry
+starts separately bounded shutdown, which completes before timeout is reported.
+Failure reporting may therefore take longer than the allowance; it is not a
+hard total-return deadline.
+
+Fixture cleanup is idempotent per owner: concurrent callers share one
+operation, which awaits shutdown and then attempts directory removal even if
+shutdown fails. It records the shutdown and removal phases and preserves a
+single phase error or both errors in an `AggregateError`; see the
+[cleanup coordinator][cleanup]. Separately, each test creates its observation
+collector before fixture preparation. Installation and handler completion are
+recorded only after their awaited work, alongside actual command and HTTP
+outputs. The [observation oracle][oracle] compares completed handlers with the
+selected source fences in document order rather than trusting a returned
+identifier list, checks each required captured output, compares the generated
+startup program byte-for-byte with its source fence, and fetches the repository
+from the live server. This independent evidence catches cases where an example
+appears to complete but its source, output, or running service differs from the
+documented contract. When changing these contracts, update the ports, adapter,
+and independent model together. Retain named fault regressions and generated
+parser and shutdown cases; update the source-driven integration and BDD tests
+as needed. Run `make test`, the required code gates, and documentation checks.
+
+[fixture]: ../tests/support/documented-example-fixture.ts
+[fixture-location]: ../tests/support/documented-example-fixture-location.ts
+[child-adapter]: ../tests/support/documented-example-child.ts
+[shutdown-types]: ../tests/support/documented-example-shutdown-types.ts
+[shutdown-state]: ../tests/support/documented-example-shutdown.ts
+[cleanup]: ../tests/support/documented-example-cleanup.ts
+[oracle]: ../tests/support/documented-example-observations.ts
+
 ## Regenerating bundled assets
 
 ### GraphQL resolver types
@@ -512,6 +598,20 @@ same branch:
 - `README.md` for user-facing guidance
 - `docs/api-reference.md` for surface-level API details
 - `docs/architecture.md` for structural changes
-- `docs/development.md` for contributor workflow changes
+- `docs/developers-guide.md` for contributor workflow changes
 
 All prose should use en-GB-oxendict spelling and wrap at 80 columns.
+
+## Shared developer standards
+
+The [documentation style guide](documentation-style-guide.md) defines the
+writing conventions for project documentation. The
+[complexity and refactoring guide][complexity-guide] provides strategies for
+simplifying code; the linting rules above remain the repository's enforced
+thresholds.
+
+Use the [repository layout](repository-layout.md) to locate implementation and
+test files, and the [documentation contents](contents.md) to find the relevant
+reference before changing a public contract.
+
+[complexity-guide]: complexity-antipatterns-and-refactoring-strategies.md
