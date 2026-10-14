@@ -2,6 +2,7 @@
 import {performance} from 'node:perf_hooks';
 import type {DocumentedExample} from './documented-examples.ts';
 import {createDocumentedExampleChild, type RunningExampleProcess} from './documented-example-child.ts';
+import {waitForDocumentedCommandCompletion} from './documented-example-command-completion.ts';
 import {stopOwnedProcessGroup} from './documented-example-shutdown.ts';
 import {
   DOCUMENTED_EXAMPLE_SHUTDOWN_LIMITS,
@@ -33,6 +34,7 @@ export interface DocumentedCommandOptions {
   cwd: string;
   env: NodeJS.ProcessEnv;
   label: string;
+  /** Full execution allowance; bounded shutdown may extend failure reporting. */
   timeoutMs: number;
 }
 
@@ -44,11 +46,15 @@ export interface DocumentedServerOptions {
 }
 
 /**
- * Runs one bounded child command and captures both output streams.
+ * Runs a child command with its full execution allowance and captures both streams.
+ * Bounded shutdown follows expiry, so failure reporting can take longer than the
+ * allowance; it is not a hard total-return deadline.
  *
- * @param options Command, process environment, label, and time bound.
+ * @param options Command, process environment, label, and execution allowance.
  * @returns Captured output and exit state.
- * @throws Error when the command fails to start, exits unsuccessfully, or times out.
+ * @throws Error when the command fails to start, exits unsuccessfully, or its
+ * execution allowance expires after shutdown completes.
+ * Shutdown failures propagate unchanged.
  */
 export const runDocumentedCommand = async (options: DocumentedCommandOptions): Promise<CommandResult> => {
   const running = startCommand(options.command, options.args, {cwd: options.cwd, env: options.env});
@@ -158,33 +164,19 @@ const startCommand = (
   return createDocumentedExampleChild({command, args, ...options}, shutdownScheduler.now);
 };
 
-/** Waits for command completion, stopping its group if the time bound expires. */
+/** Checks command completion after its execution allowance and bounded shutdown. */
 const requireSuccessfulCommand = async (
   running: RunningExampleProcess,
   label: string,
   timeoutMs: number
 ): Promise<CommandResult> => {
-  let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
-  let timedOut = false;
-  const timeout = new Promise<CommandResult>((resolvePromise, rejectPromise) => {
-    timeoutHandle = setTimeout(() => {
-      timedOut = true;
-      void stopExampleProcess(running).then(resolvePromise, rejectPromise);
-    }, timeoutMs);
+  const result = await waitForDocumentedCommandCompletion({
+    closed: running.closed,
+    shutdown: () => stopExampleProcess(running),
+    scheduler: shutdownScheduler,
+    executionAllowanceMs: timeoutMs,
+    label
   });
-  let result: CommandResult;
-
-  try {
-    result = await Promise.race([running.closed, timeout]);
-  } finally {
-    if (timeoutHandle !== undefined) {
-      clearTimeout(timeoutHandle);
-    }
-  }
-
-  if (timedOut) {
-    throw new Error(`${label} exceeded its ${timeoutMs} ms command bound\n${result.stdout}\n${result.stderr}`);
-  }
 
   if (result.exitCode !== 0) {
     throw commandFailure(label, result);

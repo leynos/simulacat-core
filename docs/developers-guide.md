@@ -540,6 +540,11 @@ output and close result. Every wait cancels its timer and removes its listener
 when it finishes. The [shutdown state machine][shutdown-state] contains the
 phase-specific failure details.
 
+Each command receives its full `timeoutMs` command execution allowance. Expiry
+starts separately bounded shutdown, which completes before timeout is reported.
+Failure reporting may therefore take longer than the allowance; it is not a
+hard total-return deadline.
+
 Fixture cleanup is idempotent per owner: concurrent callers share one
 operation, which awaits shutdown and then attempts directory removal even if
 shutdown fails. It records the shutdown and removal phases and preserves a
