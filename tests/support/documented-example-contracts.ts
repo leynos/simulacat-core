@@ -3,25 +3,30 @@ import assert from 'node:assert/strict';
 
 type JsonObject = Record<string, unknown>;
 
+/** Captured command output paired with the label used for diagnostics. */
+export interface CapturedOutput {
+  stdout: string;
+  label: string;
+}
+
 /**
  * Parses a command's final JSON line as an untrusted value.
  *
- * @param stdout Captured command output.
- * @param label Example label used in failure messages.
+ * @param output Captured command output and its diagnostic label.
  * @returns Parsed JSON value.
  * @throws Error when output has no final line or contains invalid JSON.
  */
-export const parseJsonOutput = (stdout: string, label: string): unknown => {
-  const line = stdout.trim().split(/\r?\n/).at(-1);
+export const parseJsonOutput = (output: CapturedOutput): unknown => {
+  const line = output.stdout.trim().split(/\r?\n/).at(-1);
 
   if (!line) {
-    throw new Error(`${label} produced no JSON output`);
+    throw new Error(`${output.label} produced no JSON output`);
   }
 
   try {
     return JSON.parse(line) as unknown;
   } catch (error) {
-    throw new Error(`${label} produced invalid JSON`, {cause: error});
+    throw new Error(`${output.label} produced invalid JSON`, {cause: error});
   }
 };
 
@@ -143,8 +148,11 @@ export const assertFixtureUrlOverrides = (value: unknown): void => {
 export const assertCurlResponses = (stdout: string): void => {
   const lines = stdout.trim().split(/\r?\n/);
   assert.equal(lines.length, 2);
-  const repository = asObject(parseJsonOutput(lines[0] ?? '', 'repository curl'), 'repository curl response');
-  const user = asObject(parseJsonOutput(lines[1] ?? '', 'user curl'), 'user curl response');
+  const repository = asObject(
+    parseJsonOutput({stdout: lines[0] ?? '', label: 'repository curl'}),
+    'repository curl response'
+  );
+  const user = asObject(parseJsonOutput({stdout: lines[1] ?? '', label: 'user curl'}), 'user curl response');
   assert.equal(stringAt(repository, 'full_name'), 'acme/awesome-repo');
   assert.equal(stringAt(user, 'login'), 'octocat');
 };

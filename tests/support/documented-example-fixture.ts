@@ -31,6 +31,12 @@ export interface ExampleFixture {
   environment: NodeJS.ProcessEnv;
 }
 
+/** Generated program path paired with its stable diagnostic example ID. */
+export interface ExampleProgramRun {
+  path: string;
+  exampleId: string;
+}
+
 /**
  * Creates an empty Bun consumer under the home cache outside the checkout.
  *
@@ -150,22 +156,20 @@ export const runShellExample = async (
  * Runs one generated TypeScript program with the installed local Bun runtime.
  *
  * @param fixture Consumer fixture used for package resolution.
- * @param path Absolute source path inside the consumer project.
- * @param exampleId Stable identifier included in command failures.
+ * @param program Source path and stable identifier included in command failures.
  * @returns Captured standard output and error.
  * @throws Error when Bun reports a failure or exceeds its bounded runtime.
  */
 export const runTypeScriptExample = async (
   fixture: ExampleFixture,
-  path: string,
-  exampleId: string
+  program: ExampleProgramRun
 ): Promise<CommandResult> => {
   return await runDocumentedCommand({
     command: process.execPath,
-    args: [path],
+    args: [program.path],
     cwd: fixture.consumerPath,
     env: fixture.environment,
-    label: exampleId,
+    label: program.exampleId,
     timeoutMs: COMMAND_TIMEOUT_MS
   });
 };

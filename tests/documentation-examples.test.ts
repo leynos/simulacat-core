@@ -27,8 +27,8 @@ describe('tested users-guide examples loading', () => {
 
 describe('tested users-guide examples marker validation', () => {
   it('accepts matching backtick and tilde fences and preserves their bodies', () => {
-    const examples = parseDocumentedExamples(
-      [
+    const examples = parseDocumentedExamples({
+      markdown: [
         '<!-- tested-example: backtick-sample -->',
         '```typescript',
         'const value = 1;',
@@ -38,8 +38,8 @@ describe('tested users-guide examples marker validation', () => {
         'printf example',
         '~~~~'
       ].join('\n'),
-      'fixture.md'
-    );
+      sourcePath: 'fixture.md'
+    });
 
     expect(examples.map((example) => example.body)).toEqual(['const value = 1;\n', 'printf example\n']);
   });
@@ -47,7 +47,7 @@ describe('tested users-guide examples marker validation', () => {
 
 describe('tested users-guide examples invalid markers', () => {
   it('rejects a fence without an adjacent marker', () => {
-    expect(() => parseDocumentedExamples('```ts\nconst value = 1;\n```', 'fixture.md')).toThrow(
+    expect(() => parseDocumentedExamples({markdown: '```ts\nconst value = 1;\n```', sourcePath: 'fixture.md'})).toThrow(
       'fixture.md:1: fenced example is missing a tested-example marker'
     );
   });
@@ -55,7 +55,7 @@ describe('tested users-guide examples invalid markers', () => {
   it('rejects an empty marker identifier', () => {
     const source = '<!-- tested-example:  -->\n```ts\nconst value = 1;\n```';
 
-    expect(() => parseDocumentedExamples(source, 'fixture.md')).toThrow(
+    expect(() => parseDocumentedExamples({markdown: source, sourcePath: 'fixture.md'})).toThrow(
       'fixture.md:1: tested-example identifier is missing'
     );
   });
@@ -79,11 +79,27 @@ describe('tested users-guide examples invalid markers', () => {
       '```'
     ].join('\n');
 
-    expect(() => parseDocumentedExamples(duplicate, 'fixture.md')).toThrow(
+    expect(() => parseDocumentedExamples({markdown: duplicate, sourcePath: 'fixture.md'})).toThrow(
       'fixture.md:5: duplicate tested-example identifier "same"'
     );
-    expect(() => parseDocumentedExamples(repeated, 'fixture.md')).toThrow(
+    expect(() => parseDocumentedExamples({markdown: repeated, sourcePath: 'fixture.md'})).toThrow(
       'fixture.md:1: tested-example marker must immediately precede a fence'
+    );
+  });
+
+  it('reports a duplicate identifier before scanning its unterminated fence', () => {
+    const duplicateThenUnterminated = [
+      '<!-- tested-example: same -->',
+      '```ts',
+      'first();',
+      '```',
+      '<!-- tested-example: same -->',
+      '```ts',
+      'second();'
+    ].join('\n');
+
+    expect(() => parseDocumentedExamples({markdown: duplicateThenUnterminated, sourcePath: 'fixture.md'})).toThrow(
+      'fixture.md:5: duplicate tested-example identifier "same"'
     );
   });
 
@@ -91,10 +107,10 @@ describe('tested users-guide examples invalid markers', () => {
     const unterminated = '<!-- tested-example: open -->\n```ts\nconst value = 1;';
     const nonAdjacent = '<!-- tested-example: separated -->\n\n```ts\nvalue();\n```';
 
-    expect(() => parseDocumentedExamples(unterminated, 'fixture.md')).toThrow(
+    expect(() => parseDocumentedExamples({markdown: unterminated, sourcePath: 'fixture.md'})).toThrow(
       'fixture.md:2: unterminated tested-example fence'
     );
-    expect(() => parseDocumentedExamples(nonAdjacent, 'fixture.md')).toThrow(
+    expect(() => parseDocumentedExamples({markdown: nonAdjacent, sourcePath: 'fixture.md'})).toThrow(
       'fixture.md:1: tested-example marker must immediately precede a fence'
     );
   });

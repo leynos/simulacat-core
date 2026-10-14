@@ -277,7 +277,7 @@ const executeProgram = async (prepared: PreparedDocumentedExamples, example: Doc
     throw new Error(`No generated TypeScript program exists for ${id}`);
   }
 
-  const result = await runTypeScriptExample(prepared.fixture, path, id);
+  const result = await runTypeScriptExample(prepared.fixture, {path, exampleId: id});
   return result.stdout;
 };
 
@@ -288,27 +288,27 @@ const checkRepositoryNodeId: ExampleHandler = async (prepared, example) => {
 
 /** Executes and checks the six parsed fixture builder results. */
 const checkFixtureBuilders: ExampleHandler = async (prepared, example) => {
-  assertFixtureBuilders(parseJsonOutput(await executeProgram(prepared, example), example.id));
+  assertFixtureBuilders(parseJsonOutput({stdout: await executeProgram(prepared, example), label: example.id}));
 };
 
 /** Exercises seeded collaboration routes and GraphQL fields over HTTP. */
 const checkCollaborationEntities: ExampleHandler = async (prepared, example) => {
-  assertCollaborationEntities(parseJsonOutput(await executeProgram(prepared, example), example.id));
+  assertCollaborationEntities(parseJsonOutput({stdout: await executeProgram(prepared, example), label: example.id}));
 };
 
 /** Exercises persisted repository metadata through REST and GraphQL reads. */
 const checkRepositoryMetadataPatch: ExampleHandler = async (prepared, example) => {
-  assertRepositoryMetadataPatch(parseJsonOutput(await executeProgram(prepared, example), example.id));
+  assertRepositoryMetadataPatch(parseJsonOutput({stdout: await executeProgram(prepared, example), label: example.id}));
 };
 
 /** Checks request-derived API URLs under the configured v3 mount. */
 const checkMountedApiRoot: ExampleHandler = async (prepared, example) => {
-  assertMountedApiRoot(parseJsonOutput(await executeProgram(prepared, example), example.id));
+  assertMountedApiRoot(parseJsonOutput({stdout: await executeProgram(prepared, example), label: example.id}));
 };
 
 /** Checks seeded URLs override the host-derived repository URLs. */
 const checkFixtureUrlOverrides: ExampleHandler = async (prepared, example) => {
-  assertFixtureUrlOverrides(parseJsonOutput(await executeProgram(prepared, example), example.id));
+  assertFixtureUrlOverrides(parseJsonOutput({stdout: await executeProgram(prepared, example), label: example.id}));
 };
 
 /** Checks the narrowed repository helper returns its canonical key. */

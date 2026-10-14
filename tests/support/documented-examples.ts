@@ -14,6 +14,12 @@ export interface DocumentedExample {
   sourcePath: string;
 }
 
+/** Markdown text and its diagnostic source path. */
+export interface DocumentInput {
+  markdown: string;
+  sourcePath: string;
+}
+
 interface FenceOpening {
   character: '`' | '~';
   length: number;
@@ -40,19 +46,18 @@ interface ExtractedFence {
  */
 export const loadUsersGuideExamples = async (): Promise<DocumentedExample[]> => {
   const markdown = await readFile(USERS_GUIDE_PATH, 'utf8');
-  return parseDocumentedExamples(markdown, USERS_GUIDE_PATH);
+  return parseDocumentedExamples({markdown, sourcePath: USERS_GUIDE_PATH});
 };
 
 /**
  * Parses and validates tested-example markers and their fenced bodies.
  *
- * @param markdown Document text to parse.
- * @param sourcePath Path used in diagnostics.
+ * @param input Document text and path used in diagnostics.
  * @returns Marked examples in document order with their original bodies.
  * @throws Error when a fence or marker is missing, malformed, or duplicated.
  */
-export const parseDocumentedExamples = (markdown: string, sourcePath: string): DocumentedExample[] => {
-  const lines = markdown.split('\n');
+export const parseDocumentedExamples = (input: DocumentInput): DocumentedExample[] => {
+  const lines = input.markdown.split('\n');
   const examples: DocumentedExample[] = [];
   const seenIds = new Set<string>();
 
@@ -60,7 +65,7 @@ export const parseDocumentedExamples = (markdown: string, sourcePath: string): D
     const line = normalizedLine(lines[index] ?? '');
 
     if (line.trimStart().startsWith('<!-- tested-example')) {
-      const context = validateMarkedFence(lines, index, sourcePath, seenIds);
+      const context = validateMarkedFence(lines, index, input.sourcePath, seenIds);
       const extracted = extractMarkedFence(lines, context);
       examples.push(extracted.example);
       index = extracted.closingIndex;
@@ -68,7 +73,7 @@ export const parseDocumentedExamples = (markdown: string, sourcePath: string): D
     }
 
     if (parseOpening(line)) {
-      throw new Error(`${sourcePath}:${index + 1}: fenced example is missing a tested-example marker`);
+      throw new Error(`${input.sourcePath}:${index + 1}: fenced example is missing a tested-example marker`);
     }
   }
 
@@ -101,7 +106,7 @@ const validateMarkedFence = (
 
 /** Extracts a validated marked fence while retaining its original body. */
 const extractMarkedFence = (lines: string[], context: FenceContext): ExtractedFence => {
-  const closingIndex = findClosingFence(lines, context.openingLine, context);
+  const closingIndex = findClosingFence(lines, context);
   const bodyLines = lines.slice(context.openingLine, closingIndex);
   return {example: serializeMarkedFence(context, bodyLines), closingIndex};
 };
@@ -167,8 +172,8 @@ const allowsFenceInformation = (character: '`' | '~', information: string): bool
 };
 
 /** Finds the closing fence for one validated opener. */
-const findClosingFence = (lines: string[], startIndex: number, context: FenceContext): number => {
-  for (let index = startIndex; index < lines.length; index += 1) {
+const findClosingFence = (lines: string[], context: FenceContext): number => {
+  for (let index = context.openingLine; index < lines.length; index += 1) {
     const line = normalizedLine(lines[index] ?? '');
     const match = /^( {0,3})(`+|~+)[ \t]*$/.exec(line);
     const fence = match?.[2] ?? '';

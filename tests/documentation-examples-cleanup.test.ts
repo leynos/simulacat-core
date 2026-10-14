@@ -36,6 +36,7 @@ class ManualShutdownScheduler implements ShutdownScheduler {
   private readonly entries: ScheduledEntry[] = [];
   private readonly scheduleWaiters: ScheduleWaiter[] = [];
   cancellationCount = 0;
+  lastScheduledDelayMs = 0;
 
   /** Returns the current fake monotonic time. */
   now(): number {
@@ -54,6 +55,7 @@ class ManualShutdownScheduler implements ShutdownScheduler {
       cancelled: false,
       fired: false
     };
+    this.lastScheduledDelayMs = delayMs;
     this.entries.push(entry);
     this.resolveScheduleWaiters();
 
@@ -278,6 +280,28 @@ describe('documented-example process shutdown escalation', () => {
     expect(target.listenerCount).toBe(0);
   });
 
+  it('keeps pipe-close waiting inside the original forced deadline', async () => {
+    const target = new FakeShutdownTarget();
+    const scheduler = new ManualShutdownScheduler();
+    const stopping = stopOwnedProcessGroup(target, scheduler);
+
+    await scheduler.waitForScheduledTimer(0);
+    scheduler.advanceBy(DOCUMENTED_EXAMPLE_SHUTDOWN_LIMITS.gracefulMs);
+    await scheduler.waitForScheduledTimer(1);
+    scheduler.advanceBy(DOCUMENTED_EXAMPLE_SHUTDOWN_LIMITS.forcedMs - 1);
+    target.emitExit();
+    await scheduler.waitForScheduledTimer(2);
+
+    expect(scheduler.lastScheduledDelayMs).toBe(1);
+    scheduler.advanceBy(1);
+
+    await expect(stopping).rejects.toThrow('stdio did not close before the post-SIGKILL deadline');
+    expect(target.signals).toEqual(['SIGTERM', 'SIGKILL']);
+    expect(target.releasedPipeCount).toBe(1);
+    expect(target.listenerCount).toBe(0);
+    expect(scheduler.cancellationCount).toBe(3);
+  });
+
   it('treats ESRCH as a signal result and still requires observed completion', async () => {
     const target = new FakeShutdownTarget();
     const scheduler = new ManualShutdownScheduler();
@@ -323,9 +347,10 @@ describe('documented-example process shutdown failures', () => {
   it('propagates SIGKILL failures through shutdown after the grace timer', async () => {
     const target = new FakeShutdownTarget();
     const scheduler = new ManualShutdownScheduler();
+    const signalError = new Error('signal denied');
     target.onSignal = (signal) => {
       if (signal === 'SIGKILL') {
-        throw new Error('signal denied');
+        throw signalError;
       }
     };
     const stopping = stopOwnedProcessGroup(target, scheduler);
@@ -333,7 +358,10 @@ describe('documented-example process shutdown failures', () => {
     await scheduler.waitForScheduledTimer(0);
     scheduler.advanceBy(DOCUMENTED_EXAMPLE_SHUTDOWN_LIMITS.gracefulMs);
 
-    await expect(stopping).rejects.toThrow('sending SIGKILL to the owned process group failed');
+    const failure = await stopping.catch((error: unknown) => error);
+    expect(failure).toBeInstanceOf(Error);
+    expect((failure as Error).message).toContain('sending SIGKILL to the owned process group failed');
+    expect((failure as Error).cause).toBe(signalError);
     expect(target.listenerCount).toBe(0);
     expect(scheduler.cancellationCount).toBe(1);
   });

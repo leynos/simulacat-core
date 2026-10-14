@@ -29,6 +29,8 @@ type StopAttempt = {kind: 'stopped'; result: CommandResult} | {kind: 'pending'};
 type CloseWait = {kind: 'closed'; result: CommandResult} | {kind: 'timeout'};
 /** Budget form used for post-exit pipe closure. */
 type CloseBudget = {kind: 'duration'; milliseconds: number} | {kind: 'deadline'; at: number};
+/** Budget and phase-specific child-error message for one completion check. */
+type CompletionContext = {budget: CloseBudget; errorMessage: string};
 
 /**
  * Stops an owned process group with a graceful signal and a finite escalation.
@@ -44,7 +46,10 @@ export const stopOwnedProcessGroup = async (
   scheduler: ShutdownScheduler,
   limits: Readonly<ShutdownLimits> = DOCUMENTED_EXAMPLE_SHUTDOWN_LIMITS
 ): Promise<CommandResult> => {
-  const alreadyStopped = await completedProcess(target, scheduler, limits.postExitMs);
+  const alreadyStopped = await completedProcess(target, scheduler, {
+    budget: {kind: 'duration', milliseconds: limits.postExitMs},
+    errorMessage: 'the child reported an error before shutdown'
+  });
 
   if (alreadyStopped) {
     return alreadyStopped;
@@ -63,12 +68,12 @@ export const stopOwnedProcessGroup = async (
 const completedProcess = async (
   target: OwnedProcessTarget,
   scheduler: ShutdownScheduler,
-  postExitMs: number
+  context: CompletionContext
 ): Promise<CommandResult | undefined> => {
   const state = target.snapshot();
 
   if (state.error) {
-    throw shutdownFailure(target, 'the child reported an error before shutdown');
+    throw shutdownFailure(target, context.errorMessage);
   }
 
   if (state.hasClosed) {
@@ -76,7 +81,7 @@ const completedProcess = async (
   }
 
   if (state.hasExited) {
-    return await finishExitedProcess(target, scheduler, {kind: 'duration', milliseconds: postExitMs});
+    return await finishExitedProcess(target, scheduler, context.budget);
   }
 
   return undefined;
@@ -91,7 +96,10 @@ const requestGracefulStop = async (
   const signalAttempt = signalIfOwned(target, 'SIGTERM');
 
   if (signalAttempt === 'skipped') {
-    const stopped = await completedProcess(target, scheduler, limits.postExitMs);
+    const stopped = await completedProcess(target, scheduler, {
+      budget: {kind: 'duration', milliseconds: limits.postExitMs},
+      errorMessage: 'the child reported an error before shutdown'
+    });
 
     if (stopped) {
       return {kind: 'stopped', result: stopped};
@@ -100,7 +108,10 @@ const requestGracefulStop = async (
     throw shutdownFailure(target, 'cannot safely signal the owned process group');
   }
 
-  const completedAfterSignal = await completedProcess(target, scheduler, limits.postExitMs);
+  const completedAfterSignal = await completedProcess(target, scheduler, {
+    budget: {kind: 'duration', milliseconds: limits.postExitMs},
+    errorMessage: 'the child reported an error before shutdown'
+  });
 
   if (completedAfterSignal) {
     return {kind: 'stopped', result: completedAfterSignal};
@@ -109,10 +120,19 @@ const requestGracefulStop = async (
   const event = await waitForProcessEvent(target, scheduler, limits.gracefulMs);
 
   if (event.kind !== 'timeout') {
-    return {kind: 'stopped', result: await completeEvent(target, event, scheduler, limits.postExitMs)};
+    return {
+      kind: 'stopped',
+      result: await completeEvent(target, event, scheduler, {
+        budget: {kind: 'duration', milliseconds: limits.postExitMs},
+        errorMessage: 'the child reported an error while stopping'
+      })
+    };
   }
 
-  const stopped = await completedProcess(target, scheduler, limits.postExitMs);
+  const stopped = await completedProcess(target, scheduler, {
+    budget: {kind: 'duration', milliseconds: limits.postExitMs},
+    errorMessage: 'the child reported an error before shutdown'
+  });
   return stopped ? {kind: 'stopped', result: stopped} : {kind: 'pending'};
 };
 
@@ -125,7 +145,10 @@ const requestForcedStop = async (
   const signalAttempt = signalIfOwned(target, 'SIGKILL');
 
   if (signalAttempt === 'skipped') {
-    const stopped = await completedProcess(target, scheduler, forcedMs);
+    const stopped = await completedProcess(target, scheduler, {
+      budget: {kind: 'duration', milliseconds: forcedMs},
+      errorMessage: 'the child reported an error before shutdown'
+    });
 
     if (stopped) {
       return stopped;
@@ -135,7 +158,11 @@ const requestForcedStop = async (
   }
 
   const deadline = scheduler.now() + forcedMs;
-  const completedAfterSignal = await completedProcessUntil(target, scheduler, deadline);
+  const completionContext: CompletionContext = {
+    budget: {kind: 'deadline', at: deadline},
+    errorMessage: 'the child reported an error after shutdown timed out'
+  };
+  const completedAfterSignal = await completedProcess(target, scheduler, completionContext);
 
   if (completedAfterSignal) {
     return completedAfterSignal;
@@ -144,10 +171,13 @@ const requestForcedStop = async (
   const event = await waitForProcessEvent(target, scheduler, getRemainingTime(scheduler, deadline));
 
   if (event.kind !== 'timeout') {
-    return await completeEventUntil(target, event, scheduler, deadline);
+    return await completeEvent(target, event, scheduler, {
+      budget: {kind: 'deadline', at: deadline},
+      errorMessage: 'the child reported an error after SIGKILL'
+    });
   }
 
-  const stopped = await completedProcessUntil(target, scheduler, deadline);
+  const stopped = await completedProcess(target, scheduler, completionContext);
 
   if (stopped) {
     return stopped;
@@ -231,40 +261,22 @@ const waitForProcessEvent = async (
   }
 };
 
-/** Completes an event and gives an exited child a bounded chance to close its pipes. */
+/** Completes an event within its budget and preserves the phase diagnostic. */
 const completeEvent = async (
   target: OwnedProcessTarget,
   event: ProcessShutdownEvent,
   scheduler: ShutdownScheduler,
-  postExitMs: number
+  context: CompletionContext
 ): Promise<CommandResult> => {
   if (event.kind === 'error') {
-    throw shutdownFailure(target, 'the child reported an error while stopping', event.error);
+    throw shutdownFailure(target, context.errorMessage, event.error);
   }
 
   if (event.kind === 'close') {
     return event.result;
   }
 
-  return await finishExitedProcess(target, scheduler, {kind: 'duration', milliseconds: postExitMs});
-};
-
-/** Completes an event against the post-SIGKILL deadline without extending it. */
-const completeEventUntil = async (
-  target: OwnedProcessTarget,
-  event: ProcessShutdownEvent,
-  scheduler: ShutdownScheduler,
-  deadline: number
-): Promise<CommandResult> => {
-  if (event.kind === 'error') {
-    throw shutdownFailure(target, 'the child reported an error after SIGKILL', event.error);
-  }
-
-  if (event.kind === 'close') {
-    return event.result;
-  }
-
-  return await finishExitedProcess(target, scheduler, {kind: 'deadline', at: deadline});
+  return await finishExitedProcess(target, scheduler, context.budget);
 };
 
 /** Releases parent pipes after exit and waits within the supplied finite budget. */
@@ -336,29 +348,6 @@ const readClosedResult = async (target: OwnedProcessTarget): Promise<CommandResu
   } catch (error) {
     throw shutdownFailure(target, 'the child close result was rejected', error);
   }
-};
-
-/** Checks completion after a timeout without confusing elapsed time with process exit. */
-const completedProcessUntil = async (
-  target: OwnedProcessTarget,
-  scheduler: ShutdownScheduler,
-  deadline: number
-): Promise<CommandResult | undefined> => {
-  const state = target.snapshot();
-
-  if (state.error) {
-    throw shutdownFailure(target, 'the child reported an error after shutdown timed out');
-  }
-
-  if (state.hasClosed) {
-    return await readClosedResult(target);
-  }
-
-  if (state.hasExited) {
-    return await finishExitedProcess(target, scheduler, {kind: 'deadline', at: deadline});
-  }
-
-  return undefined;
 };
 
 /** Returns the remaining time before a monotonic deadline. */
