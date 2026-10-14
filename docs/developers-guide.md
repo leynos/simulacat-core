@@ -503,9 +503,10 @@ test rejects differences between the guide and handler inventories.
 
 `tests/documentation-examples.test.ts` executes all guide examples, while
 `features/documentation-examples.feature` exercises the quick start through the
-same executor. Both install a built checkout in a temporary consumer under
-`.parcel-cache`, type-check the extracted TypeScript against the package
-declarations, and exercise real local HTTP endpoints. Example compilation
+same executor. Both pack the checkout and install its archive in an owned
+consumer under `~/.cache/simulacat-core-documentation-examples`, outside the
+checkout. They type-check the extracted TypeScript against the package
+declarations and exercise real local HTTP endpoints. Example compilation
 follows the project's strict options and its existing `skipLibCheck` policy for
 dependency declarations. A negative control checks that an invalid call to the
 installed public API fails compilation. The BDD setup hook has a separate build

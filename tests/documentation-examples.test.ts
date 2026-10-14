@@ -1,5 +1,6 @@
 /** @file Enforces executable examples from the published users guide. */
 import {describe, expect, it} from 'bun:test';
+import {join} from 'node:path';
 import {
   assertExampleCoverage,
   cleanupPreparedDocumentedExamples,
@@ -7,7 +8,8 @@ import {
   prepareDocumentedExamples,
   runPreparedDocumentedExamples
 } from './support/documented-example-execution.ts';
-import {typeCheckExamples, writeExampleProgram} from './support/documented-example-fixture.ts';
+import {typeCheckExamples, writeExampleProgram, type ExampleFixture} from './support/documented-example-fixture.ts';
+import {runDocumentedCommand} from './support/documented-examples-process.ts';
 import {
   loadUsersGuideExamples,
   parseDocumentedExamples,
@@ -103,6 +105,7 @@ describe('tested users-guide examples execution', () => {
     const prepared = await prepareDocumentedExamples(DOCUMENTED_EXAMPLE_IDS);
 
     try {
+      await assertPackedArchiveContents(prepared.fixture);
       const result = await runPreparedDocumentedExamples(prepared);
       expect(result.completedIds).toEqual([...DOCUMENTED_EXAMPLE_IDS]);
 
@@ -123,3 +126,32 @@ describe('tested users-guide examples execution', () => {
     }
   }, 240_000);
 });
+
+/** Checks the installed source archive contains only the package payload. */
+const assertPackedArchiveContents = async (fixture: ExampleFixture): Promise<void> => {
+  const archivePath = join(fixture.consumerPath, 'simulacat-core.tgz');
+  const {stdout} = await runDocumentedCommand({
+    command: '/usr/bin/tar',
+    args: ['-tzf', archivePath],
+    cwd: fixture.consumerPath,
+    env: fixture.environment,
+    label: 'packed package archive listing',
+    timeoutMs: 15_000
+  });
+  const entries = stdout.split(/\r?\n/).filter(Boolean);
+
+  for (const expectedPath of [
+    'package/package.json',
+    'package/dist/index.mjs',
+    'package/dist/index.cjs',
+    'package/dist/index.d.cts',
+    'package/bin/start.cjs',
+    'package/schema/api.github.com.json'
+  ]) {
+    expect(entries).toContain(expectedPath);
+  }
+
+  expect(entries.some((entry) => entry.startsWith('package/node_modules/'))).toBe(false);
+  expect(entries.some((entry) => entry.includes('.parcel-cache'))).toBe(false);
+  expect(entries.some((entry) => entry.includes('documented-examples-'))).toBe(false);
+};

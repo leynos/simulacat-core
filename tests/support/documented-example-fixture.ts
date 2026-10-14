@@ -1,5 +1,6 @@
 /** @file Prepares a consumer project for executing published guide examples. */
-import {mkdtemp, mkdir, rm, writeFile} from 'node:fs/promises';
+import {mkdtemp, mkdir, realpath, rm, writeFile} from 'node:fs/promises';
+import {homedir} from 'node:os';
 import {join, resolve} from 'node:path';
 import {
   runDocumentedCommand,
@@ -8,11 +9,19 @@ import {
   type RunningDocumentedServer
 } from './documented-examples-process.ts';
 import type {DocumentedExample} from './documented-examples.ts';
+import {rethrowAfterCleanup} from './documented-example-failures.ts';
+import {assertFixtureCacheOutsideCheckout} from './documented-example-fixture-location.ts';
 
 const CHECKOUT_PATH = resolve(import.meta.dir, '../..');
+const FIXTURE_CACHE_DIRECTORY = 'simulacat-core-documentation-examples';
 const BUILD_TIMEOUT_MS = 180_000;
 const COMMAND_TIMEOUT_MS = 60_000;
-const TSC_PATH = join(CHECKOUT_PATH, 'node_modules/.bin/tsc');
+
+/** Paths for the temporary consumer project created by the fixture. */
+interface ConsumerProject {
+  directory: string;
+  consumerPath: string;
+}
 
 /** Paths and environment shared while one set of guide examples executes. */
 export interface ExampleFixture {
@@ -23,32 +32,64 @@ export interface ExampleFixture {
 }
 
 /**
- * Creates an empty Bun consumer under the repository's ignored cache path.
+ * Creates an empty Bun consumer under the home cache outside the checkout.
  *
  * @returns Fixture paths and the environment used by documented commands.
  * @throws Error when the isolated consumer directory cannot be prepared.
  */
 export const createExampleFixture = async (): Promise<ExampleFixture> => {
-  const cachePath = join(CHECKOUT_PATH, '.parcel-cache');
-  await mkdir(cachePath, {recursive: true});
-  const directory = await mkdtemp(join(cachePath, 'documented-examples-'));
-  const consumerPath = join(directory, 'consumer');
-  await mkdir(consumerPath);
-  await writeFile(
-    join(consumerPath, 'package.json'),
-    `${JSON.stringify({name: 'documented-example-consumer', private: true, type: 'module'}, null, 2)}\n`
-  );
+  const checkoutPath = await realpath(CHECKOUT_PATH);
+  const cacheParent = await createFixtureCacheParent(checkoutPath);
+  const {directory, consumerPath} = await createConsumerProject(cacheParent);
 
   return {
-    checkoutPath: CHECKOUT_PATH,
+    checkoutPath,
     consumerPath,
     directory,
     environment: {
       ...process.env,
-      SIMULACAT_CORE_CHECKOUT: CHECKOUT_PATH,
+      SIMULACAT_CORE_CHECKOUT: checkoutPath,
       SIMULACAT_CORE_CONSUMER: consumerPath
     }
   };
+};
+
+/** Resolves and validates the dedicated cache parent outside the checkout. */
+const createFixtureCacheParent = async (checkoutPath: string): Promise<string> => {
+  const homePath = await realpath(homedir());
+  const requestedCachePath = join(homePath, '.cache');
+  assertFixtureCacheOutsideCheckout(checkoutPath, requestedCachePath);
+  await mkdir(requestedCachePath, {recursive: true});
+
+  const cachePath = await realpath(requestedCachePath);
+  assertFixtureCacheOutsideCheckout(checkoutPath, cachePath);
+  const requestedFixtureParent = join(cachePath, FIXTURE_CACHE_DIRECTORY);
+  assertFixtureCacheOutsideCheckout(checkoutPath, requestedFixtureParent);
+  await mkdir(requestedFixtureParent, {recursive: true});
+
+  const fixtureParent = await realpath(requestedFixtureParent);
+  assertFixtureCacheOutsideCheckout(checkoutPath, fixtureParent);
+  return fixtureParent;
+};
+
+/** Creates the empty consumer and removes its owned directory after failure. */
+const createConsumerProject = async (cacheParent: string): Promise<ConsumerProject> => {
+  const directory = await mkdtemp(join(cacheParent, 'documented-examples-'));
+  const consumerPath = join(directory, 'consumer');
+
+  try {
+    await mkdir(consumerPath);
+    await writeFile(
+      join(consumerPath, 'package.json'),
+      `${JSON.stringify({name: 'documented-example-consumer', private: true, type: 'module'}, null, 2)}\n`
+    );
+  } catch (error) {
+    await rethrowAfterCleanup(error, async () => {
+      await rm(directory, {recursive: true, force: true});
+    });
+  }
+
+  return {directory, consumerPath};
 };
 
 /**
@@ -138,8 +179,13 @@ export const runTypeScriptExample = async (
  * @throws Error when strict TypeScript checking fails or times out.
  */
 export const typeCheckExamples = async (fixture: ExampleFixture, programPaths: string[]): Promise<CommandResult> => {
+  const typeRoots = [
+    join(fixture.checkoutPath, 'node_modules/@types'),
+    join(fixture.checkoutPath, 'node_modules')
+  ].join(',');
+
   return await runDocumentedCommand({
-    command: TSC_PATH,
+    command: join(fixture.checkoutPath, 'node_modules/.bin/tsc'),
     args: [
       '--ignoreConfig',
       '--skipLibCheck',
@@ -158,6 +204,8 @@ export const typeCheckExamples = async (fixture: ExampleFixture, programPaths: s
       'Bundler',
       '--lib',
       'ES2022,DOM',
+      '--typeRoots',
+      typeRoots,
       '--types',
       'node,bun-types',
       ...programPaths

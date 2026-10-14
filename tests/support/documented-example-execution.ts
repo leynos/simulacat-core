@@ -25,6 +25,7 @@ import {
 import {stopExampleProcess, type RunningDocumentedServer} from './documented-examples-process.ts';
 import {cleanupExampleResources, type ExampleCleanupObservation} from './documented-example-cleanup.ts';
 import {loadUsersGuideExamples, type DocumentedExample} from './documented-examples.ts';
+import {rethrowAfterCleanup} from './documented-example-failures.ts';
 
 /** Stable identifiers required by the users-guide test contract. */
 export const DOCUMENTED_EXAMPLE_IDS = [
@@ -122,8 +123,7 @@ export const prepareDocumentedExamples = async (
     prepared.completedIds.push('install-local-package');
     return prepared;
   } catch (error) {
-    await cleanupPreparedDocumentedExamples(prepared);
-    throw error;
+    return await rethrowAfterCleanup(error, () => cleanupPreparedDocumentedExamples(prepared));
   }
 };
 

@@ -12,19 +12,23 @@ stores, REST responses, or GraphQL lookups.
 
 ## Getting started
 
-Install the library from a checkout in an existing Bun project. Set
-`SIMULACAT_CORE_CHECKOUT` to the absolute path of this repository and
-`SIMULACAT_CORE_CONSUMER` to the absolute path of the existing consumer project
-directory:
+Pack the checkout and install its archive in an existing, empty Bun consumer
+project outside this checkout. Set `SIMULACAT_CORE_CHECKOUT` to the absolute
+path of this repository and `SIMULACAT_CORE_CONSUMER` to the absolute path of
+the consumer directory:
 
 <!-- tested-example: install-local-package -->
 ```bash
 cd "$SIMULACAT_CORE_CHECKOUT"
 bun install --frozen-lockfile
-make build
+bun pm pack --filename "$SIMULACAT_CORE_CONSUMER/simulacat-core.tgz"
 cd "$SIMULACAT_CORE_CONSUMER"
-bun add "$SIMULACAT_CORE_CHECKOUT"
+bun add ./simulacat-core.tgz
 ```
+
+Packing runs the package's `prepack` script, which generates and builds the
+published files before Bun creates the archive. The consumer therefore resolves
+the package's built exports as a normal installation does.
 
 Create `simulation.ts` with a small, explicit fixture:
 
