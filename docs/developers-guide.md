@@ -513,6 +513,59 @@ installed public API fails compilation. The BDD setup hook has a separate build
 timeout; existing scenario timeouts remain unchanged. Run `make test` to
 validate this contract, including fixture cleanup.
 
+#### Example process lifecycle and evidence
+
+The example harness installs the packed checkout into a temporary consumer under
+`~/.cache/simulacat-core-documentation-examples`. It resolves the checkout and
+cache paths before verifying that the consumer is outside the checkout, and
+owns removal of that consumer directory. Its child-process adapter captures
+stdout, stderr, exit status, and the separate stdio-close result. These modules
+describe test infrastructure, not the published package API. See the
+[fixture factory][fixture], [cache guard][fixture-location],
+[process adapter][child-adapter], and [shutdown types][shutdown-types].
+
+`OwnedProcessTarget` exposes lifecycle snapshots, the close promise, event
+subscriptions, owned-group signalling, and parent-pipe release.
+`ShutdownScheduler` supplies monotonic `now()` and cancellable `schedule()`
+operations. These ports let tests control time and process events without
+spawning real children.
+
+The defaults allow 3 seconds for graceful `SIGTERM` termination, 2 seconds
+after forced `SIGKILL`, and 2 seconds for ordinary post-exit pipe closure. A
+forced stop keeps one deadline for both process exit and pipe closure. The
+harness signals only a factory-owned live child whose positive integer process
+ID matches its process-group ID; it never signals after exit, close, or a child
+error. Parent pipes are released only after exit; shutdown returns the captured
+output and close result. Every wait cancels its timer and removes its listener
+when it finishes. The [shutdown state machine][shutdown-state] contains the
+phase-specific failure details.
+
+Fixture cleanup is idempotent per owner: concurrent callers share one
+operation, which awaits shutdown and then attempts directory removal even if
+shutdown fails. It records the shutdown and removal phases and preserves a
+single phase error or both errors in an `AggregateError`; see the
+[cleanup coordinator][cleanup]. Separately, each test creates its observation
+collector before fixture preparation. Installation and handler completion are
+recorded only after their awaited work, alongside actual command and HTTP
+outputs. The [observation oracle][oracle] compares completed handlers with the
+selected source fences in document order rather than trusting a returned
+identifier list, checks each required captured output, compares the generated
+startup program byte-for-byte with its source fence, and fetches the repository
+from the live server. This independent evidence catches cases where an example
+appears to complete but its source, output, or running service differs from the
+documented contract. When changing these contracts, update the ports, adapter,
+and independent model together. Retain named fault regressions and generated
+parser and shutdown cases; update the source-driven integration and BDD tests
+as needed. Run `make test`, the required code gates, and documentation checks.
+
+[fixture]: ../tests/support/documented-example-fixture.ts
+[fixture-location]: ../tests/support/documented-example-fixture-location.ts
+[child-adapter]: ../tests/support/documented-example-child.ts
+[shutdown-types]: ../tests/support/documented-example-shutdown-types.ts
+[shutdown-state]: ../tests/support/documented-example-shutdown.ts
+[cleanup]: ../tests/support/documented-example-cleanup.ts
+[oracle]: ../tests/support/documented-example-observations.ts
+
 ## Regenerating bundled assets
 
 ### GraphQL resolver types
