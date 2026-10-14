@@ -11,6 +11,10 @@ import {
 import {typeCheckExamples, writeExampleProgram, type ExampleFixture} from './support/documented-example-fixture.ts';
 import {runDocumentedCommand} from './support/documented-examples-process.ts';
 import {
+  assertDocumentedExampleObservations,
+  createDocumentedExampleObservationCollector
+} from './support/documented-example-observations.ts';
+import {
   loadUsersGuideExamples,
   parseDocumentedExamples,
   type DocumentedExample
@@ -127,12 +131,19 @@ describe('tested users-guide examples invalid markers', () => {
 
 describe('tested users-guide examples execution', () => {
   it('executes every published fence and checks public declaration errors', async () => {
-    const prepared = await prepareDocumentedExamples(DOCUMENTED_EXAMPLE_IDS);
+    const collector = createDocumentedExampleObservationCollector();
+    const prepared = await prepareDocumentedExamples(DOCUMENTED_EXAMPLE_IDS, collector);
 
     try {
       await assertPackedArchiveContents(prepared.fixture);
       const result = await runPreparedDocumentedExamples(prepared);
       expect(result.completedIds).toEqual([...DOCUMENTED_EXAMPLE_IDS]);
+      await assertDocumentedExampleObservations({
+        sourceExamples: await loadUsersGuideExamples(),
+        selectedIds: DOCUMENTED_EXAMPLE_IDS,
+        prepared,
+        collector
+      });
 
       const invalidCall: DocumentedExample = {
         id: 'invalid-public-call-negative-control',
@@ -156,7 +167,7 @@ describe('tested users-guide examples execution', () => {
 const assertPackedArchiveContents = async (fixture: ExampleFixture): Promise<void> => {
   const archivePath = join(fixture.consumerPath, 'simulacat-core.tgz');
   const {stdout} = await runDocumentedCommand({
-    command: '/usr/bin/tar',
+    command: 'tar',
     args: ['-tzf', archivePath],
     cwd: fixture.consumerPath,
     env: fixture.environment,

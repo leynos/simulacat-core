@@ -26,6 +26,7 @@ import {stopExampleProcess, type RunningDocumentedServer} from './documented-exa
 import {cleanupExampleResources, type ExampleCleanupObservation} from './documented-example-cleanup.ts';
 import {loadUsersGuideExamples, type DocumentedExample} from './documented-examples.ts';
 import {rethrowAfterCleanup} from './documented-example-failures.ts';
+import type {DocumentedExampleObserver} from './documented-example-observations.ts';
 
 /** Stable identifiers required by the users-guide test contract. */
 export const DOCUMENTED_EXAMPLE_IDS = [
@@ -67,6 +68,7 @@ export interface PreparedDocumentedExamples {
   programPaths: Map<DocumentedExampleId, string>;
   completedIds: DocumentedExampleId[];
   server?: RunningDocumentedServer;
+  observer?: DocumentedExampleObserver;
 }
 
 type ExampleHandler = (session: PreparedDocumentedExamples, example: DocumentedExample) => Promise<void>;
@@ -94,11 +96,13 @@ export const runDocumentedExamples = async (
  * Installs the local package and type-checks each selected source program.
  *
  * @param selectedIds Ordered examples to prepare, including the install fence.
+ * @param observer Optional test-owned collector for completed work and captured outputs.
  * @returns Consumer fixture, generated programs, and completed install ID.
  * @throws Error when the guide, checkout installation, or typecheck fails.
  */
 export const prepareDocumentedExamples = async (
-  selectedIds: readonly DocumentedExampleId[]
+  selectedIds: readonly DocumentedExampleId[],
+  observer?: DocumentedExampleObserver
 ): Promise<PreparedDocumentedExamples> => {
   const examples = await loadUsersGuideExamples();
   assertExampleCoverage(examples);
@@ -108,7 +112,8 @@ export const prepareDocumentedExamples = async (
     fixture,
     examples: selectedExamples,
     programPaths: new Map(),
-    completedIds: []
+    completedIds: [],
+    ...(observer ? {observer} : {})
   };
 
   try {
@@ -120,6 +125,7 @@ export const prepareDocumentedExamples = async (
     }
 
     await installLocalPackage(prepared, installationExample);
+    prepared.observer?.record({kind: 'completed', id: 'install-local-package'});
     prepared.completedIds.push('install-local-package');
     return prepared;
   } catch (error) {
@@ -144,6 +150,7 @@ export const runPreparedDocumentedExamples = async (
     }
 
     await handlers[id](prepared, example);
+    prepared.observer?.record({kind: 'completed', id});
     prepared.completedIds.push(id);
   }
 
@@ -257,14 +264,17 @@ const prepareSimulatorProgram: ExampleHandler = async (prepared) => {
 const runSimulatorCommand: ExampleHandler = async (prepared, example) => {
   prepared.server = await startShellExample(prepared.fixture, example, {PORT: '0'});
   const response = await fetch(`${prepared.server.baseUrl}/repos/acme/awesome-repo`);
+  const body: unknown = await response.json();
+  prepared.observer?.record({kind: 'startup-response', id: 'run-simulator-command', status: response.status, body});
   assert.equal(response.status, 200);
-  assertQuickStartRepository((await response.json()) as unknown);
+  assertQuickStartRepository(body);
 };
 
 /** Executes the curl commands against the port announced by the startup fence. */
 const querySimulatorWithCurl: ExampleHandler = async (prepared, example) => {
   assert.ok(prepared.server, 'the startup command must run before curl');
   const result = await runShellExample(prepared.fixture, example, {BASE_URL: prepared.server.baseUrl});
+  prepared.observer?.record({kind: 'curl-output', id: 'query-simulator-with-curl', stdout: result.stdout});
   assertCurlResponses(result.stdout);
 };
 
@@ -278,6 +288,7 @@ const executeProgram = async (prepared: PreparedDocumentedExamples, example: Doc
   }
 
   const result = await runTypeScriptExample(prepared.fixture, {path, exampleId: id});
+  prepared.observer?.record({kind: 'typescript-output', id, stdout: result.stdout});
   return result.stdout;
 };
 

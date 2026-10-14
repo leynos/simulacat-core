@@ -108,7 +108,7 @@ export const removeExampleFixture = async (fixture: ExampleFixture): Promise<voi
 };
 
 /**
- * Writes an extracted TypeScript body without modifying its source text.
+ * Writes extracted TypeScript source unchanged and may append assertions.
  *
  * @param fixture Consumer fixture receiving the generated program.
  * @param example Marked document fence to write.
@@ -123,7 +123,7 @@ export const writeExampleProgram = async (
   footer = ''
 ): Promise<string> => {
   const path = join(fixture.consumerPath, fileName);
-  const source = `${example.body}\n${footer}`;
+  const source = footer ? `${example.body}\n${footer}` : example.body;
   await writeFile(path, source);
   return path;
 };
