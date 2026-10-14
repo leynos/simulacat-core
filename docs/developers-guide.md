@@ -492,6 +492,26 @@ test preload configured in `bunfig.toml`.
 and integration tests. Keep feature files focused on user-visible behaviour,
 and keep pure helper invariants in regular Bun tests.
 
+### Executable guide examples
+
+Every fenced example in the users guide has an immediately preceding
+`tested-example` marker. The shared loader in
+`tests/support/documented-examples.ts` reads the current Markdown and rejects
+missing, duplicate, or malformed markers and unclosed fences. Add a stable
+identifier and an execution handler when adding an example; the integration
+test rejects differences between the guide and handler inventories.
+
+`tests/documentation-examples.test.ts` executes all guide examples, while
+`features/documentation-examples.feature` exercises the quick start through the
+same executor. Both install a built checkout in a temporary consumer under
+`.parcel-cache`, type-check the extracted TypeScript against the package
+declarations, and exercise real local HTTP endpoints. Example compilation
+follows the project's strict options and its existing `skipLibCheck` policy for
+dependency declarations. A negative control checks that an invalid call to the
+installed public API fails compilation. The BDD setup hook has a separate build
+timeout; existing scenario timeouts remain unchanged. Run `make test` to
+validate this contract, including fixture cleanup.
+
 ## Regenerating bundled assets
 
 ### GraphQL resolver types

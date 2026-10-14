@@ -12,14 +12,23 @@ stores, REST responses, or GraphQL lookups.
 
 ## Getting started
 
-Install the library in a Bun project:
+Install the library from a checkout in an existing Bun project. Set
+`SIMULACAT_CORE_CHECKOUT` to the absolute path of this repository and
+`SIMULACAT_CORE_CONSUMER` to the absolute path of the existing consumer project
+directory:
 
+<!-- tested-example: install-local-package -->
 ```bash
-bun add simulacat-core
+cd "$SIMULACAT_CORE_CHECKOUT"
+bun install --frozen-lockfile
+make build
+cd "$SIMULACAT_CORE_CONSUMER"
+bun add "$SIMULACAT_CORE_CHECKOUT"
 ```
 
 Create `simulation.ts` with a small, explicit fixture:
 
+<!-- tested-example: start-simulator-program -->
 ```typescript
 import {simulation, type InitialState} from 'simulacat-core';
 
@@ -32,21 +41,27 @@ const initialState: InitialState = {
 };
 
 const app = simulation({initialState});
-app.listen(3300);
+const server = await app.listen(Number(process.env['PORT'] ?? 3300));
+process.once('SIGINT', () => {void server.ensureClose();});
+process.once('SIGTERM', () => {void server.ensureClose();});
+console.log(`Listening on http://127.0.0.1:${server.port}`);
 ```
 
 Start the simulator:
 
+<!-- tested-example: run-simulator-command -->
 ```bash
 bun simulation.ts
 ```
 
-Point a GitHub client at `http://localhost:3300`. A repository lookup reads the
-seeded store:
+Point a GitHub client at `BASE_URL`, which defaults to `http://localhost:3300`.
+A repository lookup reads the seeded store:
 
+<!-- tested-example: query-simulator-with-curl -->
 ```bash
-curl http://localhost:3300/repos/acme/awesome-repo
-curl -H 'x-simulacat-actor: user:octocat' http://localhost:3300/user
+BASE_URL="${BASE_URL:-http://localhost:3300}"
+curl -fsS "$BASE_URL/repos/acme/awesome-repo" -w '\n'
+curl -fsS -H 'x-simulacat-actor: user:octocat' "$BASE_URL/user" -w '\n'
 ```
 
 The first response describes `acme/awesome-repo`; the second selects the seeded
@@ -99,11 +114,12 @@ When a repository fixture omits `node_id`, Simulacat Core derives it as
 `base64("Repository:owner/name")`. Use `repositoryNodeId` when code needs the
 same canonical node identifier without building a full fixture.
 
+<!-- tested-example: repository-node-id -->
 ```typescript
 import {repositoryNodeId} from 'simulacat-core';
 
-const id = repositoryNodeId('acme', 'awesome-repo');
-// Buffer.from(id, 'base64').toString() === 'Repository:acme/awesome-repo'
+const id = repositoryNodeId({owner: 'acme', name: 'awesome-repo'});
+console.log(id);
 ```
 
 ## Fixture builders
@@ -113,6 +129,7 @@ commit, issue, or pull request fixtures without constructing a complete initial
 state. See [`docs/api-reference.md`](./api-reference.md) for the detailed
 fixture schema fields.
 
+<!-- tested-example: fixture-builders -->
 ```typescript
 import {
   buildRepositoryFixture,
@@ -154,6 +171,8 @@ const pullRequest = buildPullRequestFixture({
   base: {ref: 'main', sha: commit.sha},
   head: {ref: 'feature/entity-spine', sha: 'def456'}
 });
+
+console.log(JSON.stringify({repo, branch, commit, ref, issue, pullRequest}));
 ```
 
 These functions validate their input against the relevant Zod schema and throw
@@ -165,36 +184,72 @@ on invalid data.
 `pullRequests` arrays. They default to empty arrays, so existing fixtures do
 not need to change.
 
+<!-- tested-example: seed-collaboration-entities -->
 ```typescript
-simulation({
-  initialState: {
-    users: [],
-    organizations: [{login: 'acme'}],
-    repositories: [{owner: 'acme', name: 'awesome-repo'}],
-    branches: [{owner: 'acme', repo: 'awesome-repo', name: 'main'}],
-    blobs: [],
-    commits: [{owner: 'acme', repo: 'awesome-repo', sha: 'abc123'}],
-    refs: [
-      {
-        owner: 'acme',
-        repo: 'awesome-repo',
-        qualifiedName: 'main',
-        object: {sha: 'abc123'}
-      }
-    ],
-    issues: [{owner: 'acme', repo: 'awesome-repo', number: 1, title: 'Bug'}],
-    pullRequests: [
-      {
-        owner: 'acme',
-        repo: 'awesome-repo',
-        number: 2,
-        title: 'Fix bug',
-        base: {ref: 'main', sha: 'abc123'},
-        head: {ref: 'feature/fix', sha: 'def456'}
-      }
-    ]
-  }
-});
+import {type InitialState, simulation} from 'simulacat-core';
+
+const initialState: InitialState = {
+  users: [],
+  organizations: [{login: 'acme'}],
+  repositories: [{owner: 'acme', name: 'awesome-repo'}],
+  branches: [{owner: 'acme', repo: 'awesome-repo', name: 'main'}],
+  blobs: [],
+  commits: [{owner: 'acme', repo: 'awesome-repo', sha: 'abc123'}],
+  refs: [
+    {
+      owner: 'acme',
+      repo: 'awesome-repo',
+      qualifiedName: 'main',
+      object: {sha: 'abc123'}
+    }
+  ],
+  issues: [{owner: 'acme', repo: 'awesome-repo', number: 1, title: 'Bug'}],
+  pullRequests: [
+    {
+      owner: 'acme',
+      repo: 'awesome-repo',
+      number: 2,
+      title: 'Fix bug',
+      base: {ref: 'main', sha: 'abc123'},
+      head: {ref: 'feature/fix', sha: 'def456'}
+    }
+  ]
+};
+const app = simulation({initialState});
+const server = await app.listen(0);
+try {
+  const baseUrl = `http://127.0.0.1:${server.port}`;
+  const paths = [
+    '/repos/acme/awesome-repo/git/ref/main',
+    '/repos/acme/awesome-repo/git/commits/abc123',
+    '/repos/acme/awesome-repo/issues/1',
+    '/repos/acme/awesome-repo/pulls/2'
+  ];
+  const rest = await Promise.all(
+    paths.map(async (path) => {
+      const response = await fetch(`${baseUrl}${path}`);
+      return {status: response.status, body: await response.json()};
+    })
+  );
+  const query = `query {
+    repository(owner: "acme", name: "awesome-repo") {
+      defaultBranchRef { name }
+      ref(qualifiedName: "main") { name }
+      issues(first: 10) { nodes { number } }
+      pullRequests(first: 10) { nodes { number } }
+    }
+  }`;
+  const graphQlResponse = await fetch(`${baseUrl}/graphql`, {
+    method: 'POST',
+    headers: {'content-type': 'application/json'},
+    body: JSON.stringify({query})
+  });
+  const graphQl = await graphQlResponse.json();
+
+  console.log(JSON.stringify({rest, graphQl}));
+} finally {
+  await server.ensureClose();
+}
 ```
 
 Seeded refs, commits, issues, and pull requests are visible through the
@@ -210,31 +265,61 @@ store action path. The current demonstrator intentionally persists only
 request body but ignored until the repository settings roadmap slice implements
 them.
 
+<!-- tested-example: patch-repository-metadata -->
 ```typescript
-const response = await fetch(`${baseUrl}/repos/acme/awesome-repo`, {
-  method: 'PATCH',
-  headers: {
-    authorization: 'Bearer local-token',
-    'content-type': 'application/json'
-  },
-  body: JSON.stringify({
-    description: 'Patched via shared action',
-    homepage: 'https://docs.example.test',
-    visibility: 'private'
-  })
-});
+import {type InitialState, simulation} from 'simulacat-core';
 
-const repository = await response.json();
-repository.description; // 'Patched via shared action'
-repository.homepage; // 'https://docs.example.test'
-repository.visibility; // still the seeded/default value
+const initialState: InitialState = {
+  users: [],
+  organizations: [{login: 'acme'}],
+  repositories: [{owner: 'acme', name: 'awesome-repo', visibility: 'public'}],
+  branches: [{owner: 'acme', repo: 'awesome-repo', name: 'main'}],
+  blobs: []
+};
+const app = simulation({initialState});
+const server = await app.listen(0);
+const baseUrl = `http://127.0.0.1:${server.port}`;
+try {
+  const response = await fetch(`${baseUrl}/repos/acme/awesome-repo`, {
+    method: 'PATCH',
+    headers: {
+      authorization: 'Bearer local-token',
+      'content-type': 'application/json'
+    },
+    body: JSON.stringify({
+      description: 'Patched via shared action',
+      homepage: 'https://docs.example.test',
+      visibility: 'private'
+    })
+  });
+
+  const repository = await response.json();
+  const persisted = await fetch(`${baseUrl}/repos/acme/awesome-repo`).then((result) => result.json());
+  const organizationRepositories = await fetch(`${baseUrl}/orgs/acme/repos`)
+    .then((result) => result.json());
+  const graphQlQuery = `query {
+    repository(owner: "acme", name: "awesome-repo") {
+      description
+      visibility
+    }
+  }`;
+  const graphQl = await fetch(`${baseUrl}/graphql`, {
+    method: 'POST',
+    headers: {'content-type': 'application/json'},
+    body: JSON.stringify({query: graphQlQuery})
+  }).then((result) => result.json());
+
+  console.log(JSON.stringify({repository, persisted, organizationRepositories, graphQl}));
+} finally {
+  await server.ensureClose();
+}
 ```
 
-The same persisted value is visible through `GET /repos/{owner}/{repo}`,
-`GET /orgs/{org}/repos`, and GraphQL `repository(owner:, name:)` reads. The
-PATCH response is shaped from that persisted repository rather than the request
-body, so it matches those subsequent reads. Repository write routes do not
-validate real GitHub tokens.
+The persisted description is visible through `GET /repos/{owner}/{repo}`,
+`GET /orgs/{org}/repos`, and GraphQL `repository(owner:, name:)` reads. REST
+responses also include the persisted homepage. The PATCH response is shaped
+from the stored repository rather than the request body, so it matches those
+subsequent reads. Repository write routes do not validate real GitHub tokens.
 
 ## Request-derived URLs
 
@@ -245,23 +330,45 @@ that same host and port.
 
 `apiUrl` controls the mounted API root and is included in API URLs:
 
+<!-- tested-example: mount-api-under-v3 -->
 ```typescript
+import {type InitialState, simulation} from 'simulacat-core';
+
+const initialState: InitialState = {
+  users: [],
+  organizations: [{login: 'acme'}],
+  repositories: [{owner: 'acme', name: 'awesome-repo'}],
+  branches: [],
+  blobs: []
+};
 const app = simulation({
   apiUrl: '/api/v3',
   initialState
 });
+const server = await app.listen(0);
+try {
+  const baseUrl = `http://127.0.0.1:${server.port}`;
+  const repository = await fetch(`${baseUrl}/api/v3/repos/acme/awesome-repo`)
+    .then((response) => response.json());
+
+  console.log(JSON.stringify(repository));
+} finally {
+  await server.ensureClose();
+}
 ```
 
-A request to `http://127.0.0.1:49152/api/v3/repos/acme/awesome-repo` returns
-API links under `http://127.0.0.1:49152/api/v3/...` and web links under
-`http://127.0.0.1:49152/...`.
+A request to `/api/v3/repos/acme/awesome-repo` returns API links under
+`/api/v3/...` and web links under `/...` on the request host.
 
 Fixture URL fields are overrides. When a fixture explicitly seeds a URL, the
 projectors preserve it; when the field is omitted, the adapters derive it from
 the request. Nullable URL fields can still be set to `null` deliberately.
 
+<!-- tested-example: preserve-fixture-url-overrides -->
 ```typescript
-simulation({
+import {simulation} from 'simulacat-core';
+
+const app = simulation({
   initialState: {
     users: [],
     organizations: [{login: 'acme'}],
@@ -277,6 +384,15 @@ simulation({
     blobs: []
   }
 });
+const server = await app.listen(0);
+try {
+  const repository = await fetch(`http://127.0.0.1:${server.port}/repos/acme/awesome-repo`)
+    .then((response) => response.json());
+
+  console.log(JSON.stringify(repository));
+} finally {
+  await server.ensureClose();
+}
 ```
 
 If a request has no usable `Host` header, Simulacat Core uses the absolute
@@ -336,38 +452,44 @@ coexist safely.
 ### 1.1.1 — Narrowed store key helper input types
 
 `repositoryStoreKey`, `branchStoreKey`, and `blobStoreKey` now accept narrower
-input shapes rather than the full GitHub entity types. Callers passing complete
-entity objects continue to work unchanged, but explicit type annotations
-referencing the old parameter types must be updated.
+input shapes rather than the `GitHubRepository`, `GitHubBranch`, and
+`GitHubBlob` entity types. Calls passing complete entity objects continue to
+work, but explicit parameter type annotations must use the new input shapes.
 
 #### `repositoryStoreKey`
 
-```typescript
-// Before
-repositoryStoreKey(repository: GitHubRepository)
+The helper now takes only an owner's login and repository name:
 
-// After
-repositoryStoreKey(repository: { owner: string; name: string })
+<!-- tested-example: repository-store-key -->
+```typescript
+import {repositoryStoreKey} from 'simulacat-core';
+
+const key = repositoryStoreKey({owner: 'acme', name: 'awesome-repo'});
+console.log(key);
 ```
 
 #### `branchStoreKey`
 
-```typescript
-// Before
-branchStoreKey(branch: GitHubBranch)
+The branch helper takes only an owner's login, repository name, and branch name:
 
-// After
-branchStoreKey(branch: Pick<GitHubBranch, 'owner' | 'repo' | 'name'>)
+<!-- tested-example: branch-store-key -->
+```typescript
+import {branchStoreKey} from 'simulacat-core';
+
+const key = branchStoreKey({owner: 'acme', repo: 'awesome-repo', name: 'main'});
+console.log(key);
 ```
 
 #### `blobStoreKey`
 
-```typescript
-// Before
-blobStoreKey(blob: GitHubBlob)
+The blob helper takes repository coordinates and either a path or SHA:
 
-// After
-blobStoreKey(blob: Pick<GitHubBlob, 'owner' | 'repo' | 'path' | 'sha'>)
+<!-- tested-example: blob-store-key -->
+```typescript
+import {blobStoreKey} from 'simulacat-core';
+
+const key = blobStoreKey({owner: 'acme', repo: 'awesome-repo', path: 'README.md'});
+console.log(key);
 ```
 
 ### 1.2.1 — Request-scoped actor resolution
