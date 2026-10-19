@@ -230,14 +230,28 @@ describe('repository write observability', () => {
   });
 
   it('ignores forged observations outside the finite PATCH outcome contract', () => {
-    const forgedObservation = {operation: 'patch', outcome: 'not-found', reason: 'caller-controlled'};
-    // SAFETY: the forged value models a JavaScript caller bypassing the union;
-    // the counter must ignore any key outside the finite outcome contract.
-    observeRepositoryWrite(forgedObservation as Parameters<typeof observeRepositoryWrite>[0]);
+    // A forged value models a JavaScript caller bypassing the union; the
+    // counter must ignore any key outside the finite outcome contract.
+    observeRepositoryWrite({operation: 'patch', outcome: 'not-found', reason: 'caller-controlled'});
 
     const metrics = getRepositoryWriteObservabilityMetrics();
     expect(metrics).not.toContain('caller-controlled');
     expect(metrics).not.toContain('operation="patch"');
+  });
+
+  it.each([
+    {operation: 'patch', outcome: 'not-found', reason: '__proto__'},
+    {operation: 'patch', outcome: 'not-found', reason: 'constructor'},
+    {operation: 'patch', outcome: 'unknown'},
+    {operation: 'delete', outcome: 'success'},
+    null
+  ])('ignores forged observation %p that would escape the metric key space', (forgedObservation) => {
+    // Inherited keys such as `__proto__` must not resolve through the lookup.
+    observeRepositoryWrite(forgedObservation);
+
+    const metrics = getRepositoryWriteObservabilityMetrics();
+    expect(metrics).not.toContain('operation=');
+    expect(metrics).not.toContain('[object Object]');
   });
 
   it('counts concurrent PATCH observations in the process-local event loop', async () => {

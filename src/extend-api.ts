@@ -7,6 +7,7 @@
  */
 import type {createFoundationSimulationServer} from '@simulacrum/foundation-simulator';
 import {stringify} from 'node:querystring';
+import {z} from 'zod';
 import {createHandler} from './graphql/handler.ts';
 import {buildBaseUrls} from './http/request-url.ts';
 import {getUrlObservabilityMetrics, makeUrlObservationContext} from './http/url-observability.ts';
@@ -28,6 +29,21 @@ type FoundationExtendRouter = NonNullable<Parameters<typeof createFoundationSimu
 
 /** Shared 404 JSON payload returned by routes that cannot locate a resource. */
 const notFound = {message: 'Not Found'};
+
+/** Shared 400 JSON payload returned by routes whose request shape is invalid. */
+const badRequest = {message: 'Bad Request'};
+
+/**
+ * Query string accepted by the OAuth authorize route.
+ *
+ * Express may surface a repeated parameter as an array, so each consumed value
+ * must be a single string before it can be interpolated into the redirect.
+ */
+const oauthAuthorizeQuerySchema = z.object({
+  redirect_uri: z.string(),
+  state: z.string().optional(),
+  env: z.string().optional()
+});
 
 /**
  * Wraps a caller-provided router extension with Simulacat Core's built-in
@@ -98,11 +114,11 @@ export const extendRouter =
     });
 
     router.get(['/login/oauth/authorize'], (request, response) => {
-      // SAFETY: the OAuth authorize route only consumes these query string
-      // parameters, which Express exposes as strings on `request.query`.
-      const {redirect_uri, state, env} = request.query as {
-        [k: string]: string;
-      };
+      const query = oauthAuthorizeQuerySchema.safeParse(request.query);
+      if (!query.success) {
+        return response.status(400).json(badRequest);
+      }
+      const {redirect_uri: redirectUri, state, env} = query.data;
       const code = 'dev_code';
       const qs = stringify({
         code,
@@ -110,8 +126,7 @@ export const extendRouter =
         state
       });
 
-      const routerUrl = `${redirect_uri}?${qs}`;
-      response.status(302).redirect(routerUrl);
+      return response.status(302).redirect(`${redirectUri}?${qs}`);
     });
 
     router.post(['/login/oauth/access_token', '/api/v3/app/installations/:id/access_tokens'], (_request, response) => {

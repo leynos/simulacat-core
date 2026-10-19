@@ -298,13 +298,21 @@ const isActiveChild = (context: DocumentedChildContext): boolean => {
   return context.state.error === undefined;
 };
 
+/** Schema that recognises an `Error` at a catch boundary. */
+const thrownErrorSchema = z.instanceof(Error);
+
 /** Sends one captured-group signal and distinguishes ESRCH from other errors. */
 const sendOwnedSignal = (processGroupId: number, signal: NodeJS.Signals): SignalAttempt => {
   try {
     process.kill(-processGroupId, signal);
     return 'sent';
   } catch (error) {
-    const failure: Error = z.instanceof(Error).parse(error);
+    const observed = thrownErrorSchema.safeParse(error);
+    // A replaced or stubbed `process.kill` can reject with a non-Error; wrap it
+    // so the original value survives as the cause instead of becoming a ZodError.
+    const failure = observed.success
+      ? observed.data
+      : new Error(`signalling the owned process group failed: ${String(error)}`, {cause: error});
     if (isNoSuchProcessError(failure)) {
       return 'group-missing';
     }

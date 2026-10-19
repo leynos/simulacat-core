@@ -128,10 +128,14 @@ export function convertRepositoryToGraphql(
 
   return {
     __typename: 'Repository',
-    // The transform in `githubRepositorySchema` supplies a node id, but a
-    // fixture assembled directly by a test builder may not have one, so the
-    // canonical id is derived here as `wrapRepository` does.
-    id: repositoryNodeId({owner: repo.owner, name: repo.name}),
+    // A stored repository already carries its node id, and `docs/api-reference.md`
+    // promises that an explicit noncanonical value is preserved, so GraphQL must
+    // report the stored identity too.
+    // SAFETY: a raw fixture that bypassed the store schema transform can reach
+    // this converter with `node_id` absent. The optional shape is checked by the
+    // `??` fallback before the value is used, and the cast only widens the
+    // published `GitHubRepository.node_id` type at this internal seam.
+    id: (repo as {node_id?: string | undefined}).node_id ?? repositoryNodeId({owner: repo.owner, name: repo.name}),
     name: repo.name,
     nameWithOwner: repo.full_name,
     url: repositoryUrl,

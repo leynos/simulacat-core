@@ -35,10 +35,13 @@ const graphqlRepositorySchema = z.object({
   nameWithOwner: z.string()
 });
 
+// GraphQL reports an unresolved repository as `null`, so the field accepts a
+// missing value, the repository object, or `null`, while `data` itself stays
+// optional and non-nullable.
 const graphqlRepositoryResponseSchema = z.object({
   data: z
     .object({
-      repository: graphqlRepositorySchema.optional()
+      repository: graphqlRepositorySchema.nullable().optional()
     })
     .optional(),
   errors: z.unknown().optional()

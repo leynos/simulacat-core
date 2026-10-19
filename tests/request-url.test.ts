@@ -27,10 +27,13 @@ const apiRoot = fc
 const requestOrigin = (host: string, protocol = 'http') => ({protocol, host});
 
 /** Invokes the builder with a raw origin that violates the adapter contract. */
-const buildBaseUrlsFromRawOrigin = (origin: UnvalidatedRequestOrigin | null): ReturnType<typeof buildBaseUrls> => {
-  // SAFETY: a null origin models an adapter that failed to extract request
-  // fields; the decoder's zod schema rejects it before reading any property.
-  return buildBaseUrls(origin as UnvalidatedRequestOrigin, '/');
+const buildBaseUrlsFromRawOrigin = (
+  origin: UnvalidatedRequestOrigin | null,
+  fallbackBaseUrl?: string
+): ReturnType<typeof buildBaseUrls> => {
+  // SAFETY: the decoder's zod schema rejects the invalid origin before reading
+  // any property; `null` models an adapter that failed to extract request fields.
+  return buildBaseUrls(origin as UnvalidatedRequestOrigin, '/', fallbackBaseUrl);
 };
 
 describe('normalizeApiRoot', () => {
@@ -234,6 +237,19 @@ describe('buildBaseUrls validation', () => {
     [null]
   ])('throws the greppable error when raw request origin %p is invalid', (origin) => {
     expect(() => buildBaseUrlsFromRawOrigin(origin)).toThrow('SIMULACAT: cannot derive base URL');
+  });
+
+  it('uses the fallback when a null origin is invalid and records the rejection', () => {
+    resetUrlObservabilityCounters();
+
+    expect(buildBaseUrlsFromRawOrigin(null, 'https://fallback.example.test/root')).toEqual({
+      apiBaseUrl: 'https://fallback.example.test',
+      webBaseUrl: 'https://fallback.example.test'
+    });
+    expect(getUrlObservabilityCounters()).toEqual({
+      'base-url.internal.fallback.invalid-host': 1,
+      'request-host.internal.failure.invalid-host': 1
+    });
   });
 
   it.each([

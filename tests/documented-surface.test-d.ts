@@ -102,11 +102,18 @@ const extendRouter = args.extend?.extendRouter;
 const openapiHandlers = args.extend?.openapiHandlers;
 const extendStore = args.extend?.extendStore;
 
-/** Asserts the router hook rejects a call missing the simulation store argument. */
+/** Asserts the router hook rejects a call missing both required arguments. */
 // @ts-expect-error The router hook takes a router and the simulation store, not zero arguments.
 const arityGuard = (): void => extendRouter?.();
+
+/** Asserts the router hook keeps the simulation store argument required. */
+const storeArityGuard = (router: Parameters<NonNullable<typeof extendRouter>>[0]): void => {
+  // @ts-expect-error The router hook requires the simulation store as its second argument.
+  extendRouter?.(router);
+};
 
 void extendRouter;
 void openapiHandlers;
 void extendStore;
+void storeArityGuard;
 void arityGuard;

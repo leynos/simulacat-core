@@ -19,6 +19,49 @@ const buildActorObservabilityState = () => ({
   blobs: []
 });
 
+describe('OAuth authorize route query validation', () => {
+  let server: SimulationServer;
+  let baseUrl: string;
+
+  beforeAll(async () => {
+    server = await simulation({initialState: buildActorObservabilityState()}).listen(0);
+    baseUrl = `http://localhost:${server.port}`;
+  });
+
+  afterAll(async () => {
+    await server.ensureClose();
+  });
+
+  it('redirects with the development code when the query values are strings', async () => {
+    const response = await fetch(
+      `${baseUrl}/login/oauth/authorize?redirect_uri=${encodeURIComponent('http://localhost:3000/callback')}&state=xyz`,
+      {redirect: 'manual'}
+    );
+
+    expect(response.status).toBe(302);
+    // `env` stays in the query string even when absent, matching the helper's
+    // fixed development payload.
+    expect(response.headers.get('location')).toBe('http://localhost:3000/callback?code=dev_code&env=&state=xyz');
+  });
+
+  it('rejects a repeated redirect_uri instead of coercing it into the redirect', async () => {
+    const response = await fetch(
+      `${baseUrl}/login/oauth/authorize?redirect_uri=${encodeURIComponent('http://localhost:3000/a')}&redirect_uri=${encodeURIComponent('http://localhost:3000/b')}`,
+      {redirect: 'manual'}
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({message: 'Bad Request'});
+  });
+
+  it('rejects a missing redirect_uri', async () => {
+    const response = await fetch(`${baseUrl}/login/oauth/authorize`, {redirect: 'manual'});
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({message: 'Bad Request'});
+  });
+});
+
 describe('router extension tests', () => {
   let server: SimulationServer;
   beforeAll(async () => {

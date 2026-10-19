@@ -28,6 +28,9 @@ const baseUrls: BaseUrls = {
 
 const repositoryNodeId = Buffer.from('Repository:test-org/test-repo').toString('base64');
 
+/** Node id seeded explicitly to prove stored identities are not recomputed. */
+const seededNodeId = Buffer.from('Repository:legacy-test-repo').toString('base64');
+
 const makeRepositoryFixture = (): DataSchemas['Repository'] =>
   buildRepositoryFixture({
     id: 123,
@@ -115,6 +118,14 @@ describe('convertRepositoryToGraphql', () => {
     expect(graphqlRepository.defaultBranchRef.id).toBe(
       Buffer.from('Branch:test-org/test-repo:main').toString('base64')
     );
+  });
+
+  it('preserves an explicitly seeded noncanonical node_id', () => {
+    // `docs/api-reference.md` promises the stored value survives; deriving a
+    // canonical id here would make GraphQL disagree with REST and the store.
+    const {graphqlRepository} = convertRepositoryFixture({node_id: seededNodeId});
+
+    expect(graphqlRepository.id).toBe(seededNodeId);
   });
 
   it('derives a canonical owner-qualified GraphQL id when node_id is unavailable', () => {

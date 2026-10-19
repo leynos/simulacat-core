@@ -390,9 +390,10 @@ const extendSelectors =
   (args: ExtendSimulationSelectors<ExtendedSchema>) => {
     const base = inputSelectors(args);
     if (!extendedSelectors) return base;
-    // Caller selectors are merged first so the built-in suite always wins on a
-    // name collision, mirroring `extendActions`.
-    return Object.assign({}, extendedSelectors(args), base);
+    // Caller selectors are merged last so an extension can override a built-in
+    // selector by name; this mirrors the `openapiHandlers` seam, where callers
+    // may replace built-in operations.
+    return Object.assign({}, base, extendedSelectors(args));
   };
 
 /** Store extension configuration consumed by the foundation simulator. */
