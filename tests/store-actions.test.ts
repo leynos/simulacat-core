@@ -5,6 +5,7 @@ import fc from 'fast-check';
 import {simulation, type InitialState, buildRepositoryFixture} from '../src/index.ts';
 import type {GitHubRepository} from '../src/store/entities.ts';
 import {createEntityUpdateThunk, processEntityUpdateQueue} from '../src/store/actions/index.ts';
+import {decodeUpdateRepositoryCommand} from '../src/store/actions/repository-command.ts';
 import {applyRepositoryUpdate, type UpdateRepositoryCommand} from '../src/store/actions/repository.ts';
 import {updateRepositoryUseCase} from '../src/store/actions/repository-use-case.ts';
 import {repositoryStoreKey} from '../src/store/keys.ts';
@@ -146,37 +147,53 @@ describe('repository write action reducer', () => {
   });
 });
 
-describe('repository write action reducer runtime validation', () => {
-  it('ignores runtime-invalid writable-field values without mutating the source repository', () => {
-    const current = repositoryFixture();
-    const snapshot = structuredClone(current);
-    const updated = applyRepositoryUpdate(current, {
-      owner: current.owner,
-      name: current.name,
-      changes: {
-        description: 'Valid description',
-        homepage: 'https://valid.example.test'
-      }
+describe('repository update command decoding', () => {
+  it('drops runtime-invalid writable-field values and keeps valid siblings', () => {
+    const decoded = decodeUpdateRepositoryCommand({
+      owner: 'acme',
+      name: 'awesome-repo',
+      changes: {description: 'Valid description', homepage: 'https://valid.example.test'}
     });
 
-    expect(updated).toMatchObject({
-      description: 'Valid description',
-      homepage: 'https://valid.example.test'
+    expect(decoded).toEqual({
+      owner: 'acme',
+      name: 'awesome-repo',
+      changes: {description: 'Valid description', homepage: 'https://valid.example.test'}
     });
 
     for (const invalidValue of nonStringWritableValues()) {
-      const invalidChanges = {description: invalidValue, homepage: invalidValue};
-      const invalidUpdated = applyRepositoryUpdate(current, {
-        owner: current.owner,
-        name: current.name,
-        changes: invalidChanges
-      });
+      expect(
+        decodeUpdateRepositoryCommand({
+          owner: 'acme',
+          name: 'awesome-repo',
+          changes: {description: invalidValue, homepage: invalidValue}
+        })
+      ).toEqual({owner: 'acme', name: 'awesome-repo', changes: {}});
 
-      expect(invalidUpdated.description).toBe(current.description);
-      expect(invalidUpdated.homepage).toBe(current.homepage);
+      expect(
+        decodeUpdateRepositoryCommand({
+          owner: 'acme',
+          name: 'awesome-repo',
+          changes: {description: 'Kept', homepage: invalidValue}
+        })
+      ).toEqual({owner: 'acme', name: 'awesome-repo', changes: {description: 'Kept'}});
     }
+  });
 
-    expect(current).toEqual(snapshot);
+  it('decodes malformed payloads to an empty command instead of throwing', () => {
+    // Runtime callers can dispatch anything; an empty command finds no
+    // repository, so the action performs no write.
+    const malformedPayloads: unknown[] = [null, undefined, 42, 'not-a-command', {}];
+
+    for (const payload of malformedPayloads) {
+      // SAFETY: these values model runtime callers that bypass the TypeScript
+      // contract; the decoder must reject them instead of throwing.
+      expect(decodeUpdateRepositoryCommand(payload as UpdateRepositoryCommand)).toEqual({
+        owner: '',
+        name: '',
+        changes: {}
+      });
+    }
   });
 });
 
@@ -355,13 +372,13 @@ describe('repository write action dispatch', () => {
   it('reports not-found updates through the shared use case', async () => {
     const server = await simulation({initialState}).listen(0);
     try {
-      await expect(
-        updateRepositoryUseCase(server.simulationStore, {
-          owner: 'acme',
-          name: 'missing',
-          changes: {description: 'No repository'}
-        })
-      ).resolves.toEqual({ok: false, reason: 'not-found'});
+      const result = await updateRepositoryUseCase(server.simulationStore, {
+        owner: 'acme',
+        name: 'missing',
+        changes: {description: 'No repository'}
+      });
+
+      expect(result).toEqual({ok: false, reason: 'not-found'});
     } finally {
       await server.ensureClose();
     }
@@ -381,6 +398,7 @@ describe('repository write action supervisor failure isolation', () => {
               update: schema.update,
               table: schema.repositories,
               keyOf: repositoryStoreKey,
+              decode: decodeUpdateRepositoryCommand,
               reduce: (current: GitHubRepository, command: UpdateRepositoryCommand): GitHubRepository => {
                 if (command.owner === 'acme') throw new Error('forced repository write failure');
                 return applyRepositoryUpdate(current, command);

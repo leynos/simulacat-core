@@ -4,15 +4,22 @@ import type {GitHubRepository} from '../../store/entities.ts';
 import type {ExtendedSimulationStore} from '../../store/index.ts';
 import {repositoryNodeId} from '../../store/keys.ts';
 import type {BaseUrls} from '../../http/request-url.ts';
+import {observeGraphqlProjectionFailure, type UrlProjectionEntity} from '../../http/url-observability.ts';
 import {projectCommitUrls, projectIssueUrls, projectPullRequestUrls} from '../../urls/index.ts';
 import type {DataSchemas, GraphQLData, RepositoryReference, ToGraphqlDispatcher} from '../to-graphql-types.ts';
 
 // The projection helpers fill missing fields from the request base URLs, so a
 // missing value means the fixture could not be converted into a usable URL.
 /** Requires a URL that request-scoped projection must have derived. */
-const requireProjectedUrl = (url: string | null | undefined, detail: string): string => {
+const requireProjectedUrl = (
+  url: string | null | undefined,
+  entity: UrlProjectionEntity,
+  detail: string,
+  baseUrls: BaseUrls
+): string => {
   if (url === null || url === undefined) {
-    throw new TypeError(`GraphQL URL could not be projected for ${detail}`);
+    observeGraphqlProjectionFailure(baseUrls, entity);
+    throw new TypeError(`GraphQL URL could not be projected for ${entity} ${detail}`);
   }
   return url;
 };
@@ -104,7 +111,12 @@ export function convertCommitToGraphql(
   const messageBody = messageParts.slice(1).join('\n');
   const repositoryRef = wrapRepository(repository);
   const projectedCommit = projectCommitUrls(commit, baseUrls);
-  const commitUrl = requireProjectedUrl(projectedCommit.html_url, `${commit.owner}/${commit.repo}@${commit.sha}`);
+  const commitUrl = requireProjectedUrl(
+    projectedCommit.html_url,
+    'commit',
+    `${commit.owner}/${commit.repo}@${commit.sha}`,
+    baseUrls
+  );
 
   return {
     __typename: 'Commit',
@@ -177,7 +189,12 @@ export function convertIssueToGraphql(
   baseUrls: BaseUrls
 ): GraphQLData['Issue'] {
   const projectedIssue = projectIssueUrls(issue, baseUrls);
-  const issueUrl = requireProjectedUrl(projectedIssue.html_url, `${issue.owner}/${issue.repo}#${issue.number}`);
+  const issueUrl = requireProjectedUrl(
+    projectedIssue.html_url,
+    'issue',
+    `${issue.owner}/${issue.repo}#${issue.number}`,
+    baseUrls
+  );
 
   return {
     __typename: 'Issue',
@@ -220,7 +237,9 @@ export function convertPullRequestToGraphql(
   const projectedPullRequest = projectPullRequestUrls(pullRequest, baseUrls);
   const pullRequestUrl = requireProjectedUrl(
     projectedPullRequest.html_url,
-    `${pullRequest.owner}/${pullRequest.repo}#${pullRequest.number}`
+    'pull-request',
+    `${pullRequest.owner}/${pullRequest.repo}#${pullRequest.number}`,
+    baseUrls
   );
 
   return {

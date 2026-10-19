@@ -14,6 +14,7 @@ import {
 } from 'starfx';
 import type {GitHubRepository} from '../entities.ts';
 import {repositoryStoreKey} from '../keys.ts';
+import {decodeUpdateRepositoryCommand} from './repository-command.ts';
 import {applyRepositoryUpdate, type UpdateRepositoryCommand} from './repository.ts';
 
 type StoreThunks = ReturnType<typeof createThunks>;
@@ -32,6 +33,7 @@ type EntityUpdateThunkArgs<Command, Entity extends AnyState, State extends AnySt
   update: SchemaUpdate<State>;
   table: EntityTable<Entity, State>;
   keyOf: (command: Command) => string;
+  decode: (command: Command) => Command;
   reduce: (current: Entity, command: Command) => Entity;
 };
 
@@ -157,17 +159,20 @@ export type DomainActionArgs<State extends AnyState = AnyState> = {
 export const createEntityUpdateThunk = <Command, Entity extends AnyState, State extends AnyState>(
   args: EntityUpdateThunkArgs<Command, Entity, State>
 ) => {
-  const {name, thunks, update, table, keyOf, reduce} = args;
+  const {name, thunks, update, table, keyOf, decode, reduce} = args;
 
   return thunks.create<Command>(
     name,
     {supervisor: createEntityUpdateSupervisor(keyOf)},
     function* updateEntity(ctx, next) {
-      const id = keyOf(ctx.payload);
+      // Decode before the key lookup and reducer so a runtime caller cannot
+      // smuggle non-string values past the public action contract.
+      const command = decode(ctx.payload);
+      const id = keyOf(command);
       const current = yield* select(table.selectById, {id});
 
       if (current) {
-        yield* update(table.add({[id]: reduce(current, ctx.payload)}));
+        yield* update(table.add({[id]: reduce(current, command)}));
       }
 
       yield* next();
@@ -196,6 +201,7 @@ export const buildDomainActions = <State extends AnyState>(args: DomainActionArg
       update: args.schema.update,
       table: args.schema.repositories,
       keyOf: repositoryStoreKey,
+      decode: decodeUpdateRepositoryCommand,
       reduce: applyRepositoryUpdate
     })
   };

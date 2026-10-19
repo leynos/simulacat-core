@@ -15,6 +15,7 @@ import {
 import {deriveOwner} from '../owners.ts';
 import type {DataSchemas, GraphQLData, ToGraphqlDispatcher} from '../to-graphql-types.ts';
 import type {BaseUrls} from '../../http/request-url.ts';
+import {observeGraphqlProjectionFailure} from '../../http/url-observability.ts';
 import type {ExtendedSimulationStore} from '../../store/index.ts';
 import {branchStoreKey, repositoryNodeId} from '../../store/keys.ts';
 import {projectRepositoryUrls} from '../../urls/index.ts';
@@ -123,6 +124,7 @@ export function convertRepositoryToGraphql(
   const projectedRepository = projectRepositoryUrls(repo, baseUrls);
   const repositoryUrl = projectedRepository.html_url;
   if (repositoryUrl === null || repositoryUrl === undefined) {
+    observeGraphqlProjectionFailure(baseUrls, 'repository');
     throw new TypeError(`GraphQL repository URL could not be projected for ${repo.full_name}`);
   }
 

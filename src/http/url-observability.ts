@@ -9,8 +9,12 @@ export type UrlObservationReason =
   | 'invalid-protocol'
   | 'missing-fallback'
   | 'missing-host'
+  | 'missing-projection'
   | 'none'
   | 'unknown-typename';
+
+/** Entity kinds that produce a GraphQL projection failure. */
+export type UrlProjectionEntity = 'commit' | 'issue' | 'pull-request' | 'repository';
 
 export type UrlObservationContext = {
   transport: UrlObservationTransport;
@@ -18,12 +22,13 @@ export type UrlObservationContext = {
 };
 
 type UrlObservation = {
-  event: 'base-url' | 'graphql-dispatch' | 'request-host';
+  event: 'base-url' | 'graphql-dispatch' | 'graphql-projection' | 'request-host';
   transport: UrlObservationTransport;
   outcome: UrlObservationOutcome;
   reason: UrlObservationReason;
   requestId?: string;
   typename?: string;
+  entity?: UrlProjectionEntity;
 };
 
 /** Finite counter key: the four bounded label components joined by dots. */
@@ -103,6 +108,27 @@ export const observeBaseUrl = (
  */
 export const rememberBaseUrlObservationContext = (baseUrls: BaseUrls, context: UrlObservationContext): void => {
   baseUrlObservationContexts.set(baseUrls, context);
+};
+
+/**
+ * Records a GraphQL entity that could not be projected into a usable URL.
+ *
+ * Only the bounded entity kind is recorded; owner, repository, SHA, and URL
+ * values stay out of the metric labels.
+ *
+ * @param baseUrls Derived request URL bases carrying request context.
+ * @param entity Entity kind whose URL projection failed.
+ */
+export const observeGraphqlProjectionFailure = (baseUrls: BaseUrls, entity: UrlProjectionEntity): void => {
+  const context = baseUrlObservationContexts.get(baseUrls) ?? {transport: 'graphql'};
+  recordUrlObservation({
+    event: 'graphql-projection',
+    ...context,
+    transport: 'graphql',
+    outcome: 'failure',
+    reason: 'missing-projection',
+    entity
+  });
 };
 
 /**

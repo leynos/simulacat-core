@@ -18,6 +18,13 @@ bun install
 
 The package expects Bun to run scripts, tests, and formatting commands.
 
+`tsconfig.json` emits for the `ES2022` target but type-checks against the `DOM`
+and `ES2023` libraries. The library setting is deliberate: the codebase uses
+`toSorted()` and `toReversed()` for immutable ordering, which `ES2023` provides
+while the emitted syntax stays compatible with the `ES2022` target.
+Type-checking therefore accepts those methods, but do not assume newer
+runtime-only APIs are available without checking the emit target.
+
 `make fmt` and `make check-fmt` run `mdtablefix` (version 0.6.1, the same
 release CI installs); install it once with
 `cargo install --locked mdtablefix --version 0.6.1`. `make fmt` also runs
@@ -242,7 +249,9 @@ Makefile.
 
 `make all` runs Biome and Oxlint as maintainability gates. The Oxlint toolchain
 is pinned in `package.json` and its plug-ins are recorded in the
-[Linting strategy ADR][adr-linting]. Biome enforces exact rules where it has
+[Linting strategy ADR][adr-linting]. Type-aware Oxlint rules use the
+`oxlint-tsgolint` backend, which is installed as an exact dev dependency and
+recorded in that ADR's component table. Biome enforces exact rules where it has
 native support:
 
 - `complexity.noExcessiveLinesPerFunction`: functions may not exceed 70 lines,

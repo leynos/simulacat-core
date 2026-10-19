@@ -4,7 +4,7 @@ import {afterEach, describe, expect, it} from 'bun:test';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import {getSchema} from '../src/utils.ts';
+import {getOpenApiDocument, getSchema} from '../src/utils.ts';
 
 const tempPaths: string[] = [];
 
@@ -68,5 +68,31 @@ describe('getSchema', () => {
 
     expect(schema).toEqual(expect.any(String));
     expect(schema).toContain('type Query');
+  });
+});
+
+describe('getOpenApiDocument', () => {
+  it('loads a valid OpenAPI JSON document', async () => {
+    const tempFile = tempJsonSchemaPath();
+    tempPaths.push(tempFile);
+    await fs.writeFile(tempFile, JSON.stringify({openapi: '3.1.0', paths: {}}), 'utf8');
+
+    expect(getOpenApiDocument(tempFile)).toEqual({openapi: '3.1.0', paths: {}});
+  });
+
+  it('rejects a GraphQL schema filename before reading it', () => {
+    // The REST handler table only accepts OpenAPI documents; a GraphQL name
+    // must fail here rather than being handed to the REST server as a string.
+    expect(() => getOpenApiDocument('schema.docs.graphql')).toThrow(
+      'SIMULACAT: REST handlers require an OpenAPI JSON schema'
+    );
+  });
+
+  it('rejects a JSON file that is not an OpenAPI document', async () => {
+    const tempFile = tempJsonSchemaPath();
+    tempPaths.push(tempFile);
+    await fs.writeFile(tempFile, JSON.stringify({hello: 'world'}), 'utf8');
+
+    expect(() => getOpenApiDocument(tempFile)).toThrow('Failed to parse JSON schema');
   });
 });

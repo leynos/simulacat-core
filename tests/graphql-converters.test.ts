@@ -215,6 +215,36 @@ describe('issue and pull request GraphQL URL conversion', () => {
   });
 });
 
+describe('GraphQL projection observability', () => {
+  it('records a bounded counter and omits entity details when a URL cannot be projected', () => {
+    resetUrlObservabilityCounters();
+    const observedBaseUrls = buildBaseUrls({protocol: 'https', host: 'graphql.example.test'}, '/', undefined, {
+      transport: 'graphql',
+      requestId: 'graphql-projection-1'
+    });
+    const repository = makeRepositoryFixture();
+    // Projection fills only `undefined` fields, so a runtime `null` is what
+    // reaches the failure branch. The store schema cannot express `null`,
+    // which is why the value is written onto the parsed fixture.
+    Object.defineProperty(repository, 'html_url', {value: null, enumerable: true, configurable: true});
+
+    expect(() =>
+      convertRepositoryToGraphql(makeRepositoryConverterStore(), repository, toGraphql, observedBaseUrls)
+    ).toThrow('GraphQL repository URL could not be projected');
+
+    const counters = getUrlObservabilityCounters();
+    // `buildBaseUrls` records the request-origin base alongside the failure.
+    expect(counters).toEqual({
+      'base-url.graphql.request-origin.none': 1,
+      'graphql-projection.graphql.failure.missing-projection': 1
+    });
+    // The bounded labels must not leak the repository identity or request id.
+    const counterKeys = Object.keys(counters).join(',');
+    expect(counterKeys).not.toContain('test-org');
+    expect(counterKeys).not.toContain('graphql-projection-1');
+  });
+});
+
 describe('GraphQL dispatch observability', () => {
   it('observes unknown typenames and preserves the error contract', () => {
     resetUrlObservabilityCounters();
