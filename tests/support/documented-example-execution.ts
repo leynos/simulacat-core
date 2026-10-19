@@ -14,6 +14,7 @@ import {
   parseJsonDocument,
   parseJsonOutput
 } from './documented-example-contracts.ts';
+import type {CapturedOutput} from './documented-example-contracts.ts';
 import {
   createExampleFixture,
   removeExampleFixture,
@@ -306,11 +307,14 @@ const querySimulatorWithCurl: ExampleHandler = async (prepared, example) => {
   assert.ok(prepared.server, 'the startup command must run before curl');
   const result = await runShellExample(prepared.fixture, example, {BASE_URL: prepared.server.baseUrl});
   prepared.observer?.record({kind: 'curl-output', id: 'query-simulator-with-curl', stdout: result.stdout});
-  assertCurlResponses(result.stdout);
+  assertCurlResponses({stdout: result.stdout, label: 'query-simulator-with-curl'});
 };
 
-/** Executes a TypeScript fence and returns its final output for assertions. */
-const executeProgram = async (prepared: PreparedDocumentedExamples, example: DocumentedExample): Promise<string> => {
+/** Executes a TypeScript fence and returns its final output and diagnostic label. */
+const executeProgram = async (
+  prepared: PreparedDocumentedExamples,
+  example: DocumentedExample
+): Promise<CapturedOutput> => {
   const id = documentedExampleIdFor(example);
   const path = prepared.programPaths.get(id);
 
@@ -320,7 +324,7 @@ const executeProgram = async (prepared: PreparedDocumentedExamples, example: Doc
 
   const result = await runTypeScriptExample(prepared.fixture, {path, exampleId: id});
   prepared.observer?.record({kind: 'typescript-output', id, stdout: result.stdout});
-  return result.stdout;
+  return {stdout: result.stdout, label: id};
 };
 
 /** Executes the canonical repository node-ID example. */
@@ -330,45 +334,45 @@ const checkRepositoryNodeId: ExampleHandler = async (prepared, example) => {
 
 /** Executes and checks the six parsed fixture builder results. */
 const checkFixtureBuilders: ExampleHandler = async (prepared, example) => {
-  assertFixtureBuilders(parseJsonOutput({stdout: await executeProgram(prepared, example), label: example.id}));
+  assertFixtureBuilders(parseJsonOutput(await executeProgram(prepared, example)));
 };
 
 /** Exercises seeded collaboration routes and GraphQL fields over HTTP. */
 const checkCollaborationEntities: ExampleHandler = async (prepared, example) => {
-  assertCollaborationEntities(parseJsonOutput({stdout: await executeProgram(prepared, example), label: example.id}));
+  assertCollaborationEntities(parseJsonOutput(await executeProgram(prepared, example)));
 };
 
 /** Exercises persisted repository metadata through REST and GraphQL reads. */
 const checkRepositoryMetadataPatch: ExampleHandler = async (prepared, example) => {
-  assertRepositoryMetadataPatch(parseJsonOutput({stdout: await executeProgram(prepared, example), label: example.id}));
+  assertRepositoryMetadataPatch(parseJsonOutput(await executeProgram(prepared, example)));
 };
 
 /** Checks request-derived API URLs under the configured v3 mount. */
 const checkMountedApiRoot: ExampleHandler = async (prepared, example) => {
-  assertMountedApiRoot(parseJsonOutput({stdout: await executeProgram(prepared, example), label: example.id}));
+  assertMountedApiRoot(parseJsonOutput(await executeProgram(prepared, example)));
 };
 
 /** Checks seeded URLs override the host-derived repository URLs. */
 const checkFixtureUrlOverrides: ExampleHandler = async (prepared, example) => {
-  assertFixtureUrlOverrides(parseJsonOutput({stdout: await executeProgram(prepared, example), label: example.id}));
+  assertFixtureUrlOverrides(parseJsonOutput(await executeProgram(prepared, example)));
 };
 
 /** Checks the narrowed repository helper returns its canonical key. */
 const checkRepositoryStoreKey: ExampleHandler = async (prepared, example) => {
   const output = await executeProgram(prepared, example);
-  assert.equal(output.trim(), 'acme/awesome-repo');
+  assert.equal(output.stdout.trim(), 'acme/awesome-repo');
 };
 
 /** Checks the narrowed branch helper returns its canonical key. */
 const checkBranchStoreKey: ExampleHandler = async (prepared, example) => {
   const output = await executeProgram(prepared, example);
-  assert.equal(output.trim(), 'acme/awesome-repo:main');
+  assert.equal(output.stdout.trim(), 'acme/awesome-repo:main');
 };
 
 /** Checks the narrowed blob helper returns its path-based canonical key. */
 const checkBlobStoreKey: ExampleHandler = async (prepared, example) => {
   const output = await executeProgram(prepared, example);
-  assert.equal(output.trim(), 'acme/awesome-repo:README.md');
+  assert.equal(output.stdout.trim(), 'acme/awesome-repo:README.md');
 };
 
 const handlers: Record<DocumentedExampleId, ExampleHandler> = {

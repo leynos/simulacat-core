@@ -13,7 +13,7 @@ import {
   parseJsonDocument,
   parseJsonOutput
 } from './documented-example-contracts.ts';
-import type {JsonValue} from './documented-example-contracts.ts';
+import type {CapturedOutput, JsonValue} from './documented-example-contracts.ts';
 import type {DocumentedExampleId, PreparedDocumentedExamples} from './documented-example-execution.ts';
 import type {DocumentedExample} from './documented-examples.ts';
 
@@ -48,7 +48,7 @@ export interface DocumentedExampleOracleInput {
 }
 
 type TypeScriptOutputContract =
-  | {kind: 'stdout'; validate: (stdout: string) => void}
+  | {kind: 'stdout'; validate: (output: CapturedOutput) => void}
   | {kind: 'json'; validate: (value: JsonValue) => void}
   | {kind: 'text'; expected: string};
 
@@ -131,46 +131,87 @@ const assertCapturedOutputs = (
   examples: readonly DocumentedExample[],
   observations: readonly DocumentedExampleObservation[]
 ): void => {
-  const outputs = observations.flatMap((observation) => (isTypeScriptOutput(observation) ? [observation] : []));
-  const expectedOutputIds = examples.flatMap((example) => (isExecutedTypeScriptExample(example) ? [example.id] : []));
+  assertTypeScriptOutputs(examples, observations);
+  assertCurlOutputs(examples, observations);
+  assertStartupResponses(examples, observations);
+};
+
+/** One observation kind, the source-derived IDs it must cover, and its validator. */
+interface ObservationExpectation<Observation extends DocumentedExampleObservation> {
+  readonly isKind: (observation: DocumentedExampleObservation) => observation is Observation;
+  readonly expectedIds: readonly string[];
+  readonly validate: (observation: Observation) => void;
+  readonly incompleteMessage: string;
+}
+
+/** Requires exactly the source-derived observations of one kind, in trace order, and validates each one. */
+const assertObservedKind = <Observation extends DocumentedExampleObservation>(
+  observations: readonly DocumentedExampleObservation[],
+  expectation: ObservationExpectation<Observation>
+): void => {
+  const matched = observations.flatMap((observation) => (expectation.isKind(observation) ? [observation] : []));
+  // Both halves matter: a missing observation and a stray or reordered one are
+  // equally invalid evidence, so the comparison is over the full ID sequence
+  // rather than merely checking that an expected ID is present.
   assert.deepEqual(
-    outputs.map((output) => output.id),
-    expectedOutputIds,
-    'TypeScript output evidence is incomplete'
+    matched.map((observation) => observation.id),
+    expectation.expectedIds,
+    expectation.incompleteMessage
   );
 
-  for (const output of outputs) {
-    validateTypeScriptOutput(output);
+  for (const observation of matched) {
+    expectation.validate(observation);
   }
+};
 
-  const curlOutputs = observations.flatMap((observation) => (isCurlOutput(observation) ? [observation] : []));
-  const expectedCurlIds = examples.flatMap((example) =>
-    example.id === 'query-simulator-with-curl' ? [example.id] : []
-  );
-  assert.deepEqual(
-    curlOutputs.map((output) => output.id),
-    expectedCurlIds,
-    'curl output evidence is incomplete'
-  );
+/** Lists an example ID when the selected fences include it. */
+const expectedIdsFor = (examples: readonly DocumentedExample[], id: DocumentedExampleId): readonly string[] =>
+  examples.flatMap((example) => (example.id === id ? [example.id] : []));
 
-  for (const output of curlOutputs) {
-    assertCurlResponses(output.stdout);
-  }
+/** Lists IDs of selected fences whose source is a TypeScript program. */
+const executedTypeScriptIds = (examples: readonly DocumentedExample[]): readonly string[] =>
+  examples.flatMap((example) => (isExecutedTypeScriptExample(example) ? [example.id] : []));
 
-  const startupResponses = observations.flatMap((observation) => (isStartupResponse(observation) ? [observation] : []));
-  const expectedStartupIds = examples.flatMap((example) =>
-    example.id === 'run-simulator-command' ? [example.id] : []
-  );
-  assert.deepEqual(
-    startupResponses.map((response) => response.id),
-    expectedStartupIds,
-    'startup response evidence is incomplete'
-  );
+/** Requires one captured program output per selected executing TypeScript fence. */
+const assertTypeScriptOutputs = (
+  examples: readonly DocumentedExample[],
+  observations: readonly DocumentedExampleObservation[]
+): void => {
+  assertObservedKind(observations, {
+    isKind: isTypeScriptOutput,
+    expectedIds: executedTypeScriptIds(examples),
+    validate: validateTypeScriptOutput,
+    incompleteMessage: 'TypeScript output evidence is incomplete'
+  });
+};
 
-  for (const response of startupResponses) {
-    assert.equal(response.status, 200);
-    assertQuickStartRepository(response.body);
-  }
+/** Requires the curl guide's output when that fence is selected. */
+const assertCurlOutputs = (
+  examples: readonly DocumentedExample[],
+  observations: readonly DocumentedExampleObservation[]
+): void => {
+  assertObservedKind(observations, {
+    isKind: isCurlOutput,
+    expectedIds: expectedIdsFor(examples, 'query-simulator-with-curl'),
+    validate: (output) => assertCurlResponses({stdout: output.stdout, label: output.id}),
+    incompleteMessage: 'curl output evidence is incomplete'
+  });
+};
+
+/** Requires the startup guide's recorded HTTP response when that fence is selected. */
+const assertStartupResponses = (
+  examples: readonly DocumentedExample[],
+  observations: readonly DocumentedExampleObservation[]
+): void => {
+  assertObservedKind(observations, {
+    isKind: isStartupResponse,
+    expectedIds: expectedIdsFor(examples, 'run-simulator-command'),
+    validate: (response) => {
+      assert.equal(response.status, 200);
+      assertQuickStartRepository(response.body);
+    },
+    incompleteMessage: 'startup response evidence is incomplete'
+  });
 };
 
 /** Applies the existing output contract for one captured TypeScript program. */
@@ -179,7 +220,7 @@ const validateTypeScriptOutput = (output: TypeScriptOutputObservation): void => 
   assert.ok(contract, `no captured-output contract exists for ${output.id}`);
 
   if (contract.kind === 'stdout') {
-    contract.validate(output.stdout);
+    contract.validate({stdout: output.stdout, label: output.id});
     return;
   }
 

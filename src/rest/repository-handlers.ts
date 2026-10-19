@@ -46,6 +46,28 @@ const withFallbackUrl = (value: string | null | undefined, fallback: string): st
   return value === undefined ? fallback : value;
 };
 
+/** Projects the user-account URLs shared by user and organization owners. */
+const projectOwnerAccountUrls = (
+  owner: Pick<RepositoryOwnerAccount, 'login'> & Partial<Record<RepositoryOwnerUrl, string | undefined>>,
+  baseUrls: BaseUrls
+) => {
+  // GitHub's REST contract addresses these fields under `/users/{login}` even
+  // when the owner is an organization, so they derive from the login rather
+  // than from the organization API base. Explicit values, including `null`,
+  // win over the derived URL.
+  const userPath = `/users/${urlPathSegment(owner.login)}`;
+  const userUrl = (suffix: string): string => buildUrl(baseUrls.apiBaseUrl, `${userPath}${suffix}`);
+  return {
+    followers_url: withFallbackUrl(owner.followers_url, userUrl('/followers')),
+    following_url: withFallbackUrl(owner.following_url, userUrl('/following{/other_user}')),
+    gists_url: withFallbackUrl(owner.gists_url, userUrl('/gists{/gist_id}')),
+    starred_url: withFallbackUrl(owner.starred_url, userUrl('/starred{/owner}{/repo}')),
+    subscriptions_url: withFallbackUrl(owner.subscriptions_url, userUrl('/subscriptions')),
+    organizations_url: withFallbackUrl(owner.organizations_url, userUrl('/orgs')),
+    received_events_url: withFallbackUrl(owner.received_events_url, userUrl('/received_events'))
+  };
+};
+
 /** Projects a user owner with the REST URL fields expected in repository payloads. */
 const projectUserOwnerResponse = (owner: RepositoryOwnerAccount, baseUrls: BaseUrls) => {
   const userPath = `/users/${urlPathSegment(owner.login)}`;
@@ -54,54 +76,14 @@ const projectUserOwnerResponse = (owner: RepositoryOwnerAccount, baseUrls: BaseU
     type: 'User',
     url: withFallbackUrl(owner.url, buildUrl(baseUrls.apiBaseUrl, userPath)),
     html_url: withFallbackUrl(owner.html_url, buildUrl(baseUrls.webBaseUrl, `/${urlPathSegment(owner.login)}`)),
-    followers_url: withFallbackUrl(owner.followers_url, buildUrl(baseUrls.apiBaseUrl, `${userPath}/followers`)),
-    following_url: withFallbackUrl(
-      owner.following_url,
-      buildUrl(baseUrls.apiBaseUrl, `${userPath}/following{/other_user}`)
-    ),
-    gists_url: withFallbackUrl(owner.gists_url, buildUrl(baseUrls.apiBaseUrl, `${userPath}/gists{/gist_id}`)),
-    starred_url: withFallbackUrl(
-      owner.starred_url,
-      buildUrl(baseUrls.apiBaseUrl, `${userPath}/starred{/owner}{/repo}`)
-    ),
-    subscriptions_url: withFallbackUrl(
-      owner.subscriptions_url,
-      buildUrl(baseUrls.apiBaseUrl, `${userPath}/subscriptions`)
-    ),
-    organizations_url: withFallbackUrl(owner.organizations_url, buildUrl(baseUrls.apiBaseUrl, `${userPath}/orgs`)),
-    received_events_url: withFallbackUrl(
-      owner.received_events_url,
-      buildUrl(baseUrls.apiBaseUrl, `${userPath}/received_events`)
-    )
+    ...projectOwnerAccountUrls(owner, baseUrls)
   };
 };
 
 /** Projects an organization owner with repository-owner URL fields. */
 const projectOrganizationOwnerResponse = (owner: RepositoryOwnerAccount, baseUrls: BaseUrls) => {
   const projected = projectOrganizationUrls(owner, baseUrls);
-  const userPath = `/users/${urlPathSegment(projected.login)}`;
-  return {
-    ...projected,
-    followers_url: withFallbackUrl(projected.followers_url, buildUrl(baseUrls.apiBaseUrl, `${userPath}/followers`)),
-    following_url: withFallbackUrl(
-      projected.following_url,
-      buildUrl(baseUrls.apiBaseUrl, `${userPath}/following{/other_user}`)
-    ),
-    gists_url: withFallbackUrl(projected.gists_url, buildUrl(baseUrls.apiBaseUrl, `${userPath}/gists{/gist_id}`)),
-    starred_url: withFallbackUrl(
-      projected.starred_url,
-      buildUrl(baseUrls.apiBaseUrl, `${userPath}/starred{/owner}{/repo}`)
-    ),
-    subscriptions_url: withFallbackUrl(
-      projected.subscriptions_url,
-      buildUrl(baseUrls.apiBaseUrl, `${userPath}/subscriptions`)
-    ),
-    organizations_url: withFallbackUrl(projected.organizations_url, buildUrl(baseUrls.apiBaseUrl, `${userPath}/orgs`)),
-    received_events_url: withFallbackUrl(
-      projected.received_events_url,
-      buildUrl(baseUrls.apiBaseUrl, `${userPath}/received_events`)
-    )
-  };
+  return {...projected, ...projectOwnerAccountUrls(projected, baseUrls)};
 };
 
 /**

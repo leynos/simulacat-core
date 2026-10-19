@@ -83,11 +83,15 @@ const parseJsonLine = (line: string): JsonValue => {
 /**
  * Checks that the repository node ID encodes its documented canonical value.
  *
- * @param stdout Captured ID from the documented program.
+ * @param output Captured ID from the documented program and its diagnostic label.
  */
-export const assertRepositoryNodeId = (stdout: string): void => {
-  const nodeId = stdout.trim();
-  assert.equal(Buffer.from(nodeId, 'base64').toString(), 'Repository:acme/awesome-repo');
+export const assertRepositoryNodeId = (output: CapturedOutput): void => {
+  const nodeId = output.stdout.trim();
+  assert.equal(
+    Buffer.from(nodeId, 'base64').toString(),
+    'Repository:acme/awesome-repo',
+    `${output.label} did not produce the canonical repository node ID`
+  );
 };
 
 /**
@@ -187,11 +191,11 @@ export const assertFixtureUrlOverrides = (value: JsonValue): void => {
 /**
  * Checks a curl client reads both the seeded repository and request actor.
  *
- * @param stdout Captured output from both curl commands.
+ * @param output Captured output from both curl commands and its diagnostic label.
  */
-export const assertCurlResponses = (stdout: string): void => {
-  const lines = stdout.trim().split(/\r?\n/);
-  assert.equal(lines.length, 2);
+export const assertCurlResponses = (output: CapturedOutput): void => {
+  const lines = output.stdout.trim().split(/\r?\n/);
+  assert.equal(lines.length, 2, `${output.label} must print one JSON line per curl command`);
   const repository = asObject(
     parseJsonOutput({stdout: lines[0] ?? '', label: 'repository curl'}),
     'repository curl response'
