@@ -111,6 +111,32 @@ export const rememberBaseUrlObservationContext = (baseUrls: BaseUrls, context: U
 };
 
 /**
+ * Bounded GraphQL failure shapes recorded by this module.
+ *
+ * The event, outcome, and reason move together by construction, so a caller
+ * cannot pair a projection failure with a dispatch label.
+ */
+type GraphqlFailureObservation =
+  | {
+      event: 'graphql-dispatch';
+      outcome: 'unhandled-typename';
+      reason: 'unknown-typename';
+      typename: string;
+    }
+  | {
+      event: 'graphql-projection';
+      outcome: 'failure';
+      reason: 'missing-projection';
+      entity: UrlProjectionEntity;
+    };
+
+/** Records one GraphQL failure with the transport and request context. */
+const observeGraphqlFailure = (baseUrls: BaseUrls, observation: GraphqlFailureObservation): void => {
+  const context = baseUrlObservationContexts.get(baseUrls) ?? {transport: 'graphql'};
+  recordUrlObservation({...observation, ...context, transport: 'graphql'});
+};
+
+/**
  * Records a GraphQL entity that could not be projected into a usable URL.
  *
  * Only the bounded entity kind is recorded; owner, repository, SHA, and URL
@@ -120,11 +146,8 @@ export const rememberBaseUrlObservationContext = (baseUrls: BaseUrls, context: U
  * @param entity Entity kind whose URL projection failed.
  */
 export const observeGraphqlProjectionFailure = (baseUrls: BaseUrls, entity: UrlProjectionEntity): void => {
-  const context = baseUrlObservationContexts.get(baseUrls) ?? {transport: 'graphql'};
-  recordUrlObservation({
+  observeGraphqlFailure(baseUrls, {
     event: 'graphql-projection',
-    ...context,
-    transport: 'graphql',
     outcome: 'failure',
     reason: 'missing-projection',
     entity
@@ -138,11 +161,8 @@ export const observeGraphqlProjectionFailure = (baseUrls: BaseUrls, entity: UrlP
  * @param typename Stable GraphQL typename supplied to the dispatcher.
  */
 export const observeUnhandledGraphqlTypename = (baseUrls: BaseUrls, typename: string): void => {
-  const context = baseUrlObservationContexts.get(baseUrls) ?? {transport: 'graphql'};
-  recordUrlObservation({
+  observeGraphqlFailure(baseUrls, {
     event: 'graphql-dispatch',
-    ...context,
-    transport: 'graphql',
     outcome: 'unhandled-typename',
     reason: 'unknown-typename',
     typename
