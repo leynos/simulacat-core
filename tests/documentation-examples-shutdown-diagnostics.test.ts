@@ -20,7 +20,7 @@ describe('documented-example shutdown diagnostics', () => {
     const laterSnapshot = makeSnapshot('later-command', new Error('later failure'));
     const fixture = createFaultTarget(firstSnapshot, laterSnapshot);
     const failure = await stopOwnedProcessGroup(fixture.target, makeForbiddenScheduler()).catch(
-      (error: unknown) => error
+      (error: Error) => error
     );
 
     if (!(failure instanceof Error)) {
@@ -43,7 +43,7 @@ const createFaultTarget = (
 ): FaultTargetFixture => {
   let snapshotCount = 0;
   const target: OwnedProcessTarget = {
-    closed: new Promise<CommandResult>(() => undefined),
+    closed: new Promise<CommandResult>(() => {}),
     snapshot: () => {
       snapshotCount += 1;
       return snapshotCount === 1 ? firstSnapshot : laterSnapshot;

@@ -18,10 +18,12 @@ export type RefUrlPayload = Omit<GitHubRef, RefUrlField> & Partial<Record<RefUrl
 /** Maps a Git ref object type to its REST API path segment. */
 const refObjectApiPath = (objectType: GitHubRef['object']['type']): string => {
   switch (objectType) {
-    case 'commit':
+    case 'commit': {
       return 'commits';
-    case 'tag':
+    }
+    case 'tag': {
       return 'tags';
+    }
     default: {
       const exhaustive: never = objectType;
       throw new Error(`Unsupported ref object type: ${exhaustive}`);

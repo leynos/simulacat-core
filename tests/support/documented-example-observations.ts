@@ -10,8 +10,10 @@ import {
   assertQuickStartRepository,
   assertRepositoryMetadataPatch,
   assertRepositoryNodeId,
+  parseJsonDocument,
   parseJsonOutput
 } from './documented-example-contracts.ts';
+import type {JsonValue} from './documented-example-contracts.ts';
 import type {DocumentedExampleId, PreparedDocumentedExamples} from './documented-example-execution.ts';
 import type {DocumentedExample} from './documented-examples.ts';
 
@@ -24,7 +26,7 @@ export type DocumentedExampleObservation =
       readonly kind: 'startup-response';
       readonly id: 'run-simulator-command';
       readonly status: number;
-      readonly body: unknown;
+      readonly body: JsonValue;
     };
 
 /** Receives observations from one prepared example session. */
@@ -47,7 +49,7 @@ export interface DocumentedExampleOracleInput {
 
 type TypeScriptOutputContract =
   | {kind: 'stdout'; validate: (stdout: string) => void}
-  | {kind: 'json'; validate: (value: unknown) => void}
+  | {kind: 'json'; validate: (value: JsonValue) => void}
   | {kind: 'text'; expected: string};
 
 const typeScriptOutputContracts: Partial<Record<DocumentedExampleId, TypeScriptOutputContract>> = {
@@ -74,7 +76,7 @@ export const createDocumentedExampleObservationCollector = (): DocumentedExample
     record: (observation) => {
       observations.push(Object.freeze(observation));
     },
-    snapshot: () => observations.slice()
+    snapshot: () => [...observations]
   };
 };
 
@@ -101,11 +103,11 @@ const selectSourceExamples = (
 ): DocumentedExample[] => {
   assert.ok(selectedIds.length > 0, 'the observation oracle requires selected source examples');
   assert.equal(new Set(selectedIds).size, selectedIds.length, 'selected example IDs must be unique');
-  const selected = new Set(selectedIds);
-  const examples = sourceExamples.filter((example) => selected.has(example.id as DocumentedExampleId));
+  const selected = new Set<string>(selectedIds);
+  const examples = sourceExamples.filter((example) => selected.has(example.id));
   assert.deepEqual(
-    examples.map((example) => example.id).sort(),
-    [...selectedIds].sort(),
+    examples.map((example) => example.id).toSorted(),
+    [...selectedIds].toSorted(),
     'selected IDs must exist in the current users-guide source'
   );
   return examples;
@@ -116,7 +118,7 @@ const assertCompletionTrace = (
   examples: readonly DocumentedExample[],
   observations: readonly DocumentedExampleObservation[]
 ): void => {
-  const completedIds = observations.filter(isCompletion).map((observation) => observation.id);
+  const completedIds = observations.flatMap((observation) => (isCompletion(observation) ? [observation.id] : []));
   assert.deepEqual(
     completedIds,
     examples.map((example) => example.id),
@@ -129,10 +131,8 @@ const assertCapturedOutputs = (
   examples: readonly DocumentedExample[],
   observations: readonly DocumentedExampleObservation[]
 ): void => {
-  const outputs = observations.filter(isTypeScriptOutput);
-  const expectedOutputIds = examples
-    .filter((example) => example.language === 'typescript' && example.id !== 'start-simulator-program')
-    .map((example) => example.id);
+  const outputs = observations.flatMap((observation) => (isTypeScriptOutput(observation) ? [observation] : []));
+  const expectedOutputIds = examples.flatMap((example) => (isExecutedTypeScriptExample(example) ? [example.id] : []));
   assert.deepEqual(
     outputs.map((output) => output.id),
     expectedOutputIds,
@@ -143,10 +143,10 @@ const assertCapturedOutputs = (
     validateTypeScriptOutput(output);
   }
 
-  const curlOutputs = observations.filter(isCurlOutput);
-  const expectedCurlIds = examples
-    .filter((example) => example.id === 'query-simulator-with-curl')
-    .map((example) => example.id);
+  const curlOutputs = observations.flatMap((observation) => (isCurlOutput(observation) ? [observation] : []));
+  const expectedCurlIds = examples.flatMap((example) =>
+    example.id === 'query-simulator-with-curl' ? [example.id] : []
+  );
   assert.deepEqual(
     curlOutputs.map((output) => output.id),
     expectedCurlIds,
@@ -157,10 +157,10 @@ const assertCapturedOutputs = (
     assertCurlResponses(output.stdout);
   }
 
-  const startupResponses = observations.filter(isStartupResponse);
-  const expectedStartupIds = examples
-    .filter((example) => example.id === 'run-simulator-command')
-    .map((example) => example.id);
+  const startupResponses = observations.flatMap((observation) => (isStartupResponse(observation) ? [observation] : []));
+  const expectedStartupIds = examples.flatMap((example) =>
+    example.id === 'run-simulator-command' ? [example.id] : []
+  );
   assert.deepEqual(
     startupResponses.map((response) => response.id),
     expectedStartupIds,
@@ -224,8 +224,12 @@ const assertLiveRepositoryResponse = async (
   assert.ok(server, 'the selected startup command must leave its owned server available to the oracle');
   const response = await fetch(`${server.baseUrl}/repos/acme/awesome-repo`);
   assert.equal(response.status, 200);
-  assertQuickStartRepository(await response.json());
+  assertQuickStartRepository(parseJsonDocument(await response.text(), 'live repository response'));
 };
+
+/** Selects fences whose captured stdout must match a TypeScript output contract. */
+const isExecutedTypeScriptExample = (example: DocumentedExample): boolean =>
+  example.language === 'typescript' && example.id !== 'start-simulator-program';
 
 type TypeScriptOutputObservation = Extract<DocumentedExampleObservation, {kind: 'typescript-output'}>;
 type CurlOutputObservation = Extract<DocumentedExampleObservation, {kind: 'curl-output'}>;

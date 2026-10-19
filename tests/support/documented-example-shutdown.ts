@@ -239,13 +239,16 @@ const isPositivePid = (pid: number | undefined): boolean => {
   return pid > 0;
 };
 
+/** Placeholder listener remover replaced once the process event subscribes. */
+const ignoreRemovedListener = (): void => undefined;
+
 /** Waits for one exit, close, or error event and always releases its timer/listener. */
 const waitForProcessEvent = async (
   target: OwnedProcessTarget,
   scheduler: ShutdownScheduler,
   timeoutMs: number
 ): Promise<ProcessEventWait> => {
-  let removeListener = (): void => undefined;
+  let removeListener: () => void = ignoreRemovedListener;
   let timer: ShutdownTimer | undefined;
   const eventPromise = new Promise<ProcessShutdownEvent>((resolvePromise, rejectPromise) => {
     removeListener = target.subscribe((event) => {

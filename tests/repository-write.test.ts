@@ -1,5 +1,6 @@
 /** @file Integration tests for repository writes through shared actions. */
 import {afterAll, beforeAll, beforeEach, describe, expect, it} from 'bun:test';
+import assert from 'node:assert/strict';
 import {z} from 'zod';
 import {simulation, type InitialState} from '../src/index.ts';
 import {
@@ -11,20 +12,23 @@ import {fetchGraphQLDescription} from './repository-description-helper.ts';
 
 type SimulationServer = Awaited<ReturnType<ReturnType<typeof simulation>['listen']>>;
 
+const repositoryOwnerAccountSchema = z
+  .object({login: z.string().optional(), type: z.string().optional()})
+  .passthrough();
+
+const repositoryOwnerSchema = z.union([repositoryOwnerAccountSchema, z.string()]).optional();
+
 const repositoryResponseSchema = z
   .object({
     description: z.string().nullable().optional(),
     full_name: z.string().optional(),
     homepage: z.string().nullable().optional(),
-    owner: z
-      .union([z.object({login: z.string().optional(), type: z.string().optional()}).passthrough(), z.string()])
-      .optional(),
+    owner: repositoryOwnerSchema,
     private: z.boolean().optional()
   })
   .passthrough();
-const validationErrorResponseSchema = z.object({
-  err: z.array(z.object({instancePath: z.string(), message: z.string()}))
-});
+const validationIssueSchema = z.object({instancePath: z.string(), message: z.string()});
+const validationErrorResponseSchema = z.object({err: z.array(validationIssueSchema)});
 const repositoryListResponseSchema = z.array(repositoryResponseSchema);
 
 const fixtureState: InitialState = {
@@ -226,14 +230,14 @@ describe('repository write observability', () => {
   });
 
   it('ignores forged observations outside the finite PATCH outcome contract', () => {
-    observeRepositoryWrite({
-      operation: 'patch',
-      outcome: 'not-found',
-      reason: 'caller-controlled' as unknown as 'missing-repository'
-    });
+    const forgedObservation = {operation: 'patch', outcome: 'not-found', reason: 'caller-controlled'};
+    // SAFETY: the forged value models a JavaScript caller bypassing the union;
+    // the counter must ignore any key outside the finite outcome contract.
+    observeRepositoryWrite(forgedObservation as Parameters<typeof observeRepositoryWrite>[0]);
 
-    expect(getRepositoryWriteObservabilityMetrics()).not.toContain('caller-controlled');
-    expect(getRepositoryWriteObservabilityMetrics()).not.toContain('operation="patch"');
+    const metrics = getRepositoryWriteObservabilityMetrics();
+    expect(metrics).not.toContain('caller-controlled');
+    expect(metrics).not.toContain('operation="patch"');
   });
 
   it('counts concurrent PATCH observations in the process-local event loop', async () => {
@@ -272,19 +276,24 @@ describe('repository write observability', () => {
 describe('GraphQL description helper transport failures', () => {
   it('rejects non-2xx GraphQL responses with the HTTP status', async () => {
     const originalFetch = globalThis.fetch;
-    globalThis.fetch = (async () =>
-      new Response('service unavailable', {status: 503, statusText: 'Service Unavailable'})) as unknown as typeof fetch;
+    // The stub keeps `fetch.preconnect` so the replacement has the runtime
+    // shape of the global it stands in for; only the response is exercised.
+    globalThis.fetch = Object.assign(
+      async () => new Response('service unavailable', {status: 503, statusText: 'Service Unavailable'}),
+      {preconnect: originalFetch.preconnect}
+    );
 
-    let error: unknown;
+    let failure: unknown;
     try {
       await fetchGraphQLDescription('http://helper.invalid', 'acme', 'awesome-repo');
-    } catch (caught) {
-      error = caught;
+    } catch (error) {
+      failure = error;
     } finally {
       globalThis.fetch = originalFetch;
     }
 
-    expect(error).toBeInstanceOf(Error);
-    expect((error as Error).message).toContain('HTTP 503');
+    expect(failure).toBeInstanceOf(Error);
+    assert.ok(failure instanceof Error);
+    expect(failure.message).toContain('HTTP 503');
   });
 });

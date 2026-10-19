@@ -7,13 +7,22 @@ import {waitForDocumentedCommandCompletion} from './support/documented-example-c
 interface Deferred<T> {
   promise: Promise<T>;
   resolve(value: T): void;
-  reject(reason?: unknown): void;
+  reject(reason: Error): void;
 }
+
+/** A write-only callback a deferred promise replaces at construction. */
+type DeferredSink<T> = (value: T) => void;
+
+/** Placeholder resolver replaced when the deferred promise is constructed. */
+const unresolved = (): void => undefined;
+
+/** Placeholder rejecter replaced when the deferred promise is constructed. */
+const unrejected = (_error: Error): void => undefined;
 
 /** Creates a promise whose result the test controls. */
 const deferred = <T>(): Deferred<T> => {
-  let resolvePromise!: (value: T) => void;
-  let rejectPromise!: (reason?: unknown) => void;
+  let resolvePromise: DeferredSink<T> = unresolved;
+  let rejectPromise: DeferredSink<Error> = unrejected;
   const promise = new Promise<T>((resolve, reject) => {
     resolvePromise = resolve;
     rejectPromise = reject;
@@ -48,7 +57,7 @@ const makeCompletionFixture = (executionAllowanceMs: number, label = 'example') 
     closed: closed.promise,
     shutdown: () => {
       state.shutdownCalls += 1;
-      shutdownStarted.resolve(undefined);
+      shutdownStarted.resolve();
       return shutdownResult.promise;
     },
     scheduler,

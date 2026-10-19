@@ -1,10 +1,6 @@
 /** @file REST request parsing for the repository metadata PATCH endpoint. */
 import {z} from 'zod';
-import {
-  REPOSITORY_WRITABLE_FIELDS,
-  type RepositoryWritableField,
-  type UpdateRepositoryCommand
-} from '../store/actions/repository.ts';
+import type {UpdateRepositoryCommand} from '../store/actions/repository.ts';
 
 /** Input accepted when building an update command from an HTTP request body. */
 export type BuildUpdateRepositoryCommandInput = {
@@ -16,11 +12,33 @@ export type BuildUpdateRepositoryCommandInput = {
   body: unknown;
 };
 
-const repositoryPatchBodyShape = Object.fromEntries(
-  REPOSITORY_WRITABLE_FIELDS.map((field) => [field, z.string().optional().catch(undefined)])
-) as Record<RepositoryWritableField, z.ZodCatch<z.ZodOptional<z.ZodString>>>;
+/** Validates a value that must be a string to be accepted. */
+const writableStringSchema = z.string();
 
-const repositoryPatchBodySchema = z.object(repositoryPatchBodyShape).passthrough();
+/**
+ * Optional writable string that discards malformed values.
+ *
+ * A non-string field is dropped rather than failing the whole body, so one
+ * malformed key does not reject an otherwise valid press.
+ */
+const optionalWritableStringSchema = z.preprocess(
+  (value) => (writableStringSchema.safeParse(value).success ? value : undefined),
+  writableStringSchema.optional()
+);
+
+/**
+ * Validator for the writable subset of a PATCH body.
+ *
+ * Unsupported keys are stripped by `z.object` while unknown keys are ignored.
+ */
+const repositoryPatchBodySchema = z
+  .object({
+    /** New repository description, when supplied as a string. */
+    description: optionalWritableStringSchema,
+    /** New repository homepage, when supplied as a string. */
+    homepage: optionalWritableStringSchema
+  })
+  .passthrough();
 
 /**
  * Builds a repository update command from an untrusted REST request body.
@@ -43,10 +61,9 @@ export const buildUpdateRepositoryCommand = (input: BuildUpdateRepositoryCommand
   const parsedBody = repositoryPatchBodySchema.safeParse(input.body);
 
   if (parsedBody.success) {
-    for (const field of REPOSITORY_WRITABLE_FIELDS) {
-      const value = parsedBody.data[field];
-      if (typeof value === 'string') changes[field] = value;
-    }
+    const {description, homepage} = parsedBody.data;
+    if (description !== undefined) changes.description = description;
+    if (homepage !== undefined) changes.homepage = homepage;
   }
 
   return {owner: input.owner, name: input.name, changes};

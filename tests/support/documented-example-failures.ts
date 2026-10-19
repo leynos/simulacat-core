@@ -8,7 +8,7 @@
  * @returns A rejected promise carrying the original or combined failure.
  * @throws The original error, or an aggregate containing both errors.
  */
-export const rethrowAfterCleanup = async (operationError: unknown, cleanup: () => Promise<void>): Promise<never> => {
+export const rethrowAfterCleanup = async (operationError: Error, cleanup: () => Promise<void>): Promise<never> => {
   try {
     await cleanup();
   } catch (cleanupError) {

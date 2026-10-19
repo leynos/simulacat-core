@@ -6,6 +6,7 @@ import {mkdtempSync, rmSync, writeFileSync} from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import fc from 'fast-check';
+import {z} from 'zod';
 import {testInternals} from '../tools/oxlint-plugin-df12/index.js';
 
 const PROJECT_ROOT = path.resolve(import.meta.dirname, '..');
@@ -91,11 +92,13 @@ function runFixture({rules, name, source, cwd}) {
   try {
     const configPath = writeConfig({directory: workspace.directory, rules});
     const filePath = writeSource({directory: workspace.directory, name, source});
-    const result = runOxlint({configPath, filePath, ...(cwd !== undefined ? {cwd} : {})});
+    const options = {configPath, filePath};
+    if (cwd !== undefined) options.cwd = cwd;
+    const result = runOxlint(options);
     return {
       status: result.status,
       stdout: normalizeDiagnostics(result.stdout, workspace.directory),
-      stderr: normalizeDiagnostics(result.stderr ?? '', workspace.directory)
+      stderr: normalizeDiagnostics(result.stderr, workspace.directory)
     };
   } finally {
     workspace.cleanup();
@@ -147,7 +150,7 @@ function expectedNodeValueCount(key, value, options) {
 
 /** Reports whether a generated value is an AST-like node. */
 function isSyntheticAstNode(value) {
-  return Boolean(value && typeof value.type === 'string');
+  return Boolean(value && z.string().safeParse(value.type).success);
 }
 
 /** Builds a generated synthetic predicate AST. */

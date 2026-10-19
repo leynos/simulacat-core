@@ -26,7 +26,11 @@ type UrlObservation = {
   typename?: string;
 };
 
-const urlObservationCounters: Record<string, number> = {};
+/** Finite counter key: the four bounded label components joined by dots. */
+type UrlObservationCounterKey =
+  `${UrlObservation['event']}.${UrlObservationTransport}.${UrlObservationOutcome}.${UrlObservationReason}`;
+
+const urlObservationCounters: Partial<Record<UrlObservationCounterKey, number>> = {};
 let baseUrlObservationContexts = new WeakMap<BaseUrls, UrlObservationContext>();
 
 /**
@@ -49,12 +53,16 @@ const isUrlObservationEnabled = (): boolean => {
 
 /** Escapes a Prometheus label value for text exposition. */
 const escapePrometheusLabel = (value: string): string => {
-  return value.replaceAll('\\', '\\\\').replaceAll('"', '\\"').replaceAll('\n', '\\n');
+  return value.replaceAll('\\', String.raw`\\`).replaceAll('"', String.raw`\"`).replaceAll('\n', String.raw`\n`);
 };
 
 /** Records one bounded URL observation and emits optional structured diagnostics. */
 const recordUrlObservation = (observation: UrlObservation): void => {
-  const key = [observation.event, observation.transport, observation.outcome, observation.reason].join('.');
+  // SAFETY: every component is a literal union member, so joining them with a
+  // dot produces exactly the template-literal counter key type.
+  const key = [observation.event, observation.transport, observation.outcome, observation.reason].join(
+    '.'
+  ) as UrlObservationCounterKey;
   urlObservationCounters[key] = (urlObservationCounters[key] ?? 0) + 1;
 
   if (isUrlObservationEnabled()) {
@@ -120,7 +128,9 @@ export const observeUnhandledGraphqlTypename = (baseUrls: BaseUrls, typename: st
  *
  * @returns Current bounded counter values.
  */
-export const getUrlObservabilityCounters = (): Readonly<Record<string, number>> => ({...urlObservationCounters});
+export const getUrlObservabilityCounters = (): Readonly<Partial<Record<UrlObservationCounterKey, number>>> => ({
+  ...urlObservationCounters
+});
 
 /**
  * Exports bounded URL observations in Prometheus text exposition format.
@@ -132,7 +142,7 @@ export const getUrlObservabilityMetrics = (): string => {
     '# HELP simulacat_url_derivation_observations_total Request-derived URL observations.',
     '# TYPE simulacat_url_derivation_observations_total counter'
   ];
-  for (const [key, value] of Object.entries(urlObservationCounters).sort(([left], [right]) =>
+  for (const [key, value] of Object.entries(urlObservationCounters).toSorted(([left], [right]) =>
     left.localeCompare(right)
   )) {
     const [event = '', transport = '', outcome = '', reason = ''] = key.split('.');
@@ -149,7 +159,9 @@ export const getUrlObservabilityMetrics = (): string => {
 
 /** Clears URL counters and request-context associations for test isolation. */
 export const resetUrlObservabilityCounters = (): void => {
-  for (const key of Object.keys(urlObservationCounters)) {
+  // SAFETY: `urlObservationCounters` is only written under a
+  // `UrlObservationCounterKey` index, so its own keys are that union.
+  for (const key of Object.keys(urlObservationCounters) as UrlObservationCounterKey[]) {
     delete urlObservationCounters[key];
   }
   baseUrlObservationContexts = new WeakMap<BaseUrls, UrlObservationContext>();

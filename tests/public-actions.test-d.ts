@@ -16,6 +16,14 @@ type CommandChangesContract = Expect<
   Equal<UpdateRepositoryCommand['changes'], Partial<Record<RepositoryWritableField, string | undefined>>>
 >;
 
+/**
+ * Groups the compile-time assertions so each alias is referenced.
+ *
+ * The tuple is never constructed; it keeps the assertions reachable for
+ * editors and reviewable in one place.
+ */
+export type PublicActionAssertions = [WritableFieldContract, WritableFieldTupleParity, CommandChangesContract];
+
 declare const input: BuildUpdateRepositoryCommandInput;
 declare const args: DomainActionArgs;
 
@@ -32,6 +40,3 @@ void owner;
 void body;
 void addRepository;
 void invalidCommand;
-void (null as unknown as WritableFieldContract);
-void (null as unknown as WritableFieldTupleParity);
-void (null as unknown as CommandChangesContract);

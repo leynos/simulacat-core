@@ -1,5 +1,5 @@
 /** @file Selectors for early repository-owned GitHub entities. */
-import type {AnyState} from '@simulacrum/foundation-simulator';
+import type {AnyState, ExtendSimulationSelectors} from '@simulacrum/foundation-simulator';
 import type {GitHubCommit, GitHubIssue, GitHubPullRequest, GitHubRef} from './entities.ts';
 import {
   commitStoreKey,
@@ -18,16 +18,11 @@ type StoreTable<T> = {
   selectTable: (state: AnyState) => Record<string, T> | undefined;
 };
 
-type SelectorFunction<Args extends readonly unknown[], Result> = (state: AnyState, ...args: Args) => Result;
-
-type CreateSelector = <Args extends readonly unknown[], Inputs extends readonly unknown[], Result>(
-  ...inputs: [
-    ...{
-      [Index in keyof Inputs]: SelectorFunction<Args, Inputs[Index]>;
-    },
-    (...values: Inputs) => Result
-  ]
-) => SelectorFunction<Args, Result>;
+/**
+ * The selector factory is taken from the foundation's own store contract so
+ * every caller passes the same reselect instance without a cast.
+ */
+type CreateSelector = ExtendSimulationSelectors['createSelector'];
 
 export type EarlyEntitySelectorArgs = {
   createSelector: CreateSelector;

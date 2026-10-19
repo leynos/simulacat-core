@@ -22,8 +22,22 @@ import {
   refStoreKey,
   parseRepositoryStoreKey,
   repositoryNodeId,
-  repositoryStoreKey
+  repositoryStoreKey,
+  type RepositoryFixtureInput,
+  type BranchFixtureInput
 } from '../src/index.ts';
+
+/** Deliberately incomplete fixture input used to prove builder validation. */
+interface EmptyInput {
+  readonly [field: string]: never;
+}
+
+/** Passes runtime-invalid fixture input to a builder that validates with zod. */
+const parseUncheckedInput = <Input>(input: EmptyInput): Input => {
+  // SAFETY: the builders parse with zod before reading fields; this helper
+  // exists only to hand a runtime-invalid value to that validation in a test.
+  return input as Input;
+};
 
 // The canonical key grammar uses `/` and `:` as structural separators.
 // Owner and repository segments must exclude both; terminal segments (branch
@@ -132,7 +146,7 @@ describe('canonical store keys', () => {
   });
 
   it('throws when blobStoreKey is given neither path nor sha', () => {
-    expect(() => blobStoreKey({owner: 'acme', repo: 'awesome-repo'} as any)).toThrow();
+    expect(() => blobStoreKey({owner: 'acme', repo: 'awesome-repo'})).toThrow();
   });
 
   it('throws when parseBranchStoreKey receives a key with no colon separator', () => {
@@ -276,7 +290,7 @@ describe('canonical store keys', () => {
   });
 
   it('throws when buildRepositoryFixture receives invalid input', () => {
-    expect(() => buildRepositoryFixture({} as any)).toThrow();
+    expect(() => buildRepositoryFixture(parseUncheckedInput<RepositoryFixtureInput>({}))).toThrow();
   });
 
   it('builds parsed branch fixtures through the public builder', () => {
@@ -287,7 +301,7 @@ describe('canonical store keys', () => {
   });
 
   it('throws when buildBranchFixture receives invalid input', () => {
-    expect(() => buildBranchFixture({} as any)).toThrow();
+    expect(() => buildBranchFixture(parseUncheckedInput<BranchFixtureInput>({}))).toThrow();
   });
 
   it('builds parsed early entity fixtures through public builders', () => {

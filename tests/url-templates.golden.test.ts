@@ -1,5 +1,6 @@
 /** @file Store-level assertions for host-agnostic parsed fixtures. */
 import {describe, expect, it} from 'bun:test';
+import {z} from 'zod';
 import {
   buildBranchFixture,
   buildCommitFixture,
@@ -16,14 +17,28 @@ const commitSha = 'abcdef1234567890';
 const parentSha = '1234567890abcdef';
 const treeSha = 'tree-sha';
 
+/** Any value a parsed fixture snapshot can contain. */
+type UrlSnapshotValue = string | number | boolean | null | UrlSnapshot | UrlSnapshotValue[];
+
+/** A parsed fixture object whose URL-shaped fields are collected. */
+interface UrlSnapshot {
+  readonly [key: string]: UrlSnapshotValue | undefined;
+}
+
+const urlSnapshotValueSchema: z.ZodType<UrlSnapshotValue, z.ZodTypeDef, unknown> = z.lazy(() =>
+  z.union([z.string(), z.number(), z.boolean(), z.null(), z.array(urlSnapshotValueSchema), urlSnapshotSchema])
+);
+
+const urlSnapshotSchema: z.ZodType<UrlSnapshot, z.ZodTypeDef, unknown> = z.lazy(() =>
+  z.record(z.string(), urlSnapshotValueSchema.optional())
+);
+
 /** Checks whether a value is a plain object that can contain URL fields. */
-const isRecord = (value: unknown): value is Record<string, unknown> => {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-};
+const isRecord = <T>(value: T): value is T & UrlSnapshot => urlSnapshotSchema.safeParse(value).success;
 
 /** Checks whether a collected subtree should be kept in the snapshot. */
-const hasSnapshotFields = (value: unknown): boolean => {
-  if (Array.isArray(value)) return value.length > 0;
+const hasSnapshotFields = (value: UrlSnapshotValue | undefined): value is UrlSnapshotValue => {
+  if (z.array(z.unknown()).safeParse(value).success) return true;
   if (isRecord(value)) return Object.keys(value).length > 0;
   return value !== undefined;
 };
@@ -34,9 +49,11 @@ const isUrlField = (key: string): boolean => {
 };
 
 /** Recursively extracts URL-shaped fields from parsed fixtures. */
-const collectUrlFields = (value: unknown): unknown => {
-  if (Array.isArray(value)) {
-    const collected = value.map(collectUrlFields).filter(hasSnapshotFields);
+const collectUrlFields = <T>(value: T): UrlSnapshot | UrlSnapshotValue[] | undefined => {
+  const arrayValue = z.array(z.unknown()).safeParse(value);
+
+  if (arrayValue.success) {
+    const collected = arrayValue.data.map((item) => collectUrlFields(item)).filter((item) => hasSnapshotFields(item));
     return collected.length > 0 ? collected : undefined;
   }
 

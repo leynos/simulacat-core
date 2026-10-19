@@ -2,16 +2,16 @@
 import {describe, expect, it} from 'bun:test';
 import {mkdtemp, mkdir, realpath, rm, symlink} from 'node:fs/promises';
 import {homedir} from 'node:os';
-import {join, resolve} from 'node:path';
+import path from 'node:path';
 import {rethrowAfterCleanup} from './support/documented-example-failures.ts';
 import {assertFixtureCacheOutsideCheckout} from './support/documented-example-fixture-location.ts';
 
 describe('documented-example fixture cache location', () => {
   it('rejects equal and nested paths but accepts external paths with shared prefixes', () => {
-    const checkoutPath = resolve('/home/build/workspace with spaces/simulacat-core');
-    const nestedCache = join(checkoutPath, 'nested', 'fixture-cache');
+    const checkoutPath = path.resolve('/home/build/workspace with spaces/simulacat-core');
+    const nestedCache = path.join(checkoutPath, 'nested', 'fixture-cache');
     const siblingCache = `${checkoutPath}-cache`;
-    const homeCache = resolve('/home/build/.cache/simulacat-core-documentation-examples');
+    const homeCache = path.resolve('/home/build/.cache/simulacat-core-documentation-examples');
 
     expect(() => assertFixtureCacheOutsideCheckout(checkoutPath, checkoutPath)).toThrow('outside the checkout');
     expect(() => assertFixtureCacheOutsideCheckout(checkoutPath, nestedCache)).toThrow('outside the checkout');
@@ -21,9 +21,9 @@ describe('documented-example fixture cache location', () => {
 
   it('rejects a symlink alias after both paths are canonicalized', async () => {
     const homePath = await realpath(homedir());
-    const temporaryRoot = await mkdtemp(join(homePath, 'simulacat-fixture-location-'));
-    const checkoutPath = join(temporaryRoot, 'workspace with spaces');
-    const cacheAlias = join(temporaryRoot, 'cache-alias');
+    const temporaryRoot = await mkdtemp(path.join(homePath, 'simulacat-fixture-location-'));
+    const checkoutPath = path.join(temporaryRoot, 'workspace with spaces');
+    const cacheAlias = path.join(temporaryRoot, 'cache-alias');
 
     try {
       await mkdir(checkoutPath);
@@ -58,7 +58,7 @@ describe('documented-example preparation failure cleanup', () => {
     const cleanupError = new Error('fixture removal failed');
     const failure = await rethrowAfterCleanup(operationError, async () => {
       throw cleanupError;
-    }).catch((error: unknown) => error);
+    }).catch((error: Error) => error);
 
     expect(failure).toBeInstanceOf(AggregateError);
 

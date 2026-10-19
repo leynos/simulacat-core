@@ -16,7 +16,16 @@ import {openapi} from './rest/index.ts';
 import {type GitHubInitialStore, githubInitialStoreSchema} from './store/entities.ts';
 import type {SchemaFile} from './utils.ts';
 
-/** The seed data accepted by {@link simulation} before schema validation. */
+/**
+ * The seed data accepted by {@link simulation} before schema validation.
+ *
+ * This stays a type alias rather than an interface extending
+ * `GitHubInitialStore`: TypeDoc expands an interface's inherited properties
+ * and requires each schema-generated field to be documented, which the
+ * schema type cannot supply. The alias keeps the TypeDoc surface at the
+ * documented name.
+ */
+// oxlint-disable-next-line deslop/no-pass-through-type-alias -- TypeDoc expands an extending interface into undocumented inherited properties.
 export type InitialState = GitHubInitialStore;
 
 type FoundationRouter = Parameters<
@@ -75,19 +84,19 @@ type _GitHubSelectors =
  */
 // oxlint-disable-next-line complexity -- baseline: composed entrypoint wiring store, REST, GraphQL, and extension adapters.
 export const simulation = (args: GitHubSimulatorArgs = {}): FoundationSimulator<ExtendedSimulationStore> => {
-  const parsedInitialState = !args?.initialState ? undefined : githubInitialStoreSchema.parse(args?.initialState);
-  const extendStoreConfig = mergeStoreConfig(parsedInitialState, args?.extend?.extendStore);
+  const parsedInitialState = args.initialState ? githubInitialStoreSchema.parse(args.initialState) : undefined;
+  const extendStoreConfig = mergeStoreConfig(parsedInitialState, args.extend?.extendStore);
 
   return createFoundationSimulationServer<_GitHubSchema, _GitHubActions, _GitHubSelectors>({
     port: 3300, // default port
     simulationContextPage: '/simulation',
     extendStore: extendStoreConfig,
-    extendRouter: extendRouter(args?.extend?.extendRouter, args?.apiUrl ?? '/'),
+    extendRouter: extendRouter(args.extend?.extendRouter, args.apiUrl ?? '/'),
     openapi: openapi(
       parsedInitialState,
-      args?.apiUrl ?? '/',
-      args?.apiSchema ?? 'api.github.com.json',
-      args?.extend?.openapiHandlers
+      args.apiUrl ?? '/',
+      args.apiSchema ?? 'api.github.com.json',
+      args.extend?.openapiHandlers
     )
   })();
 };

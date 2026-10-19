@@ -1,5 +1,6 @@
 /** @file Captures output and lifecycle facts from a documented-example child. */
 import {spawn, type ChildProcess} from 'node:child_process';
+import {z} from 'zod';
 import type {
   CommandResult,
   OwnedProcessSnapshot,
@@ -64,10 +65,16 @@ interface DocumentedChildContext {
   now(): number;
 }
 
+/** Placeholder resolver replaced when the close-result promise is created. */
+const ignoreResult = (_result: CommandResult): void => undefined;
+
+/** Placeholder rejecter replaced when the close-result promise is created. */
+const ignoreError = (_error: Error): void => undefined;
+
 /** Creates a close-result channel before attaching any child event listeners. */
 const createCloseChannel = (): ChildCloseChannel => {
-  let resolve = (_result: CommandResult): void => undefined;
-  let reject = (_error: Error): void => undefined;
+  let resolve = ignoreResult;
+  let reject = ignoreError;
   const promise = new Promise<CommandResult>((resolvePromise, rejectPromise) => {
     resolve = resolvePromise;
     reject = rejectPromise;
@@ -297,11 +304,12 @@ const sendOwnedSignal = (processGroupId: number, signal: NodeJS.Signals): Signal
     process.kill(-processGroupId, signal);
     return 'sent';
   } catch (error) {
-    if (isNoSuchProcessError(error)) {
+    const failure: Error = z.instanceof(Error).parse(error);
+    if (isNoSuchProcessError(failure)) {
       return 'group-missing';
     }
 
-    throw error;
+    throw failure;
   }
 };
 
@@ -315,7 +323,7 @@ const isPositivePid = (pid: number | undefined): pid is number => {
 };
 
 /** Recognizes ESRCH so shutdown still waits for observed child completion. */
-const isNoSuchProcessError = (error: unknown): boolean => {
+const isNoSuchProcessError = (error: Error): boolean => {
   if (!(error instanceof Error)) {
     return false;
   }

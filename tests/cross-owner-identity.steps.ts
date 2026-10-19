@@ -7,16 +7,17 @@ import {githubInitialStoreSchema} from '../src/store/entities.ts';
 
 type SimulationServer = Awaited<ReturnType<ReturnType<typeof simulation>['listen']>>;
 
-type RepositoryResponse = {
-  full_name?: string;
-  node_id?: string;
-};
+interface RepositoryNameParts {
+  owner: string;
+  name: string;
+}
 
 const repositoryResponseSchema = z.object({
   full_name: z.string().optional(),
   node_id: z.string().optional()
 });
 const repositoryResponsesSchema = z.array(repositoryResponseSchema);
+const repositoryFieldSchema = z.enum(['full_name', 'node_id']);
 
 const branchResponseSchema = z.object({
   owner: z.string().optional(),
@@ -24,29 +25,35 @@ const branchResponseSchema = z.object({
 });
 const branchResponsesSchema = z.array(branchResponseSchema);
 
-type GraphqlRepositoryResponse = {
-  data?: {
-    repository?: {
-      id: string;
-      nameWithOwner: string;
-    };
-  };
-  errors?: unknown;
-};
+interface GraphqlRepository {
+  id: string;
+  nameWithOwner: string;
+}
+
+const graphqlRepositorySchema = z.object({
+  id: z.string(),
+  nameWithOwner: z.string()
+});
+
+const graphqlRepositoryResponseSchema = z.object({
+  data: z
+    .object({
+      repository: graphqlRepositorySchema.optional()
+    })
+    .optional(),
+  errors: z.unknown().optional()
+});
 
 type ScenarioState = {
   owners: string[];
-  repositoryName: string;
-  branchName: string;
-  blobPath: string;
+  repositoryName?: string;
+  branchName?: string;
+  blobPath?: string;
   server?: SimulationServer;
   baseUrl?: string;
   response?: Response;
   json?: unknown;
-  graphQlRepository?: {
-    id: string;
-    nameWithOwner: string;
-  };
+  graphQlRepository?: GraphqlRepository;
   seedError?: Error;
 };
 
@@ -62,7 +69,7 @@ const {After, Given, When, Then} = withState<ScenarioState>();
  * @returns The argument string at the requested index.
  * @throws Error when the argument is missing.
  */
-const requireStepArg = (args: string[], index: number): string => {
+const requireStepArg = (args: Array<string | undefined>, index: number): string => {
   const arg = args[index];
 
   if (arg === undefined) {
@@ -79,7 +86,7 @@ const requireStepArg = (args: string[], index: number): string => {
  * @returns Parsed owner and repository name parts.
  * @throws Error when the input is not exactly `owner/name`.
  */
-const parseFullName = (fullName: string): {owner: string; name: string} => {
+const parseFullName = (fullName: string): RepositoryNameParts => {
   const parts = fullName.split('/');
 
   if (parts.length !== 2) {
@@ -177,7 +184,7 @@ When('the client queries GraphQL for repository {string}', async (state, args) =
       variables: {owner, name}
     })
   });
-  const body = (await response.json()) as GraphqlRepositoryResponse;
+  const body = graphqlRepositoryResponseSchema.parse(await response.json());
   expect(body.errors).toBeUndefined();
   expect(body.data?.repository).toBeDefined();
   const repository = body.data?.repository;
@@ -222,10 +229,10 @@ Then('the response contains exactly one repository', (state) => {
 });
 
 Then('the repository {string} is {string}', (state, args) => {
-  const fieldName = requireStepArg(args, 0);
+  const fieldName = repositoryFieldSchema.parse(requireStepArg(args, 0));
   const expected = requireStepArg(args, 1);
   const [repo] = repositoryResponsesSchema.parse(state.json);
-  expect(repo?.[fieldName as keyof RepositoryResponse]).toBe(expected);
+  expect(repo?.[fieldName]).toBe(expected);
   return state;
 });
 
@@ -260,7 +267,7 @@ Then('the seeded repositories have non-empty node_id values', async (state) => {
   const repositories = await Promise.all(
     state.owners.map(async (owner) => {
       const response = await fetch(`${state.baseUrl}/orgs/${owner}/repos`);
-      const [repository] = (await response.json()) as RepositoryResponse[];
+      const [repository] = repositoryResponsesSchema.parse(await response.json());
       return repository;
     })
   );
@@ -271,7 +278,7 @@ Then('the seeded repositories have non-empty node_id values', async (state) => {
 });
 
 Then("the two repositories' node_id values decode to different strings", (state) => {
-  const repositories = state.json as RepositoryResponse[];
+  const repositories = repositoryResponsesSchema.parse(state.json);
   const decoded = repositories.map((repo) => Buffer.from(repo.node_id ?? '', 'base64').toString('utf8'));
   expect(decoded[0]).not.toBe(decoded[1]);
   return {...state, json: decoded};
@@ -279,7 +286,7 @@ Then("the two repositories' node_id values decode to different strings", (state)
 
 Then('every node_id begins with {string}', (state, args) => {
   const prefix = requireStepArg(args, 0);
-  const nodeIds = state.json as string[];
+  const nodeIds = z.array(z.string()).parse(state.json);
 
   for (const id of nodeIds) {
     expect(id.startsWith(prefix)).toBe(true);

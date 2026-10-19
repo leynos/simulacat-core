@@ -30,6 +30,20 @@ export const resetNextRepositoryId = (newValue = 3000) => {
 };
 
 /**
+ * Enablement state for one GitHub Advanced Security feature.
+ *
+ * GitHub reports `enabled` or `disabled`, but any string is accepted so
+ * fixtures remain forward compatible with new states.
+ */
+const securityFeatureSchema = z
+  .object({
+    /** Enablement state of the security feature. */
+    status: z.string()
+  })
+  .optional()
+  .default({status: 'enabled'});
+
+/**
  * Validates and normalizes a minimal GitHub repository fixture. It accepts
  * the wide set of GitHub REST URL fields, which stay absent when omitted,
  * and defaults the counters and security settings. During transformation,
@@ -169,7 +183,7 @@ export const githubRepositorySchema = z
     /** Whether the repository is private. */
     private: z.boolean().optional().default(false),
     /** SPDX licence details for the repository, or `null` if unlicensed. */
-    license: z.nullable(z.record(z.string(), z.string())).default(null),
+    license: z.record(z.string(), z.string()).nullable().default(null),
     /** Whether the repository is a fork of another repository. */
     fork: z.boolean().optional().default(false),
     /** Topic tags associated with the repository. */
@@ -219,37 +233,13 @@ export const githubRepositorySchema = z
     security_and_analysis: z
       .object({
         /** Advanced Security enablement state for the repository. */
-        advanced_security: z
-          .object({
-            /** Enablement state of Advanced Security; `enabled` or `disabled` in practice, but any string is accepted. */
-            status: z.string()
-          })
-          .optional()
-          .default({status: 'enabled'}),
+        advanced_security: securityFeatureSchema,
         /** Secret scanning enablement state for the repository. */
-        secret_scanning: z
-          .object({
-            /** Enablement state of secret scanning; `enabled` or `disabled` in practice, but any string is accepted. */
-            status: z.string()
-          })
-          .optional()
-          .default({status: 'enabled'}),
+        secret_scanning: securityFeatureSchema,
         /** Secret scanning push protection enablement state for the repository. */
-        secret_scanning_push_protection: z
-          .object({
-            /** Enablement state of secret scanning push protection; `enabled` or `disabled` in practice, but any string is accepted. */
-            status: z.string()
-          })
-          .optional()
-          .default({status: 'enabled'}),
+        secret_scanning_push_protection: securityFeatureSchema,
         /** Secret scanning non-provider pattern detection enablement state for the repository. */
-        secret_scanning_non_provider_patterns: z
-          .object({
-            /** Enablement state of non-provider pattern secret scanning; `enabled` or `disabled` in practice, but any string is accepted. */
-            status: z.string()
-          })
-          .optional()
-          .default({status: 'enabled'})
+        secret_scanning_non_provider_patterns: securityFeatureSchema
       })
       .optional()
       .default({

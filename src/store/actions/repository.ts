@@ -1,4 +1,5 @@
 /** @file Pure repository write policy for shared store actions. */
+import {z} from 'zod';
 import type {GitHubRepository} from '../entities.ts';
 
 /** Repository fields this roadmap slice may mutate. */
@@ -18,6 +19,15 @@ export type UpdateRepositoryCommand = {
 };
 
 const repositoryWritableFieldSet = new Set<string>(REPOSITORY_WRITABLE_FIELDS);
+
+/**
+ * Validates one writable field value from a parsed command.
+ *
+ * The public action payloads may arrive from untrusted runtime callers even
+ * though the TypeScript contract only permits strings, so non-string values are
+ * discarded rather than trusted.
+ */
+const writableFieldValueSchema = z.string();
 
 /**
  * Returns true when a field is accepted by repository write policy.
@@ -49,12 +59,14 @@ export const applyRepositoryUpdate = (
   current: GitHubRepository,
   command: UpdateRepositoryCommand
 ): GitHubRepository => {
-  return {
-    ...current,
-    ...Object.fromEntries(
-      Object.entries(command.changes).filter(
-        ([field, value]) => isRepositoryWritableField(field) && typeof value === 'string'
-      )
-    )
-  };
+  const acceptedChanges = Object.entries(command.changes).flatMap(([field, value]) => {
+    if (!isRepositoryWritableField(field)) {
+      return [];
+    }
+
+    const validated = writableFieldValueSchema.safeParse(value);
+    return validated.success ? [[field, validated.data]] : [];
+  });
+
+  return {...current, ...Object.fromEntries(acceptedChanges)};
 };

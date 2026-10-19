@@ -54,7 +54,7 @@ const formatSignalAttempt = (state: OwnedProcessSnapshot): string => {
 
 /** Retains a bounded tail of captured child output. */
 const outputTail = (output: string): string => {
-  const limit = 2_000;
+  const limit = 2000;
 
   if (output.length <= limit) {
     return output;

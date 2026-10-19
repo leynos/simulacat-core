@@ -7,15 +7,18 @@
 import {convertObjToProp} from '@simulacrum/foundation-simulator';
 import {faker} from '@faker-js/faker';
 import {z} from 'zod';
-import {blobStoreKey, githubBlobSchema, type GitHubBlob} from './entities/blob.ts';
-import {branchStoreKey, githubBranchSchema, type GitHubBranch} from './entities/branch.ts';
-import {commitStoreKey, githubCommitSchema, type GitHubCommit} from './entities/commit.ts';
-import {githubAppInstallationSchema, type GitHubAppInstallation} from './entities/installation.ts';
-import {githubIssueSchema, issueStoreKey, type GitHubIssue} from './entities/issue.ts';
-import {githubOrganizationSchema, type GitHubOrganization} from './entities/organization.ts';
-import {githubPullRequestSchema, pullRequestStoreKey, type GitHubPullRequest} from './entities/pull-request.ts';
-import {githubRefSchema, refStoreKey, type GitHubRef} from './entities/ref.ts';
-import {githubRepositorySchema, repositoryStoreKey, type GitHubRepository} from './entities/repository.ts';
+// Only the schemas and key builders used by the seeding helpers below are
+// bound locally; the remaining symbols are re-exported straight from their
+// source modules.
+import {blobStoreKey, githubBlobSchema} from './entities/blob.ts';
+import {branchStoreKey, githubBranchSchema} from './entities/branch.ts';
+import {commitStoreKey, githubCommitSchema} from './entities/commit.ts';
+import {githubAppInstallationSchema} from './entities/installation.ts';
+import {githubIssueSchema, issueStoreKey} from './entities/issue.ts';
+import {githubOrganizationSchema} from './entities/organization.ts';
+import {githubPullRequestSchema, pullRequestStoreKey} from './entities/pull-request.ts';
+import {githubRefSchema, refStoreKey} from './entities/ref.ts';
+import {githubRepositorySchema, repositoryStoreKey} from './entities/repository.ts';
 
 /** The normalized shape of a GitHub user fixture produced by `githubUserSchema`. */
 export interface GitHubUser {
@@ -159,7 +162,7 @@ export type GitHubStore = z.output<typeof githubInitialStoreSchema>;
 export type GitHubInitialStore = z.input<typeof githubInitialStoreSchema>;
 
 export const convertObjByKey = <T>(objects: T[], key: (object: T) => string) => {
-  const keyedObjects = Object.create(null) as Record<string, T>;
+  const keyedObjects: Record<string, T> = Object.create(null);
   const keyIndexes = new Map<string, number>();
 
   for (const [index, object] of objects.entries()) {
@@ -188,7 +191,7 @@ export const convertObjByKey = <T>(objects: T[], key: (object: T) => string) => 
  */
 export const convertInitialStateToStoreState = (initialState: GitHubStore | undefined) => {
   if (!initialState) {
-    return undefined;
+    return;
   }
 
   return {
@@ -205,32 +208,12 @@ export const convertInitialStateToStoreState = (initialState: GitHubStore | unde
   };
 };
 
-export {
-  blobStoreKey,
-  branchStoreKey,
-  commitStoreKey,
-  githubAppInstallationSchema,
-  githubBlobSchema,
-  githubBranchSchema,
-  githubCommitSchema,
-  githubIssueSchema,
-  githubOrganizationSchema,
-  githubPullRequestSchema,
-  githubRefSchema,
-  issueStoreKey,
-  pullRequestStoreKey,
-  refStoreKey,
-  githubRepositorySchema,
-  repositoryStoreKey
-};
-export type {
-  GitHubAppInstallation,
-  GitHubBlob,
-  GitHubBranch,
-  GitHubCommit,
-  GitHubIssue,
-  GitHubOrganization,
-  GitHubPullRequest,
-  GitHubRef,
-  GitHubRepository
-};
+export {blobStoreKey, githubBlobSchema, type GitHubBlob} from './entities/blob.ts';
+export {branchStoreKey, githubBranchSchema, type GitHubBranch} from './entities/branch.ts';
+export {commitStoreKey, githubCommitSchema, type GitHubCommit} from './entities/commit.ts';
+export {githubAppInstallationSchema, type GitHubAppInstallation} from './entities/installation.ts';
+export {githubIssueSchema, issueStoreKey, type GitHubIssue} from './entities/issue.ts';
+export {githubOrganizationSchema, type GitHubOrganization} from './entities/organization.ts';
+export {githubPullRequestSchema, pullRequestStoreKey, type GitHubPullRequest} from './entities/pull-request.ts';
+export {githubRefSchema, refStoreKey, type GitHubRef} from './entities/ref.ts';
+export {githubRepositorySchema, repositoryStoreKey, type GitHubRepository} from './entities/repository.ts';

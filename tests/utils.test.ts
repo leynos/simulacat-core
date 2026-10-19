@@ -1,9 +1,9 @@
 /** @file Unit tests for schema file loading and error reporting helpers. */
 
 import {afterEach, describe, expect, it} from 'bun:test';
-import fs from 'fs/promises';
-import os from 'os';
-import path from 'path';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import {getSchema} from '../src/utils.ts';
 
 const tempPaths: string[] = [];
@@ -16,9 +16,17 @@ afterEach(async () => {
   );
 });
 
+let schemaSequence = 0;
+
+/** Builds a unique temporary JSON schema path for one test. */
+const tempJsonSchemaPath = (): `${string}.json` => {
+  schemaSequence += 1;
+  return `${path.join(os.tmpdir(), `simulacat-schema-${Date.now()}-${schemaSequence}`)}.json`;
+};
+
 describe('getSchema', () => {
   it('loads JSON files as parsed objects', async () => {
-    const tempFile = path.join(os.tmpdir(), `simulacat-schema-${Date.now()}.json`) as `${string}.json`;
+    const tempFile = tempJsonSchemaPath();
     tempPaths.push(tempFile);
     await fs.writeFile(tempFile, JSON.stringify({openapi: '3.1.0', paths: {}}), 'utf8');
 
@@ -40,7 +48,7 @@ describe('getSchema', () => {
   });
 
   it('throws when a JSON schema does not match the expected OpenAPI shape', async () => {
-    const tempFile = path.join(os.tmpdir(), `simulacat-schema-${Date.now()}.json`) as `${string}.json`;
+    const tempFile = tempJsonSchemaPath();
     tempPaths.push(tempFile);
     await fs.writeFile(tempFile, JSON.stringify({hello: 'world'}), 'utf8');
 
@@ -48,7 +56,7 @@ describe('getSchema', () => {
   });
 
   it('throws a parse-specific error for syntactically invalid JSON', async () => {
-    const tempFile = path.join(os.tmpdir(), `simulacat-schema-${Date.now()}.json`) as `${string}.json`;
+    const tempFile = tempJsonSchemaPath();
     tempPaths.push(tempFile);
     await fs.writeFile(tempFile, '{"openapi": "3.1.0", "paths": {', 'utf8');
 
@@ -58,7 +66,7 @@ describe('getSchema', () => {
   it('loads bundled schema defaults by name', () => {
     const schema = getSchema('schema.docs.graphql');
 
-    expect(typeof schema).toBe('string');
+    expect(schema).toEqual(expect.any(String));
     expect(schema).toContain('type Query');
   });
 });

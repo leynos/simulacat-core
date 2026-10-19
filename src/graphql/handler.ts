@@ -18,17 +18,6 @@ import type {ExtendedSimulationStore} from '../store/index.ts';
 import type {Plugin} from 'graphql-yoga';
 
 /**
- * Yoga resolver context carrying the parsed simulator request actor.
- *
- * `GraphQLUserContext` is a semantic alias of `GraphQLContext`: use the alias
- * at Yoga handler boundaries where the context object is constructed, and use
- * `GraphQLContext` in resolver signatures where fields are consumed. The alias
- * has no runtime effect; both names describe the same request-scoped actor
- * fields.
- */
-export type GraphQLUserContext = GraphQLContext;
-
-/**
  * Normalizes GitHub's custom media type to Yoga's regular JSON result
  * processor.
  */
@@ -57,9 +46,9 @@ export function createHandler(simulationStore: ExtendedSimulationStore, apiRoot 
   const schema = getSchema('schema.docs-enterprise.graphql');
   const resolvers = createResolvers(simulationStore);
 
-  const yoga = createYoga<{}, GraphQLUserContext>({
+  const yoga = createYoga<{}, GraphQLContext>({
     maskedErrors: false,
-    schema: createSchema<GraphQLUserContext>({
+    schema: createSchema<GraphQLContext>({
       typeDefs: schema,
       resolvers
     }),
@@ -78,13 +67,16 @@ export function createHandler(simulationStore: ExtendedSimulationStore, apiRoot 
         fallbackBaseUrl,
         makeUrlObservationContext('graphql', requestId)
       );
-      return {
+      const context: GraphQLContext = {
         baseUrls,
         requestActor: requestActorContext.actor,
         requestActorContext,
-        requestActorParseResult: requestActorContext.parseResult,
-        ...(requestId ? {requestId} : {})
+        requestActorParseResult: requestActorContext.parseResult
       };
+      if (requestId) {
+        context.requestId = requestId;
+      }
+      return context;
     },
     plugins: [customMediaTypeParser]
   });

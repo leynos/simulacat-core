@@ -12,6 +12,7 @@ import type {
   ExtendSimulationSelectorsInputLoose,
   ExtendStoreConfig
 } from '@simulacrum/foundation-simulator';
+import type {ActionWithPayload} from 'starfx';
 import {
   convertInitialStateToStoreState,
   type GitHubStore,
@@ -55,8 +56,18 @@ export type GitHubSchema = ReturnType<ExtendedSchema>;
 export type GitHubActions = ReturnType<ExtendActions>;
 export type GitHubSelectors = ReturnType<ExtendSelectors>;
 
-/** Caller-supplied store action extensions. */
-export type GitHubActionExtensions = Record<string, unknown>;
+/**
+ * Caller-supplied store action extensions.
+ *
+ * Every starfx thunk is a callable action creator, so the extension slot is
+ * typed by the creator's owner contract rather than `Record<string, unknown>`.
+ * The rest parameter stays `never[]` so creators with any payload shape (or
+ * none) remain assignable without discarding their return contract.
+ */
+type ActionCreator = (...args: never[]) => ActionWithPayload<unknown>;
+
+/** Caller-supplied store action extensions keyed by action name. */
+export type GitHubActionExtensions = Record<string, ActionCreator>;
 
 export type ExtendedSimulationStore = SimulationStore<GitHubSchema, GitHubActions, GitHubSelectors>;
 
@@ -106,7 +117,7 @@ export type GitHubRepositoryOwner = GitHubRepoOwner | GitHubPublicUserOwner;
 
 export type GitHubRepositoryWithOrganizationOwner = Omit<GitHubRepository, 'id' | 'owner'> & {
   id: number;
-  owner: GitHubRepositoryOwner | string | null;
+  owner: GitHubRepositoryOwner | string;
 };
 
 /** Creates the base store schema and seeds it from parsed initial state. */
@@ -142,11 +153,10 @@ const extendActions =
   (args: ExtendSimulationActions<ExtendedSchema>) => {
     const base = inputActions(args);
     if (!extendedActions) return base;
-    const extResult = extendedActions(args);
-    return {
-      ...(extResult as object),
-      ...(base as object)
-    } as GitHubActions;
+    // Caller extensions are merged first so the built-in action set always
+    // wins on a name collision; `Partial<Actions> | Actions` is the owner
+    // contract supplied by the foundation simulator's loose input type.
+    return Object.assign({}, extendedActions(args), base);
   };
 
 /** Reshapes a GitHub organisation into the repository owner subset. */
@@ -207,7 +217,7 @@ type RepositoryWithOwnerSchema = Pick<
 /** Builds a keyed repository selector that projects its user or organization owner. */
 const buildRepositoryWithOwnerSelector = (schema: RepositoryWithOwnerSchema) => {
   return (state: AnyState, owner: string, name: string): GitHubRepositoryWithOrganizationOwner | undefined => {
-    const repository = schema.repositories.selectTable(state)?.[repositoryStoreKey({owner, name})];
+    const repository = schema.repositories.selectTable(state)[repositoryStoreKey({owner, name})];
     if (!repository) return undefined;
     const organizations = schema.organizations.selectTable(state);
     const users = schema.users.selectTable(state);
@@ -239,8 +249,8 @@ const buildOrganisationSelectors = ({createSelector, schema}: ExtendSimulationSe
       schema.users.selectTable,
       (_: AnyState, org?: string) => org,
       (allRepos, orgMap, userMap, org) => {
-        if (org && !orgMap?.[org]) return undefined;
-        const repos = !org ? allRepos : allRepos.filter((r) => r.owner === org);
+        if (org && !orgMap[org]) return;
+        const repos = org ? allRepos.filter((r) => r.owner === org) : allRepos;
         return repos.map((repo) => {
           return {
             ...repo,
@@ -285,9 +295,9 @@ const buildInstallationSelectors = ({createSelector, schema}: ExtendSimulationSe
     // biome-ignore lint/complexity/useMaxParams: selector API passes derived inputs positionally.
     (installations, orgs, repos, org, repo) => {
       const appInstall = installations.find((install) => install.account === org);
-      if (!appInstall) return undefined;
+      if (!appInstall) return;
       const account = resolveInstallationAccount(orgs, repos, appInstall, repo);
-      if (!account) return undefined;
+      if (!account) return;
       return {
         ...appInstall,
         account: {...account},
@@ -304,12 +314,12 @@ const buildInstallationSelectors = ({createSelector, schema}: ExtendSimulationSe
 const buildRepositorySelectors = ({createSelector, schema}: ExtendSimulationSelectors<ExtendedSchema>) => {
   const getRepository = (state: AnyState, owner: string, name: string): GitHubRepository | undefined => {
     const key = repositoryStoreKey({owner, name});
-    return schema.repositories.selectTable(state)?.[key];
+    return schema.repositories.selectTable(state)[key];
   };
 
   const getBranch = (state: AnyState, owner: string, repo: string, name: string): GitHubBranch | undefined => {
     const key = branchStoreKey({owner, repo, name});
-    return schema.branches.selectTable(state)?.[key];
+    return schema.branches.selectTable(state)[key];
   };
 
   const listBranchesForRepository: (state: AnyState, owner: string, repo: string) => GitHubBranch[] = createSelector(
@@ -352,6 +362,17 @@ const buildBlobSelectors = ({createSelector, schema}: ExtendSimulationSelectors<
   return {getBlob, getBlobAtOwnerRepo};
 };
 
+/** Selects the early-entity table seams from the generated store schema. */
+const earlyEntitySelectorArgs = (args: ExtendSimulationSelectors<ExtendedSchema>): EarlyEntitySelectorArgs => ({
+  createSelector: args.createSelector,
+  schema: {
+    refs: args.schema.refs,
+    commits: args.schema.commits,
+    issues: args.schema.issues,
+    pullRequests: args.schema.pullRequests
+  }
+});
+
 /** Creates the built-in selector suite used by REST and GraphQL handlers. */
 const inputSelectors = (args: ExtendSimulationSelectors<ExtendedSchema>) => {
   return {
@@ -359,7 +380,7 @@ const inputSelectors = (args: ExtendSimulationSelectors<ExtendedSchema>) => {
     ...buildInstallationSelectors(args),
     ...buildRepositorySelectors(args),
     ...buildBlobSelectors(args),
-    ...buildEarlyEntitySelectors(args as unknown as EarlyEntitySelectorArgs)
+    ...buildEarlyEntitySelectors(earlyEntitySelectorArgs(args))
   };
 };
 
@@ -369,12 +390,18 @@ const extendSelectors =
   (args: ExtendSimulationSelectors<ExtendedSchema>) => {
     const base = inputSelectors(args);
     if (!extendedSelectors) return base;
-    const extResult = extendedSelectors(args);
-    return {
-      ...(base as object),
-      ...(extResult as object)
-    } as GitHubSelectors;
+    // Caller selectors are merged first so the built-in suite always wins on a
+    // name collision, mirroring `extendActions`.
+    return Object.assign({}, extendedSelectors(args), base);
   };
+
+/** Store extension configuration consumed by the foundation simulator. */
+export interface ExtendedStoreConfig {
+  schema: ExtendSimulationSchemaInput<GitHubSchema>;
+  actions?: ExtendSimulationActionsInput<GitHubActions, GitHubSchema>;
+  selectors?: ExtendSimulationSelectorsInput<GitHubSelectors, GitHubSchema>;
+  logs?: boolean;
+}
 
 /**
  * Builds the store extension configuration consumed by the foundation
@@ -388,14 +415,12 @@ const extendSelectors =
 export const extendStore = (
   initialState: GitHubStore | undefined,
   extended?: GitHubExtendStoreInput
-): {
-  schema: ExtendSimulationSchemaInput<GitHubSchema>;
-  actions?: ExtendSimulationActionsInput<GitHubActions, GitHubSchema>;
-  selectors?: ExtendSimulationSelectorsInput<GitHubSelectors, GitHubSchema>;
-  logs?: boolean;
-} => ({
-  actions: extendActions(extended?.actions),
-  selectors: extendSelectors(extended?.selectors),
-  schema: inputSchema(initialState, extended?.schema),
-  ...(extended?.logs === undefined ? {} : {logs: extended.logs})
-});
+): ExtendedStoreConfig => {
+  const config: ExtendedStoreConfig = {
+    actions: extendActions(extended?.actions),
+    selectors: extendSelectors(extended?.selectors),
+    schema: inputSchema(initialState, extended?.schema)
+  };
+  if (extended?.logs !== undefined) return {...config, logs: extended.logs};
+  return config;
+};

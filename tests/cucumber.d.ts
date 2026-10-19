@@ -5,7 +5,18 @@
  * local test use while isolating the suite from third-party Bun/Cucumber
  * package types.
  */
-type StepDefinition<State> = (state: State, args: string[], data?: unknown) => State | Promise<State>;
+type StepDefinition<State> = (
+  state: State,
+  args: Array<string | undefined>,
+  data?: StepDataArgument
+) => State | Promise<State>;
+/** A Cucumber data table supplied to a step definition. */
+interface StepDataArgument {
+  dataTable: {
+    rows: Array<{cells: Array<{value: string}>}>;
+  };
+}
+
 type HookDefinition<State> = (state: State) => State | Promise<State>;
 type StepRegistrar<State> = (pattern: string | RegExp, fn: StepDefinition<State>) => void;
 type HookRegistrar<State> = {
@@ -30,7 +41,7 @@ export function loadFeatures(pattern: string, cwd?: string): Promise<void>;
  * definition modules.
  * @returns The plugin registration value returned by the third-party package.
  */
-export function bunTestCucumber(options: {stepDefinitionsPattern: string}): unknown;
+export function bunTestCucumber(options: {stepDefinitionsPattern: string}): Promise<void> | void;
 
 /**
  * Creates typed hook and step registrar methods for a scenario state shape.

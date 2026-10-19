@@ -240,8 +240,10 @@ Makefile.
 
 ## Linting rules
 
-`make all` runs Biome and Oxlint as maintainability gates. Biome enforces exact
-rules where it has native support:
+`make all` runs Biome and Oxlint as maintainability gates. The Oxlint toolchain
+is pinned in `package.json` and its plug-ins are recorded in the
+[Linting strategy ADR][adr-linting]. Biome enforces exact rules where it has
+native support:
 
 - `complexity.noExcessiveLinesPerFunction`: functions may not exceed 70 lines,
   counting blank lines.
@@ -274,6 +276,27 @@ documentation (JSDoc) enforcement into separate Oxlint rules:
 Existing documentation debt is isolated in `.jsdoc-baseline.json` as per-symbol
 entries. Do not add new entries for new code; remove baseline entries as those
 functions receive complete JSDoc.
+
+Oxlint also loads two JavaScript plug-ins. The built-in `unicorn` plug-in is
+enabled with every supported rule at `error`; the only exception is
+`unicorn/no-null`, which is disabled because the GitHub API contracts require
+`null` in nullable fields. `ai-deslop` contributes the `deslop/*` evidence
+rules, including:
+
+- `deslop/require-safety-comment-for-type-assertion`: a non-constant type
+  assertion needs a nearby comment containing `SAFETY:` that states the
+  invariant the compiler cannot see.
+- `deslop/no-runtime-typeof`: ad hoc `typeof` narrowing is rejected; parse at
+  the boundary with a schema or a named type guard instead.
+- `deslop/no-unknown-parameters` and `deslop/no-unknown-returns`: function
+  contracts must name their types rather than accept or return `unknown`.
+- `deslop/no-array-filter-map`: combine adjacent `filter` and `map` passes
+  with `flatMap`.
+
+The two plug-ins can flag the same construct. Rewrite the call site to the form
+both accept, preferring the `unicorn` spelling when the two disagree. The
+[Linting strategy ADR][adr-linting] records the pinned versions and the
+conflict decisions.
 
 The local plugin keeps the maintainability contract in the same Oxlint process
 as the complexity rules. `eslint-plugin-jsdoc` is a broader ESLint ecosystem
@@ -615,3 +638,4 @@ test files, and the [documentation contents](contents.md) to find the relevant
 reference before changing a public contract.
 
 [complexity-guide]: complexity-antipatterns-and-refactoring-strategies.md
+[adr-linting]: adr-001-linting-strategy.md

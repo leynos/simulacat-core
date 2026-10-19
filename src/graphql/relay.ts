@@ -45,7 +45,7 @@ export interface RelayPagingOptions {
   before?: string;
 }
 
-/** Identity mapper used as the default `mapper` argument in pagination. */
+/** Default mapper: returns the node unchanged when no mapper is supplied. */
 const identity = <A>(a: A): A => a;
 
 /** Parses a string cursor into a non-negative integer index. */
@@ -65,6 +65,9 @@ const parseCursor = (name: 'before' | 'after', cursor: string | undefined, defau
 /**
  * Slices a node list into a Relay-compatible page response.
  *
+ * The three-argument form maps every node, while the two-argument form keeps
+ * the node type unchanged.
+ *
  * @example
  * ```ts
  * const page = applyRelayPagination(['a', 'b', 'c'], {first: 2});
@@ -76,48 +79,61 @@ const parseCursor = (name: 'before' | 'after', cursor: string | undefined, defau
  * @param mapper Optional node mapper applied after slicing.
  * @returns Relay-compatible page containing edges, nodes, and page metadata.
  */
-export function applyRelayPagination<T, R>(
-  nodes: T[],
-  args: PageArgs,
-  mapper: (a: T) => R = identity as (a: T) => R
-): Page<R> {
+export function applyRelayPagination<T>(nodes: T[], args: PageArgs): Page<T>;
+export function applyRelayPagination<T, R>(nodes: T[], args: PageArgs, mapper: (a: T) => R): Page<R>;
+/**
+ * Implementation signature for {@link applyRelayPagination}.
+ *
+ * @param nodes Source nodes to paginate.
+ * @param args Relay pagination arguments.
+ * @param mapper Optional node mapper applied after slicing.
+ * @returns Relay-compatible page containing edges, nodes, and page metadata.
+ */
+export function applyRelayPagination<T, R>(nodes: T[], args: PageArgs, mapper?: (a: T) => R): Page<T | R> {
   const totalNodes = nodes.length;
   const range = applyCursorsToEdges(nodes, args.before, args.after);
+  // The overloads describe the two shapes the implementation serves: with a
+  // mapper every node becomes `R`, and without one it stays a `T`.
+  const mapNode: (a: T) => T | R = mapper ?? identity;
 
   const edges = edgesToReturn(range, args.first, args.last).map((edge) => ({
     ...edge,
-    node: mapper(edge.node)
+    node: mapNode(edge.node)
   }));
 
   const [first] = edges;
-  const last = edges.slice().pop();
+  const last = [...edges].pop();
+
+  const pageInfo: PageInfo = {
+    get hasNextPage() {
+      const {first, before} = args;
+      if (first != null) {
+        return range.length > first;
+      } else if (before != null) {
+        return Number(before) < totalNodes - 1;
+      }
+      return false;
+    },
+    get hasPreviousPage() {
+      const {last, after} = args;
+      if (last != null) {
+        return range.length > last;
+      } else if (after != null) {
+        return Number(after) > 0;
+      }
+      return false;
+    }
+  };
+  // Cursor properties are only set when an edge exists so consumers can
+  // distinguish an empty page from an empty-string cursor.
+  if (first) pageInfo.startCursor = first.cursor;
+  if (last) pageInfo.endCursor = last.cursor;
 
   return {
     totalCount: nodes.length,
     edges,
     nodes: edges.map((e) => e.node),
-    pageInfo: {
-      get hasNextPage() {
-        const {first, before} = args;
-        if (first != null) {
-          return range.length > first;
-        } else if (before != null) {
-          return Number(before) < totalNodes - 1;
-        }
-        return false;
-      },
-      get hasPreviousPage() {
-        const {last, after} = args;
-        if (last != null) {
-          return range.length > last;
-        } else if (after != null) {
-          return Number(after) > 0;
-        }
-        return false;
-      },
-      startCursor: first?.cursor,
-      endCursor: last?.cursor
-    } as PageInfo
+    pageInfo
   };
 }
 
@@ -151,11 +167,8 @@ function edgesToReturn<T>(edges: T[], first?: number, last?: number) {
     if (last < 0) {
       throw new Error(`value of 'last' must be greater than 0, was ${last}`);
     }
-    if (last === 0) {
-      newEdges = [];
-    } else {
-      newEdges = newEdges.slice(-last);
-    }
+    // A zero-sized tail is an empty page; `slice(-0)` would return every edge.
+    newEdges = last === 0 ? [] : newEdges.slice(-last);
   }
 
   return newEdges;

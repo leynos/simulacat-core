@@ -1,6 +1,7 @@
 /** @file Unit tests for request-scoped URL projectors. */
 import {describe, expect, it} from 'bun:test';
 import fc from 'fast-check';
+import {z} from 'zod';
 import {buildBaseUrls} from '../src/http/request-url.ts';
 import {
   branchUrlFields,
@@ -65,11 +66,13 @@ const safeHost = fc
 
 /** Returns a shallow copy with selected URL fields removed. */
 const omitFields = <T extends object>(value: T, fields: readonly string[]): T => {
-  const copy = {...value} as Record<string, unknown>;
+  const copy = {...value};
+
   for (const field of fields) {
-    delete copy[field];
+    Reflect.deleteProperty(copy, field);
   }
-  return copy as T;
+
+  return copy;
 };
 
 /** Builds a repository fixture with every URL-like field removed. */
@@ -147,11 +150,23 @@ const isUrlLikeString = (value: string): boolean => {
 };
 
 /** Recursively collects URL-like strings from a projected payload. */
-const collectUrlStrings = (value: unknown): string[] => {
-  if (typeof value === 'string') return isUrlLikeString(value) ? [value] : [];
-  if (Array.isArray(value)) return value.flatMap(collectUrlStrings);
-  if (typeof value !== 'object' || value === null) return [];
-  return Object.values(value).flatMap(collectUrlStrings);
+const collectUrlStrings = <T>(value: T): string[] => {
+  const stringValue = z.string().safeParse(value);
+  if (stringValue.success) {
+    return isUrlLikeString(stringValue.data) ? [stringValue.data] : [];
+  }
+
+  const arrayValue = z.array(z.unknown()).safeParse(value);
+  if (arrayValue.success) {
+    return arrayValue.data.flatMap((item) => collectUrlStrings(item));
+  }
+
+  const objectValue = z.record(z.string(), z.unknown()).safeParse(value);
+  if (!objectValue.success) {
+    return [];
+  }
+
+  return Object.values(objectValue.data).flatMap((item) => collectUrlStrings(item));
 };
 
 /** Verifies request-host URLs have no query or fragment. */
@@ -172,7 +187,7 @@ const expandTemplate = (url: string): string =>
     .replace('{head}', 'feature')
     .replace('{+path}', 'README.md')
     .replace('{?since,all,participating}', '?since=2024-01-01T00%3A00%3A00Z&all=true')
-    .replace(
+    .replaceAll(
       /\{\/(?:branch|collaborator|gist_id|id|key_id|member|name|number|other_user|ref|repo|sha|user)\}/gu,
       '/value'
     );
@@ -394,7 +409,10 @@ describe('Git ref URL encoding properties', () => {
         const ref = sparseRef(qualifiedName);
         const projected = projectRefUrls(ref, baseUrls);
 
-        const encodedRef = ref.ref.split('/').map(encodeURIComponent).join('/');
+        const encodedRef = ref.ref
+          .split('/')
+          .map((segment) => encodeURIComponent(segment))
+          .join('/');
         expect(projected.url).toBe(`${baseUrls.apiBaseUrl}/repos/${fullName}/git/${encodedRef}`);
       }),
       {seed: 1_414_103}

@@ -1,10 +1,12 @@
 /** @file Focused REST handlers and response projection for one repository. */
 import type {SimulationHandlers} from '@simulacrum/foundation-simulator';
+import {z} from 'zod';
 import {buildUrl, type BaseUrls} from '../http/request-url.ts';
 import {updateRepositoryUseCase} from '../store/actions/repository-use-case.ts';
+import type {GitHubRepositoryWithOrganizationOwner} from '../store/index.ts';
 import type {ExtendedSimulationStore} from '../store/index.ts';
 import {observeRepositoryWrite} from '../store/repository-observability.ts';
-import {projectOrganizationUrls, projectRepositoryUrls} from '../urls/index.ts';
+import {projectOrganizationUrls, projectRepositoryUrls, type RepositoryUrlPayload} from '../urls/index.ts';
 import {urlPathSegment} from '../urls/shared.ts';
 import {buildUpdateRepositoryCommand} from './repository-patch.ts';
 
@@ -12,6 +14,30 @@ type SimulationHandler = SimulationHandlers[string];
 type Ctx = Parameters<SimulationHandler>[0];
 type Req = Parameters<SimulationHandler>[1];
 type Res = Parameters<SimulationHandler>[2];
+
+/** Owner URL fields that repository owner payloads may omit. */
+type RepositoryOwnerUrl =
+  | 'html_url'
+  | 'followers_url'
+  | 'following_url'
+  | 'gists_url'
+  | 'starred_url'
+  | 'subscriptions_url'
+  | 'organizations_url'
+  | 'received_events_url';
+
+/**
+ * Owner fields used by the repository response projection.
+ *
+ * The selector resolves either a full user/organization record or the raw
+ * login string, and the record form always carries an `id` and `login`.
+ */
+type RepositoryOwnerAccount = {
+  id: number;
+  login: string;
+  type?: 'User' | 'Organization';
+  url?: string;
+} & Partial<Record<RepositoryOwnerUrl, string | undefined>>;
 
 const notFound = {message: 'Not Found'};
 
@@ -21,7 +47,7 @@ const withFallbackUrl = (value: string | null | undefined, fallback: string): st
 };
 
 /** Projects a user owner with the REST URL fields expected in repository payloads. */
-const projectUserOwnerResponse = (owner: any, baseUrls: BaseUrls) => {
+const projectUserOwnerResponse = (owner: RepositoryOwnerAccount, baseUrls: BaseUrls) => {
   const userPath = `/users/${urlPathSegment(owner.login)}`;
   return {
     ...owner,
@@ -51,7 +77,7 @@ const projectUserOwnerResponse = (owner: any, baseUrls: BaseUrls) => {
 };
 
 /** Projects an organization owner with repository-owner URL fields. */
-const projectOrganizationOwnerResponse = (owner: any, baseUrls: BaseUrls) => {
+const projectOrganizationOwnerResponse = (owner: RepositoryOwnerAccount, baseUrls: BaseUrls) => {
   const projected = projectOrganizationUrls(owner, baseUrls);
   const userPath = `/users/${urlPathSegment(projected.login)}`;
   return {
@@ -79,22 +105,37 @@ const projectOrganizationOwnerResponse = (owner: any, baseUrls: BaseUrls) => {
 };
 
 /**
+ * Repository owner fields read by the REST response projection.
+ *
+ * `login` is absent only when the selector could not resolve an owner record
+ * and fell back to the raw login string.
+ */
+const repositoryOwnerSchema = z.object({login: z.string()}).passthrough();
+
+/**
  * Projects a selected repository and its resolved user or organization owner.
  *
  * @param repository Selected repository with a resolved owner object.
  * @param baseUrls Request-scoped API and web URL bases.
  * @returns Repository REST response with owner URL fields populated.
  */
-export const projectRepositoryResponse = (repository: any, baseUrls: BaseUrls) => {
+export const projectRepositoryResponse = (
+  repository: GitHubRepositoryWithOrganizationOwner | RepositoryUrlPayload,
+  baseUrls: BaseUrls
+) => {
   const projected = projectRepositoryUrls(repository, baseUrls);
-  const owner = projected.owner as any;
-  if (!owner || typeof owner !== 'object') return projected;
+  const owner = repositoryOwnerSchema.safeParse(projected.owner);
+  if (!owner.success) return projected;
+  // SAFETY: `projected.owner` is a resolved `GitHubRepositoryOwner`, and the
+  // schema above has confirmed the `login` field this projection reads; the
+  // selector only returns owner records that also carry `id`.
+  const ownerAccount = owner.data as RepositoryOwnerAccount;
   return {
     ...projected,
     owner:
-      owner.type === 'Organization'
-        ? projectOrganizationOwnerResponse(owner, baseUrls)
-        : projectUserOwnerResponse(owner, baseUrls)
+      ownerAccount.type === 'Organization'
+        ? projectOrganizationOwnerResponse(ownerAccount, baseUrls)
+        : projectUserOwnerResponse(ownerAccount, baseUrls)
   };
 };
 
@@ -118,12 +159,16 @@ export const createRepositoryHandlers = ({
   baseUrlsFor
 }: RepositoryHandlerArgs): Pick<SimulationHandlers, 'repos/get' | 'repos/update'> => ({
   'repos/get': async (context: Ctx, request: Req, response: Res) => {
+    // SAFETY: the OpenAPI route template declares `owner` and `repo` segments,
+    // and openapi-backend fills them from the matched path.
     const {owner, repo} = context.request.params as {owner: string; repo: string};
     const repository = simulationStore.selectors.getRepositoryWithOwner(getState(), owner, repo);
     if (!repository) return response.status(404).json(notFound);
     return response.status(200).json(projectRepositoryResponse(repository, baseUrlsFor(request)));
   },
   'repos/update': async (context: Ctx, request: Req, response: Res) => {
+    // SAFETY: the OpenAPI route template declares `owner` and `repo` segments,
+    // and openapi-backend fills them from the matched path.
     const {owner, repo} = context.request.params as {owner: string; repo: string};
     const command = buildUpdateRepositoryCommand({owner, name: repo, body: request.body});
     const result = await updateRepositoryUseCase(simulationStore, command);

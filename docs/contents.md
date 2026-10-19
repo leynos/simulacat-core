@@ -24,6 +24,8 @@
   conventions for project documentation.
 - [Complexity and refactoring guide][complexity-guide] — Recognize costly
   code patterns and choose refactoring approaches.
+- [Linting strategy ADR][adr-linting] — Review the pinned Oxlint plug-ins, the
+  enabled rule set, and the documented rule conflicts.
 - [Dependency policy exception][dependency-policy] — Understand the
   repository's documented policy exception for braces in nested patterns.
 
@@ -59,6 +61,7 @@ default branch at import time. The complexity guide has three local grammar
 corrections; the documentation style guide is an unchanged import.
 
 [complexity-guide]: complexity-antipatterns-and-refactoring-strategies.md
+[adr-linting]: adr-001-linting-strategy.md
 [dependency-policy]: dependency-policy-exception-braces-nested-patterns.md
 [actors-design]: mocking-services-with-simulacrum-actors-and-stable-keyset-connections.md
 [plan-111]: execplans/1-1-1-re-key-repositories-and-refs-by-canonical-identifiers.md

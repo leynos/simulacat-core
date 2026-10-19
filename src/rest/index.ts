@@ -7,6 +7,7 @@
 import type {Document, SimulationHandlers} from '@simulacrum/foundation-simulator';
 import {buildBaseUrls, type BaseUrls} from '../http/request-url.ts';
 import {makeUrlObservationContext} from '../http/url-observability.ts';
+import type {GitHubInitialStore} from '../store/entities.ts';
 import type {ExtendedSimulationStore} from '../store/index.ts';
 import {
   projectBranchUrls,
@@ -17,7 +18,7 @@ import {
   projectRefUrls
 } from '../urls/index.ts';
 import {urlPathSegment} from '../urls/shared.ts';
-import {getSchema, type SchemaFile} from '../utils.ts';
+import {getOpenApiDocument, type SchemaFile} from '../utils.ts';
 import {requireRestUserActor} from './actor-context.ts';
 import {createRepositoryHandlers, projectRepositoryResponse} from './repository-handlers.ts';
 import {blobAsBase64, commitStatusResponse, gitTrees, normalizeGitRefPath} from './utils.ts';
@@ -26,26 +27,34 @@ type SimulationHandler = SimulationHandlers[string];
 type Ctx = Parameters<SimulationHandler>[0];
 type Req = Parameters<SimulationHandler>[1];
 type Res = Parameters<SimulationHandler>[2];
-type RestProjector = (item: any, baseUrls: BaseUrls) => unknown;
 type RepositoryRouteParams = {owner: string; repo: string};
-type MakeListHandlerOptions = {project?: RestProjector};
+
+/** Projects one stored entity to its wire payload, deriving URLs from the request. */
+type RestProjector<Item> = (item: Item, baseUrls: BaseUrls) => Item;
+
+/** Options accepted by {@link makeListHandler}. */
+type MakeListHandlerOptions<Item> = {project?: RestProjector<Item>};
 
 /** Shared 404 JSON payload used by REST repository and item guards. */
 const notFound = {message: 'Not Found'};
+
+/** Projects every item in a list, or returns the list unchanged without a projector. */
+const projectList = <Item>(items: Item[], baseUrls: BaseUrls, project?: RestProjector<Item>): Item[] =>
+  project ? items.map((item) => project(item, baseUrls)) : items;
 
 /**
  * Builds default REST handlers and merges caller-provided extensions.
  */
 const handlers =
   (
-    initialState: Record<string, any> | undefined,
+    initialState: GitHubInitialStore | undefined,
     apiRoot: string,
     extendedHandlers: ((simulationStore: ExtendedSimulationStore) => SimulationHandlers) | undefined
   ) =>
   (simulationStore: ExtendedSimulationStore): SimulationHandlers => {
     const getState = () => simulationStore.store.getState();
     type StoreState = ReturnType<typeof getState>;
-    type RepositoryListSelector = (state: StoreState, repository: RepositoryRouteParams) => unknown;
+    type RepositoryListSelector<Item> = (state: StoreState, repository: RepositoryRouteParams) => Item[];
 
     const {SIMULACAT_GITHUB_API_URL: fallbackBaseUrl} = process.env;
     const baseUrlsFor = (request: Req) =>
@@ -59,12 +68,6 @@ const handlers =
         makeUrlObservationContext('rest', request.simulacatActor?.observationContext?.requestId)
       );
 
-    const projectList = (items: unknown, baseUrls: BaseUrls, project?: RestProjector) => {
-      if (!project) return items;
-      if (!Array.isArray(items)) return items;
-      return items.map((item) => project(item, baseUrls));
-    };
-
     const repositoryHandlers = createRepositoryHandlers({simulationStore, getState, baseUrlsFor});
 
     const requireRepository = (owner: string, repo: string, response: Res) => {
@@ -73,27 +76,31 @@ const handlers =
       return repository ?? null;
     };
 
-    const readRepositoryRouteParams = (context: Ctx): RepositoryRouteParams =>
-      context.request.params as RepositoryRouteParams;
+    const readRepositoryRouteParams = (context: Ctx): RepositoryRouteParams => {
+      // SAFETY: the OpenAPI route template declares `owner` and `repo`
+      // segments, and openapi-backend fills them from the matched path.
+      return context.request.params as RepositoryRouteParams;
+    };
 
     const makeListHandler =
-      (selector: RepositoryListSelector, options: MakeListHandlerOptions = {}): SimulationHandler =>
+      <Item>(selector: RepositoryListSelector<Item>, options: MakeListHandlerOptions<Item> = {}): SimulationHandler =>
       async (context: Ctx, request: Req, response: Res) => {
         const repository = readRepositoryRouteParams(context);
         if (!requireRepository(repository.owner, repository.repo, response)) return;
-        return response
-          .status(200)
-          .json(projectList(selector(getState(), repository), baseUrlsFor(request), options.project));
+        const items = selector(getState(), repository);
+        return response.status(200).json(projectList(items, baseUrlsFor(request), options.project));
       };
 
     const makeItemHandler =
-      <TParam extends string>(
+      <Item, TParam extends string = string>(
         paramName: TParam,
-        selector: (state: StoreState, owner: string, repo: string, param: string | number) => unknown,
+        selector: (state: StoreState, owner: string, repo: string, param: string | number) => Item | undefined,
         coerce: (value: string) => string | number = (value) => value,
-        project?: RestProjector
+        project?: RestProjector<Item>
       ): SimulationHandler =>
       async (context: Ctx, request: Req, response: Res) => {
+        // SAFETY: every item route template declares `owner`, `repo`, and the
+        // named `paramName` segment; openapi-backend fills them from the path.
         const params = context.request.params as {owner: string; repo: string} & Record<string, string>;
         const {owner, repo} = params;
         if (!requireRepository(owner, repo, response)) return;
@@ -102,9 +109,8 @@ const handlers =
         return response.status(200).json(project ? project(item, baseUrlsFor(request)) : item);
       };
 
-    const baseHandlers = !initialState
-      ? {}
-      : {
+    const baseHandlers = initialState
+      ? {
           // GET /user/installations
           'apps/list-installations': async (_context: Ctx, _request: Req, response: Res) => {
             const installations = simulationStore.schema.installations
@@ -117,10 +123,17 @@ const handlers =
           },
           // POST /app/installations/{installation_id}/access_tokens
           'apps/create-installation-access-token': async (context: Ctx, request: Req, _response: Res) => {
+            // SAFETY: the route template declares `installation_id`, and
+            // openapi-backend supplies it as a string or repeated string
+            // array; the request-body fallback mirrors the route contract.
             const contextParams = context.request.params as {installation_id?: string | string[]};
+            // SAFETY: `request.params` mirrors the matched route parameters.
             const requestParams = request.params as {installation_id?: string | string[]} | undefined;
+            // SAFETY: the documented request body carries `installation_id`;
+            // the field is read defensively because callers may omit it.
+            const bodyParams = request.body as {installation_id?: string | string[]} | undefined;
             const installationIdParam =
-              contextParams.installation_id ?? requestParams?.installation_id ?? request.body?.installation_id;
+              contextParams.installation_id ?? requestParams?.installation_id ?? bodyParams?.installation_id;
             const installationId = Number(
               Array.isArray(installationIdParam) ? installationIdParam[0] : installationIdParam
             );
@@ -210,9 +223,7 @@ const handlers =
           'repos/get-content': async (context: Ctx, request: Req, response: Res) => {
             const {owner, repo, path} = context.request.params;
             const blob = simulationStore.selectors.getBlob(simulationStore.store.getState(), owner, repo, path);
-            if (!blob) {
-              response.status(404).send('fixture does not exist');
-            } else {
+            if (blob) {
               const {apiBaseUrl} = baseUrlsFor(request);
               const data = blobAsBase64({
                 blob,
@@ -222,15 +233,15 @@ const handlers =
                 ref: path
               });
               response.status(200).json(data);
+            } else {
+              response.status(404).send('fixture does not exist');
             }
           },
           // GET /repos/{owner}/{repo}/git/blobs/{file_sha}
           'git/get-blob': async (context: Ctx, request: Req, response: Res) => {
             const {owner, repo, file_sha} = context.request.params;
             const blob = simulationStore.selectors.getBlob(simulationStore.store.getState(), owner, repo, file_sha);
-            if (!blob) {
-              response.status(404).send('fixture does not exist');
-            } else {
+            if (blob) {
               const {apiBaseUrl} = baseUrlsFor(request);
               const data = blobAsBase64({
                 blob,
@@ -241,6 +252,8 @@ const handlers =
                 kind: 'git-blob'
               });
               response.status(200).json(data);
+            } else {
+              response.status(404).send('fixture does not exist');
             }
           },
           // GET /repos/{owner}/{repo}/git/trees/{tree_sha}
@@ -351,15 +364,14 @@ const handlers =
               }));
             return response.status(200).json(memberships);
           }
-        };
+        }
+      : {};
 
     // note for any cases where it `return`s an object,
     //  that will validate the response per the schema
 
-    return {
-      ...baseHandlers,
-      ...(extendedHandlers ? extendedHandlers(simulationStore) : {})
-    };
+    if (!extendedHandlers) return baseHandlers;
+    return {...baseHandlers, ...extendedHandlers(simulationStore)};
   };
 
 /**
@@ -371,13 +383,15 @@ const handlers =
  * ```
  */
 export const openapi = (
-  initialState: Record<string, any> | undefined,
+  initialState: GitHubInitialStore | undefined,
   apiRoot: string,
   apiSchema: SchemaFile | string,
   openapiHandlers: ((simulationStore: ExtendedSimulationStore) => SimulationHandlers) | undefined
 ) => [
   {
-    document: getSchema(apiSchema) as unknown as Document,
+    // SAFETY: `getOpenApiDocument` only returns validated JSON documents, and
+    // every OpenAPI document is assignable to `openapi-backend`'s `Document`.
+    document: getOpenApiDocument(apiSchema) as Document,
     handlers: handlers(initialState, apiRoot, openapiHandlers),
     apiRoot,
     additionalOptions: {

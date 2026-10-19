@@ -115,7 +115,7 @@ describe('actor observability end-to-end', () => {
       .filter((line) => !line.startsWith('#') && line.includes('simulacat_actor_observations_total'))
       .some((line) => {
         const parts = line.split(' ');
-        return parts.length >= 2 && Number(parts[parts.length - 1]) > 0;
+        return parts.length >= 2 && Number(parts.at(-1)) > 0;
       });
     expect(nonZeroCounter).toBe(true);
   });

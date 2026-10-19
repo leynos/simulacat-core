@@ -6,7 +6,7 @@
  * `createHandler` and exposing the shared `ExtendedSimulationStore`.
  */
 import type {createFoundationSimulationServer} from '@simulacrum/foundation-simulator';
-import {stringify} from 'querystring';
+import {stringify} from 'node:querystring';
 import {createHandler} from './graphql/handler.ts';
 import {buildBaseUrls} from './http/request-url.ts';
 import {getUrlObservabilityMetrics, makeUrlObservationContext} from './http/url-observability.ts';
@@ -75,6 +75,8 @@ export const extendRouter =
     router.use('/graphql', createHandler(simulationStore, apiRoot));
 
     router.get('/repos/:owner/:repo/git/ref/*ref', (request, response) => {
+      // SAFETY: Express populates these segments for the declared route, and
+      // the wildcard `ref` segment is always supplied as a string array.
       const {owner, repo, ref} = request.params as {owner: string; repo: string; ref: string[]};
       const qualifiedName = normalizeGitRefPath(ref.join('/'));
       const state = simulationStore.store.getState();
@@ -96,6 +98,8 @@ export const extendRouter =
     });
 
     router.get(['/login/oauth/authorize'], (request, response) => {
+      // SAFETY: the OAuth authorize route only consumes these query string
+      // parameters, which Express exposes as strings on `request.query`.
       const {redirect_uri, state, env} = request.query as {
         [k: string]: string;
       };

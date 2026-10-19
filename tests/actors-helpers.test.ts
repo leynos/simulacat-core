@@ -12,9 +12,15 @@ import {
   resetActorObservationCounters,
   resolveActorContext
 } from '../src/store/actors.ts';
+import type {ActorContextCarrier} from '../src/store/actors.ts';
 import type {ExtendedSimulationStore} from '../src/store/index.ts';
 
 type SimulationServer = Awaited<ReturnType<ReturnType<typeof simulation>['listen']>>;
+
+/** The request surface read by the actor helpers under test. */
+type RequestDouble = ActorContextCarrier & {
+  get(name: string): string | undefined;
+};
 
 /** Builds the transport-neutral header reader used by actor helper tests. */
 const headers = (values: Record<string, string | undefined>) => ({
@@ -23,15 +29,25 @@ const headers = (values: Record<string, string | undefined>) => ({
   }
 });
 
+/** Builds an Express request test double that exposes only header access. */
+const headerOnlyRequest = (actorHeader: string | undefined): Request => {
+  const request: RequestDouble = {
+    get: (name) => (name === requestActorHeader ? actorHeader : undefined)
+  };
+  // SAFETY: the helper under test falls back to `request.get` only; the
+  // remaining Express surface is never read because no server receives this.
+  return request as Request;
+};
+
 /** Builds an Express request test double with actor context already attached. */
 const requestWithActor = (actorHeader: string | undefined): Request => {
-  const request = {
-    get(name: string) {
-      return name === requestActorHeader ? actorHeader : undefined;
-    }
-  } as unknown as Request;
-  request.simulacatActor = buildActorContext(headers({[requestActorHeader]: actorHeader}));
-  return request;
+  const request: RequestDouble = {
+    get: (name) => (name === requestActorHeader ? actorHeader : undefined),
+    simulacatActor: buildActorContext(headers({[requestActorHeader]: actorHeader}))
+  };
+  // SAFETY: the actor readers consume only `get` and `simulacatActor`, both of
+  // which this double defines; the request is never dispatched through Express.
+  return request as Request;
 };
 
 /** Registers tests for request actor context construction and retrieval. */
@@ -55,7 +71,7 @@ const describeActorContextBuilders = () => {
     });
 
     it('returns undefined when middleware has not attached actor context', () => {
-      const request = {get: () => undefined} as unknown as Request;
+      const request: ActorContextCarrier = {};
 
       expect(getActorContext(request)).toBeUndefined();
     });
@@ -101,11 +117,7 @@ const describeRequiredActorSelection = (store: () => ExtendedSimulationStore) =>
     });
 
     it('selects a required user actor from REST headers when middleware is absent', () => {
-      const request = {
-        get(name: string) {
-          return name === requestActorHeader ? 'user:dev' : undefined;
-        }
-      } as unknown as Request;
+      const request = headerOnlyRequest('user:dev');
 
       const result = requireRestUserActor(request, store(), 'GET /user');
 

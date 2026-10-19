@@ -1,6 +1,6 @@
 /** @file Enforces executable examples from the published users guide. */
 import {describe, expect, it} from 'bun:test';
-import {join} from 'node:path';
+import path from 'node:path';
 import {
   assertExampleCoverage,
   cleanupPreparedDocumentedExamples,
@@ -165,7 +165,7 @@ describe('tested users-guide examples execution', () => {
 
 /** Checks the installed source archive contains only the package payload. */
 const assertPackedArchiveContents = async (fixture: ExampleFixture): Promise<void> => {
-  const archivePath = join(fixture.consumerPath, 'simulacat-core.tgz');
+  const archivePath = path.join(fixture.consumerPath, 'simulacat-core.tgz');
   const {stdout} = await runDocumentedCommand({
     command: 'tar',
     args: ['-tzf', archivePath],

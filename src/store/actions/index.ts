@@ -75,8 +75,8 @@ export const processEntityUpdateQueue = (
     let completed = 0;
 
     try {
-      while (completed < queue.length) {
-        yield* operation(queue[completed] as Action);
+      for (const queuedAction of queue) {
+        yield* operation(queuedAction);
         completed += 1;
       }
     } finally {
@@ -92,6 +92,9 @@ const createEntityUpdateSupervisor = <Command>(keyOf: (command: Command) => stri
     const actions = useActions(pattern);
 
     for (const action of yield* each(actions)) {
+      // SAFETY: the pattern this supervisor is registered with only matches
+      // actions produced by `createEntityUpdateThunk`, whose payload is the
+      // command passed to the action creator.
       const id = keyOf((action as EntityUpdateAction<Command>).payload.options);
       const queue = queues.get(id) ?? [];
       queue.push(action);
@@ -99,7 +102,10 @@ const createEntityUpdateSupervisor = <Command>(keyOf: (command: Command) => stri
 
       if (!activeQueueIds.has(id)) {
         activeQueueIds.add(id);
-        yield* spawn(function* () {
+        // The drain task is fire-and-forget: its failures are contained below
+        // and the supervisor never joins it, so the returned Task handle is
+        // intentionally discarded rather than awaited.
+        void (yield* spawn(function* () {
           try {
             yield* processEntityUpdateQueue(queues, id, operation)();
           } catch {
@@ -110,7 +116,7 @@ const createEntityUpdateSupervisor = <Command>(keyOf: (command: Command) => stri
           } finally {
             activeQueueIds.delete(id);
           }
-        });
+        }));
       }
       yield* each.next();
     }

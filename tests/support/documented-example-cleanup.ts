@@ -1,4 +1,11 @@
 /** @file Coordinates idempotent shutdown and removal of example fixtures. */
+import {z} from 'zod';
+
+/** Prepared fixture whose cleanup operation is shared across callers. */
+export interface FixtureOwner {
+  /** Fixture directory, present on prepared examples and absent in unit doubles. */
+  readonly fixturePath?: string;
+}
 
 /** Shutdown or removal phase recorded by fixture cleanup diagnostics. */
 export type ExampleCleanupPhase = 'shutdown' | 'removal';
@@ -34,7 +41,7 @@ const cleanupOperations = new WeakMap<object, Promise<void>>();
  * @returns Shared cleanup operation for the fixture owner.
  * @throws The phase error or an aggregate when shutdown and removal both fail.
  */
-export const cleanupExampleResources = (owner: object, actions: ExampleCleanupActions): Promise<void> => {
+export const cleanupExampleResources = (owner: FixtureOwner, actions: ExampleCleanupActions): Promise<void> => {
   const previous = cleanupOperations.get(owner);
 
   if (previous) {
@@ -80,7 +87,8 @@ const runCleanupPhase = async (
   try {
     await action();
   } catch (error) {
-    const failure = phaseFailure(phase, actions.fixturePath, error);
+    const observedFailure: Error = z.instanceof(Error).parse(error);
+    const failure = phaseFailure(phase, actions.fixturePath, observedFailure);
     failures.push(failure);
     reportObservation(actions, {
       fixturePath: actions.fixturePath,
@@ -111,7 +119,7 @@ const reportObservation = (actions: ExampleCleanupActions, observation: ExampleC
 };
 
 /** Adds the fixture and phase to an operation failure while retaining its cause. */
-const phaseFailure = (phase: ExampleCleanupPhase, fixturePath: string, error: unknown): Error => {
+const phaseFailure = (phase: ExampleCleanupPhase, fixturePath: string, error: Error): Error => {
   const message = error instanceof Error ? error.message : String(error);
   return new Error(`${phase} failed for fixture ${fixturePath}: ${message}`, {cause: error});
 };

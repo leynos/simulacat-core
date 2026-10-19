@@ -7,11 +7,11 @@
  */
 // biome-ignore-all lint/complexity/noExcessiveCognitiveComplexity: Baseline sync task predates the new complexity gate.
 import {main, type Operation, until} from 'effection';
-import fs from 'fs/promises';
-import path from 'path';
+import fs from 'node:fs/promises';
+import path from 'node:path';
 
 /** Runs the schema synchronisation task from the command line. */
-main(function* sync() {
+void main(function* sync() {
   // Sync the REST API schema
   yield* syncSchemaRest();
 });
@@ -29,7 +29,7 @@ function* syncSchemaRest(): Operation<void> {
     'https://raw.githubusercontent.com/github/rest-api-description/main/descriptions/api.github.com/api.github.com.json';
   const {SIMULACAT_SYNC_TIMEOUT_MS} = process.env;
   const parsedTimeoutMs = Number(SIMULACAT_SYNC_TIMEOUT_MS ?? '15000');
-  let timeoutMs = 15000;
+  let timeoutMs = 15_000;
   if (Number.isFinite(parsedTimeoutMs) && parsedTimeoutMs > 0) {
     timeoutMs = parsedTimeoutMs;
   }

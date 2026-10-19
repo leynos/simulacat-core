@@ -4,7 +4,36 @@
 
 import {describe, expect, it} from 'bun:test';
 import fc from 'fast-check';
-import {applyRelayPagination} from '../src/graphql/relay.ts';
+import {applyRelayPagination, type RelayPagingOptions} from '../src/graphql/relay.ts';
+
+type GeneratedPageArgs = {
+  first: number | undefined;
+  last: number | undefined;
+  after: string | undefined;
+  before: string | undefined;
+};
+
+const pageCountArbitrary = fc.integer({min: 0, max: 12});
+const cursorBoundArbitrary = fc.integer({min: 0, max: 11}).map(String);
+
+const generatedPageArgsArbitrary: fc.Arbitrary<GeneratedPageArgs> = fc.record({
+  first: fc.option(pageCountArbitrary, {nil: undefined}),
+  last: fc.option(pageCountArbitrary, {nil: undefined}),
+  after: fc.option(cursorBoundArbitrary, {nil: undefined}),
+  before: fc.option(pageCountArbitrary.map(String), {nil: undefined})
+});
+
+/** Copies only the pagination arguments the generated record defined. */
+const withDefinedArgs = (args: GeneratedPageArgs): RelayPagingOptions => {
+  const definedArgs: RelayPagingOptions = {};
+
+  if (args.first !== undefined) definedArgs.first = args.first;
+  if (args.last !== undefined) definedArgs.last = args.last;
+  if (args.after !== undefined) definedArgs.after = args.after;
+  if (args.before !== undefined) definedArgs.before = args.before;
+
+  return definedArgs;
+};
 
 describe('applyRelayPagination', () => {
   it('returns the first page with stable cursors', () => {
@@ -67,43 +96,32 @@ describe('applyRelayPagination', () => {
   });
 
   it('preserves pagination invariants across generated windows', async () => {
-    await fc.assert(
-      fc.asyncProperty(
-        fc.array(fc.string(), {maxLength: 12}),
-        fc.record({
-          first: fc.option(fc.integer({min: 0, max: 12}), {nil: undefined}),
-          last: fc.option(fc.integer({min: 0, max: 12}), {nil: undefined}),
-          after: fc.option(fc.integer({min: 0, max: 11}).map(String), {nil: undefined}),
-          before: fc.option(fc.integer({min: 0, max: 12}).map(String), {nil: undefined})
-        }),
-        async (nodes, args) => {
-          const pageArgs = {
-            ...(args.first === undefined ? {} : {first: args.first}),
-            ...(args.last === undefined ? {} : {last: args.last}),
-            ...(args.after === undefined ? {} : {after: args.after}),
-            ...(args.before === undefined ? {} : {before: args.before})
-          };
-          const page = applyRelayPagination(nodes, pageArgs);
-          const cursors = page.edges.map((edge) => Number(edge.cursor));
+    const windowArbitrary = fc.asyncProperty(
+      fc.array(fc.string(), {maxLength: 12}),
+      generatedPageArgsArbitrary,
+      async (nodes, args) => {
+        const page = applyRelayPagination(nodes, withDefinedArgs(args));
+        const cursors = page.edges.map((edge) => Number(edge.cursor));
 
-          expect(page.totalCount).toBe(nodes.length);
-          expect(page.edges.length).toBe(page.nodes.length);
-          expect(page.edges.map((edge) => edge.node)).toEqual(page.nodes);
-          expect(
-            cursors.every((cursor, index) => {
-              if (index === 0) {
-                return true;
-              }
+        expect(page.totalCount).toBe(nodes.length);
+        expect(page.edges.length).toBe(page.nodes.length);
+        expect(page.edges.map((edge) => edge.node)).toEqual(page.nodes);
+        expect(
+          cursors.every((cursor, index) => {
+            if (index === 0) {
+              return true;
+            }
 
-              const previousCursor = cursors[index - 1];
-              return previousCursor !== undefined && cursor === previousCursor + 1;
-            })
-          ).toBe(true);
-          expect(page.pageInfo.startCursor).toBe(page.edges[0]?.cursor);
-          expect(page.pageInfo.endCursor).toBe(page.edges.at(-1)?.cursor);
-        }
-      )
+            const previousCursor = cursors[index - 1];
+            return previousCursor !== undefined && cursor === previousCursor + 1;
+          })
+        ).toBe(true);
+        expect(page.pageInfo.startCursor).toBe(page.edges[0]?.cursor);
+        expect(page.pageInfo.endCursor).toBe(page.edges.at(-1)?.cursor);
+      }
     );
+
+    await fc.assert(windowArbitrary);
   });
 
   it('rejects negative first values', () => {

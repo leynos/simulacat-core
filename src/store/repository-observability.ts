@@ -26,21 +26,19 @@ type RepositoryWriteMetricKey = keyof typeof repositoryWriteMetricSeries;
 /** Process-local, single-event-loop state; see GitHub issue #14 for worker-thread escalation. */
 const repositoryWriteCounters: Partial<Record<RepositoryWriteMetricKey, number>> = {};
 
+/** Maps each not-found reason to its bounded metric key. */
+const notFoundCounterKeys = {
+  'missing-repository': 'patch.not-found.missing-repository',
+  'unshaped-repository': 'patch.not-found.unshaped-repository'
+} as const satisfies Record<RepositoryWriteReason, RepositoryWriteMetricKey>;
+
 /** Returns the finite not-found metric key for one recognised reason. */
-const notFoundCounterKey = (reason: unknown): RepositoryWriteMetricKey | undefined => {
-  if (reason === 'missing-repository') return 'patch.not-found.missing-repository';
-  if (reason === 'unshaped-repository') return 'patch.not-found.unshaped-repository';
-  return undefined;
-};
+const notFoundCounterKey = (reason: RepositoryWriteReason): RepositoryWriteMetricKey => notFoundCounterKeys[reason];
 
 /** Builds a stable key for one bounded observation. */
-const counterKey = (observation: unknown): RepositoryWriteMetricKey | undefined => {
-  if (!observation || typeof observation !== 'object') return undefined;
-  const {operation, outcome, reason} = observation as {operation?: unknown; outcome?: unknown; reason?: unknown};
-  if (operation !== 'patch') return undefined;
-  if (outcome === 'success' && reason === undefined) return 'patch.success';
-  if (outcome !== 'not-found') return undefined;
-  return notFoundCounterKey(reason);
+const counterKey = (observation: RepositoryWriteObservation): RepositoryWriteMetricKey | undefined => {
+  if (observation.outcome === 'success') return 'patch.success';
+  return notFoundCounterKey(observation.reason);
 };
 
 /**
@@ -75,9 +73,13 @@ export const getRepositoryWriteObservabilityMetrics = (): string => {
     '# TYPE simulacat_repository_write_observations_total counter'
   ];
 
-  for (const [key, value] of (
-    Object.entries(repositoryWriteCounters) as Array<[RepositoryWriteMetricKey, number]>
-  ).sort(([left], [right]) => left.localeCompare(right))) {
+  const sortedCounters = Object.entries(repositoryWriteCounters).toSorted(([left], [right]) =>
+    left.localeCompare(right)
+  );
+
+  // SAFETY: the only writes to `repositoryWriteCounters` are indexed by a
+  // `RepositoryWriteMetricKey`, so every observed key has that type.
+  for (const [key, value] of sortedCounters as Array<[RepositoryWriteMetricKey, number]>) {
     const series = repositoryWriteMetricSeries[key];
     lines.push(
       `simulacat_repository_write_observations_total{operation="${series.operation}",outcome="${series.outcome}",reason="${series.reason}"} ${value}`
@@ -97,6 +99,9 @@ export const getRepositoryWriteObservabilityMetrics = (): string => {
  * ```
  */
 export const resetRepositoryWriteObservabilityCounters = (): void => {
-  for (const key of Object.keys(repositoryWriteCounters) as RepositoryWriteMetricKey[])
+  // SAFETY: `repositoryWriteCounters` is only ever written under a
+  // `RepositoryWriteMetricKey` index, so its own keys are that union.
+  for (const key of Object.keys(repositoryWriteCounters) as RepositoryWriteMetricKey[]) {
     delete repositoryWriteCounters[key];
+  }
 };
