@@ -1,6 +1,6 @@
 /** @file Filesystem helpers for loading bundled or caller-provided schemas. */
-import path from 'path';
-import fs from 'fs';
+import path from 'node:path';
+import fs from 'node:fs';
 import {z} from 'zod';
 
 const schemaDefaults = ['schema.docs-enterprise.graphql', 'schema.docs.graphql', 'api.github.com.json'] as const;
@@ -33,20 +33,19 @@ const openApiSchema = z
   });
 
 /** TypeScript type inferred from `openApiSchema`. */
-type OpenApiSchema = z.infer<typeof openApiSchema>;
+export type OpenApiSchema = z.infer<typeof openApiSchema>;
 
 /** Resolves bundled schema names to their repository schema path. */
 const resolveSchemaPath = (schemaFile: SchemaFile | string): string => {
   const root = path.join(import.meta.dirname, '..');
-  return (schemaDefaults as readonly string[]).includes(schemaFile)
-    ? path.join(root, 'schema', schemaFile)
-    : schemaFile;
+  const bundledSchemaNames = new Set<string>(schemaDefaults);
+  return bundledSchemaNames.has(schemaFile) ? path.join(root, 'schema', schemaFile) : schemaFile;
 };
 
 /** Loads schema file text with a schema-specific error message. */
 const loadSchemaFile = (schemaFile: SchemaFile | string, schemaPath: string): string => {
   try {
-    return fs.readFileSync(schemaPath, 'utf-8');
+    return fs.readFileSync(schemaPath, 'utf8');
   } catch (error) {
     throw new Error(
       `Failed to load schema ${schemaFile} from ${schemaPath}: ${error instanceof Error ? error.message : String(error)}`,
@@ -110,3 +109,25 @@ export function getSchema(schemaFile: SchemaFile | string): string | OpenApiSche
 
   return parseAndValidateSchema(schemaPath, fileString);
 }
+
+/**
+ * Loads a JSON OpenAPI schema for the REST handler table.
+ *
+ * The validated schema carries `paths` and a version field, which is the part
+ * of `openapi-backend`'s `Document` this simulator actually reads. GraphQL
+ * schema names are rejected here rather than being handed to the REST server.
+ *
+ * @param schemaFile Bundled JSON schema filename or explicit filesystem path.
+ * @returns Validated OpenAPI document.
+ * @throws Error when the schema is not a JSON OpenAPI document.
+ */
+export const getOpenApiDocument = (schemaFile: SchemaFile | string): OpenApiSchema => {
+  // `getSchema` selects its JSON branch from this same suffix, so checking it
+  // here keeps the REST boundary aligned with what `getSchema` would return.
+  if (!schemaFile.endsWith('.json')) {
+    throw new TypeError(`SIMULACAT: REST handlers require an OpenAPI JSON schema, received ${schemaFile}`);
+  }
+
+  const schemaPath = resolveSchemaPath(schemaFile);
+  return parseAndValidateSchema(schemaPath, loadSchemaFile(schemaFile, schemaPath));
+};

@@ -64,7 +64,7 @@ describe('generated users-guide fence parser cases', () => {
         assertParsedExamplesMatch(parsed, expectedExamples(generated));
 
         for (const invalid of invalidDocuments(generated)) {
-          assertParserRejects(invalid.markdown, invalid.message);
+          assertParserRejects(parseMarkdown(invalid.markdown), invalid.message);
         }
       }),
       {seed: propertyTestSeed, numRuns: 100}
@@ -207,11 +207,19 @@ const invalidDocuments = (generated: GeneratedDocument): InvalidDocument[] => {
   ];
 };
 
+/** A parser action that is expected to reject the generated Markdown. */
+type ParserAction = () => void;
+
 /** Requires parser rejection with the complete source and line diagnostic. */
-const assertParserRejects = (markdown: string | (() => unknown), message: string): void => {
-  const parser =
-    typeof markdown === 'string' ? () => parseDocumentedExamples({markdown, sourcePath: SOURCE_PATH}) : markdown;
+const assertParserRejects = (parser: ParserAction, message: string): void => {
   expect(parser).toThrow(message);
+};
+
+/** Builds the parser action for one generated Markdown document. */
+const parseMarkdown = (markdown: string): ParserAction => {
+  return () => {
+    parseDocumentedExamples({markdown, sourcePath: SOURCE_PATH});
+  };
 };
 
 /** Replaces one one-based physical line while preserving its CRLF terminator. */

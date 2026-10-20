@@ -15,7 +15,7 @@ import {
   convertRefToGraphql
 } from './converters/early-entities.ts';
 import {deriveOwner as deriveOwnerFromStore} from './owners.ts';
-import type {DataSchemas, GraphQLData, ToGraphqlDispatcher} from './to-graphql-shapes.ts';
+import type {DataSchemas, GraphQLData, ToGraphqlDispatcher} from './to-graphql-types.ts';
 import type {BaseUrls} from '../http/request-url.ts';
 import {observeUnhandledGraphqlTypename} from '../http/url-observability.ts';
 import type {ExtendedSimulationStore} from '../store/index.ts';
@@ -64,21 +64,20 @@ function makeConverterMap(
  * @returns Dispatcher that recursively converts stored entities.
  */
 export const makeToGraphql = (simulationStore: ExtendedSimulationStore, baseUrls: BaseUrls): ToGraphqlDispatcher => {
-  const toGraphql = (<T extends keyof DataSchemas>(
-    _store: ExtendedSimulationStore,
-    __typename: T,
-    entity: DataSchemas[T]
-  ): GraphQLData[T] => {
-    const converter = converters[__typename] as GraphqlConverter<T> | undefined;
+  // `converters` is initialized below, before the dispatcher can be called:
+  // `makeConverterMap` needs the dispatcher to convert nested entities, so the
+  // two closures necessarily reference each other.
+  const dispatch: ToGraphqlDispatcher = (_store, __typename, entity) => {
+    const converter = converters[__typename];
     if (!converter) {
       return throwUnhandledTypename(baseUrls, __typename);
     }
 
     return converter(entity);
-  }) as ToGraphqlDispatcher;
-  const converters = makeConverterMap(simulationStore, baseUrls, toGraphql);
+  };
+  const converters = makeConverterMap(simulationStore, baseUrls, dispatch);
 
-  return toGraphql;
+  return dispatch;
 };
 
 /**

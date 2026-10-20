@@ -1,13 +1,13 @@
 /** @file Shared GraphQL helpers for repository description assertions. */
 import {z} from 'zod';
 
+const nullableDescriptionSchema = z.string().nullable().optional();
+const repositoryDescriptionSchema = z.object({description: nullableDescriptionSchema}).nullable().optional();
+const graphQLErrorSchema = z.object({message: z.string()});
+
 const graphQLRepositoryDescriptionSchema = z.object({
-  data: z
-    .object({
-      repository: z.object({description: z.string().nullable().optional()}).nullable().optional()
-    })
-    .optional(),
-  errors: z.array(z.object({message: z.string()})).optional()
+  data: z.object({repository: repositoryDescriptionSchema}).optional(),
+  errors: z.array(graphQLErrorSchema).optional()
 });
 
 export type GraphQLRepositoryDescription = z.infer<typeof graphQLRepositoryDescriptionSchema>;

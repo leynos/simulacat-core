@@ -359,12 +359,13 @@ escalation, not workarounds.
   source.
 - `node_modules/graphql-yoga/typings/server.d.ts:15,34,154` defines
   `createYoga<TServerContext, TUserContext>` such that `TServerContext` is
-  merged into the user context. Today the simulator's
-  `createYoga<{}, GraphQLUserContext>` (`src/graphql/handler.ts:51`) leaves the
+  merged into the user context. At the time of writing, the simulator's
+  `createYoga<{}, GraphQLUserContext>` (`src/graphql/handler.ts:51`) left the
   Express request out of the static type even though `@whatwg-node/server` puts
   it there at runtime. This slice does not change that typing; the GraphQL
-  context function will instead parse headers off the Fetch `Request.headers`
-  through the shared helper.
+  context function parses headers off the Fetch `Request.headers` through the
+  shared helper. The context type was later renamed to `GraphQLContext`, so
+  `GraphQLUserContext` no longer exists.
 - `tsconfig.json` already includes `src/**/*.ts`, so an additional
   `src/types/express-request.d.ts` will be picked up by the build without
   modifying `include` or `typeRoots`.

@@ -248,34 +248,34 @@ flat route list.
 
 ### REST endpoints
 
-| Surface                                            | Classification       | Current behaviour                                                                         |
-| -------------------------------------------------- | -------------------- | ----------------------------------------------------------------------------------------- |
-| `GET /health`                                      | Fully scriptable     | Built-in helper route that always returns `{status: "ok"}`.                               |
-| `GET /metrics`                                     | Fully scriptable     | Exposes bounded actor, URL, and PATCH-only repository-write counters.                     |
-| `POST /graphql`                                    | Fully scriptable     | Routed through GraphQL Yoga using the shared seeded store.                                |
-| `GET /login/oauth/authorize`                       | Fully scriptable     | Built-in OAuth helper that redirects with a fixed development code.                       |
-| `POST /login/oauth/access_token`                   | Fully scriptable     | Built-in OAuth helper that returns fixed development token fields.                        |
-| `POST /api/v3/app/installations/:id/access_tokens` | Fully scriptable     | Built-in helper returns fixed token metadata plus store-backed repositories.              |
-| `GET /user/installations`                          | Fully scriptable     | Returns installation rows from the seeded installation slice.                             |
-| `GET /installation/repositories`                   | Fully scriptable     | Returns store-backed repositories with `total_count`.                                     |
-| `GET /orgs/{org}/installation`                     | Fully scriptable     | Store-backed installation lookup for an organization account.                             |
-| `GET /repos/{owner}/{repo}/installation`           | Fully scriptable     | Store-backed installation lookup for a repository owner/repo pair.                        |
-| `GET /orgs/{org}/repos`                            | Fully scriptable     | Store-backed repository list scoped by organization.                                      |
-| `GET /repos/{owner}/{repo}`                        | Fully scriptable     | Returns the store-backed repository joined with the user-or-organization owner shape.     |
-| `PATCH /repos/{owner}/{repo}`                      | Fully scriptable     | Updates whitelisted repository metadata through the shared `updateRepository` action.     |
-| `GET /repos/{owner}/{repo}/branches`               | Fully scriptable     | Returns repository-scoped branches and 404s for unknown repositories.                     |
-| `GET /repos/{owner}/{repo}/commits/{ref}/status`   | Schema-stubbed       | Returns a fixed success payload with dynamic owner/repo/ref interpolation only.           |
-| `GET /repos/{owner}/{repo}/contents/{path}`        | Fully scriptable     | Returns store-backed blob content looked up by owner/repo/path.                           |
-| `GET /repos/{owner}/{repo}/git/blobs/{file_sha}`   | Fully scriptable     | Returns store-backed blob content looked up by owner/repo/sha.                            |
-| `GET /repos/{owner}/{repo}/git/trees/{tree_sha}`   | Placeholder-only     | Reads `tree_sha`, but still flattens all repo blobs rather than modelling tree objects.   |
-| `GET /repos/{owner}/{repo}/git/ref/{ref}`          | Fully scriptable     | Returns the seeded repository-scoped ref or 404s for unknown owner/repo/ref combinations. |
-| `GET /repos/{owner}/{repo}/git/commits/{sha}`      | Fully scriptable     | Returns the seeded repository-scoped git commit or 404s for unknown owner/repo/SHA data.  |
-| `GET /repos/{owner}/{repo}/issues`                 | Fully scriptable     | Lists seeded issues scoped to the requested owner and repository.                         |
-| `GET /repos/{owner}/{repo}/issues/{number}`        | Fully scriptable     | Returns a seeded issue by owner, repository, and number.                                  |
-| `GET /repos/{owner}/{repo}/pulls`                  | Fully scriptable     | Lists seeded pull requests scoped to the requested owner and repository.                  |
-| `GET /repos/{owner}/{repo}/pulls/{number}`         | Fully scriptable     | Returns a seeded pull request by owner, repository, and number.                           |
-| `GET /user`                                        | Partially scriptable | Uses shared request actor helpers to return the selected `user:<login>` actor or 401.     |
-| `GET /user/memberships/orgs`                       | Partially scriptable | Uses shared request actor helpers to return active memberships for the selected user.     |
+| Surface                                            | Classification       | Current behaviour                                                                                    |
+| -------------------------------------------------- | -------------------- | ---------------------------------------------------------------------------------------------------- |
+| `GET /health`                                      | Fully scriptable     | Built-in helper route that always returns `{status: "ok"}`.                                          |
+| `GET /metrics`                                     | Fully scriptable     | Exposes bounded actor, URL, and PATCH-only repository-write counters.                                |
+| `POST /graphql`                                    | Fully scriptable     | Routed through GraphQL Yoga using the shared seeded store.                                           |
+| `GET /login/oauth/authorize`                       | Fully scriptable     | Built-in OAuth helper that redirects with a fixed development code; invalid query shapes return 400. |
+| `POST /login/oauth/access_token`                   | Fully scriptable     | Built-in OAuth helper that returns fixed development token fields.                                   |
+| `POST /api/v3/app/installations/:id/access_tokens` | Fully scriptable     | Built-in helper returns fixed token metadata plus store-backed repositories.                         |
+| `GET /user/installations`                          | Fully scriptable     | Returns installation rows from the seeded installation slice.                                        |
+| `GET /installation/repositories`                   | Fully scriptable     | Returns store-backed repositories with `total_count`.                                                |
+| `GET /orgs/{org}/installation`                     | Fully scriptable     | Store-backed installation lookup for an organization account.                                        |
+| `GET /repos/{owner}/{repo}/installation`           | Fully scriptable     | Store-backed installation lookup for a repository owner/repo pair.                                   |
+| `GET /orgs/{org}/repos`                            | Fully scriptable     | Store-backed repository list scoped by organization.                                                 |
+| `GET /repos/{owner}/{repo}`                        | Fully scriptable     | Returns the store-backed repository joined with the user-or-organization owner shape.                |
+| `PATCH /repos/{owner}/{repo}`                      | Fully scriptable     | Updates whitelisted repository metadata through the shared `updateRepository` action.                |
+| `GET /repos/{owner}/{repo}/branches`               | Fully scriptable     | Returns repository-scoped branches and 404s for unknown repositories.                                |
+| `GET /repos/{owner}/{repo}/commits/{ref}/status`   | Schema-stubbed       | Returns a fixed success payload with dynamic owner/repo/ref interpolation only.                      |
+| `GET /repos/{owner}/{repo}/contents/{path}`        | Fully scriptable     | Returns store-backed blob content looked up by owner/repo/path.                                      |
+| `GET /repos/{owner}/{repo}/git/blobs/{file_sha}`   | Fully scriptable     | Returns store-backed blob content looked up by owner/repo/sha.                                       |
+| `GET /repos/{owner}/{repo}/git/trees/{tree_sha}`   | Placeholder-only     | Reads `tree_sha`, but still flattens all repo blobs rather than modelling tree objects.              |
+| `GET /repos/{owner}/{repo}/git/ref/{ref}`          | Fully scriptable     | Returns the seeded repository-scoped ref or 404s for unknown owner/repo/ref combinations.            |
+| `GET /repos/{owner}/{repo}/git/commits/{sha}`      | Fully scriptable     | Returns the seeded repository-scoped git commit or 404s for unknown owner/repo/SHA data.             |
+| `GET /repos/{owner}/{repo}/issues`                 | Fully scriptable     | Lists seeded issues scoped to the requested owner and repository.                                    |
+| `GET /repos/{owner}/{repo}/issues/{number}`        | Fully scriptable     | Returns a seeded issue by owner, repository, and number.                                             |
+| `GET /repos/{owner}/{repo}/pulls`                  | Fully scriptable     | Lists seeded pull requests scoped to the requested owner and repository.                             |
+| `GET /repos/{owner}/{repo}/pulls/{number}`         | Fully scriptable     | Returns a seeded pull request by owner, repository, and number.                                      |
+| `GET /user`                                        | Partially scriptable | Uses shared request actor helpers to return the selected `user:<login>` actor or 401.                |
+| `GET /user/memberships/orgs`                       | Partially scriptable | Uses shared request actor helpers to return active memberships for the selected user.                |
 
 ### GraphQL fields
 

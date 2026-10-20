@@ -1,10 +1,14 @@
 /** @file Verifies idempotent fixture cleanup and truthful phase diagnostics. */
 import {describe, expect, it} from 'bun:test';
+import {z} from 'zod';
 import {
   cleanupExampleResources,
   type ExampleCleanupActions,
   type ExampleCleanupObservation
 } from './support/documented-example-cleanup.ts';
+
+/** Placeholder replaced by the deferred resolver once the promise is created. */
+const noop = (): void => {};
 
 /** Optional actions that let a cleanup test control one resource phase. */
 interface CleanupTestOverrides {
@@ -20,15 +24,15 @@ const makeCleanupActions = (
 ): ExampleCleanupActions => ({
   fixturePath: '/cache/documented-examples-test',
   now: overrides.now ?? (() => 0),
-  stop: overrides.stop ?? (async () => undefined),
-  remove: overrides.remove ?? (async () => undefined),
+  stop: overrides.stop ?? (async () => {}),
+  remove: overrides.remove ?? (async () => {}),
   observe: (observation) => observations.push(observation)
 });
 
 describe('documented-example resource cleanup', () => {
   it('shares one cleanup promise across concurrent and repeated callers', async () => {
     const observations: ExampleCleanupObservation[] = [];
-    let releaseStop: () => void = () => undefined;
+    let releaseStop = noop;
     let stopCount = 0;
     let removeCount = 0;
     const stopped = new Promise<void>((resolve) => {
@@ -87,7 +91,8 @@ describe('documented-example resource cleanup failures', () => {
     expect(removalAttempted).toBe(true);
     expect(removalCount).toBe(1);
     expect(failure).toBeInstanceOf(AggregateError);
-    expect((failure as AggregateError).errors.map((error: Error) => error.message)).toEqual([
+    const aggregate: AggregateError = z.instanceof(AggregateError).parse(failure);
+    expect(aggregate.errors.map((error: Error) => error.message)).toEqual([
       'shutdown failed for fixture /cache/documented-examples-test: shutdown fault',
       'removal failed for fixture /cache/documented-examples-test: removal fault'
     ]);

@@ -1,7 +1,7 @@
 /** @file Unit tests for request-derived simulator base URLs. */
 import {describe, expect, it} from 'bun:test';
 import fc from 'fast-check';
-import {buildBaseUrls, buildUrl, normalizeApiRoot} from '../src/http/request-url.ts';
+import {buildBaseUrls, buildUrl, normalizeApiRoot, type UnvalidatedRequestOrigin} from '../src/http/request-url.ts';
 import {
   getUrlObservabilityCounters,
   getUrlObservabilityMetrics,
@@ -25,6 +25,16 @@ const apiRoot = fc
 
 /** Builds a minimal request-origin fixture for base-URL tests. */
 const requestOrigin = (host: string, protocol = 'http') => ({protocol, host});
+
+/** Invokes the builder with a raw origin that violates the adapter contract. */
+const buildBaseUrlsFromRawOrigin = (
+  origin: UnvalidatedRequestOrigin | null,
+  fallbackBaseUrl?: string
+): ReturnType<typeof buildBaseUrls> => {
+  // SAFETY: the decoder's zod schema rejects the invalid origin before reading
+  // any property; `null` models an adapter that failed to extract request fields.
+  return buildBaseUrls(origin as UnvalidatedRequestOrigin, '/', fallbackBaseUrl);
+};
 
 describe('normalizeApiRoot', () => {
   it.each([
@@ -87,8 +97,8 @@ describe('URL derivation diagnostics', () => {
     const {SIMULACAT_URL_OBSERVABILITY: originalEnabled} = process.env;
     const lines: string[] = [];
 
-    console.debug = (message?: unknown) => {
-      lines.push(String(message));
+    console.debug = (message: string) => {
+      lines.push(message);
     };
     Reflect.set(process.env, 'SIMULACAT_URL_OBSERVABILITY', 'true');
     try {
@@ -135,8 +145,8 @@ describe('URL derivation diagnostics', () => {
     const originalDebug = console.debug;
     const lines: string[] = [];
 
-    console.debug = (message?: unknown) => {
-      lines.push(String(message));
+    console.debug = (message: string) => {
+      lines.push(message);
     };
     try {
       buildBaseUrls(requestOrigin('quiet.example.test'), '/', undefined, {
@@ -192,13 +202,7 @@ describe('buildBaseUrls', () => {
   });
 
   it('uses the fallback origin when raw request origin fields are not strings', () => {
-    expect(
-      buildBaseUrls(
-        {protocol: 1, host: 'example.test'} as unknown as Parameters<typeof buildBaseUrls>[0],
-        '/',
-        'https://fallback.example.test/root'
-      )
-    ).toEqual({
+    expect(buildBaseUrls({protocol: 1, host: 'example.test'}, '/', 'https://fallback.example.test/root')).toEqual({
       apiBaseUrl: 'https://fallback.example.test',
       webBaseUrl: 'https://fallback.example.test'
     });
@@ -232,9 +236,20 @@ describe('buildBaseUrls validation', () => {
     [{protocol: 'http', host: 1}],
     [null]
   ])('throws the greppable error when raw request origin %p is invalid', (origin) => {
-    expect(() => buildBaseUrls(origin as unknown as Parameters<typeof buildBaseUrls>[0], '/')).toThrow(
-      'SIMULACAT: cannot derive base URL'
-    );
+    expect(() => buildBaseUrlsFromRawOrigin(origin)).toThrow('SIMULACAT: cannot derive base URL');
+  });
+
+  it('uses the fallback when a null origin is invalid and records the rejection', () => {
+    resetUrlObservabilityCounters();
+
+    expect(buildBaseUrlsFromRawOrigin(null, 'https://fallback.example.test/root')).toEqual({
+      apiBaseUrl: 'https://fallback.example.test',
+      webBaseUrl: 'https://fallback.example.test'
+    });
+    expect(getUrlObservabilityCounters()).toEqual({
+      'base-url.internal.fallback.invalid-host': 1,
+      'request-host.internal.failure.invalid-host': 1
+    });
   });
 
   it.each([

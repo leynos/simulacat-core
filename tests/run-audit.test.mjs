@@ -38,6 +38,13 @@ const advisory = (id, name = 'braces') => ({package: name, id, title: `${name} a
 /** Build a Bun report for one advisory. */
 const report = (id, name = 'braces') => ({[name]: [{url: `${URL_PREFIX}${id}`, title: `${name} advisory`}]});
 
+/** Evaluate an audit against the shared ledger with overridable reference facts. */
+const evaluate = (advisories, now = BEFORE_EXPIRY, status = 1, ledger = LEDGER) =>
+  evaluateAudit({advisories, ledger, now, status});
+
+/** A process runner stub that returns a fixed result. */
+const spawnReturning = (result) => () => result;
+
 describe('parseAdvisories', () => {
   it('reads a top-level report and extracts the identifier from the url', () => {
     expect(parseAdvisories(report(BRACES))).toEqual([advisory(BRACES)]);
@@ -116,9 +123,6 @@ describe('invalid reference date', () => {
 });
 
 describe('evaluateAudit', () => {
-  const evaluate = (advisories, now = BEFORE_EXPIRY, status = 1, ledger = LEDGER) =>
-    evaluateAudit({advisories, ledger, now, status});
-
   it('passes a covered advisory before its entry expires', () => {
     expect(evaluate([advisory(BRACES)]).code).toBe(0);
   });
@@ -162,7 +166,7 @@ describe('evaluateAudit partition (property)', () => {
         }));
         const run = (list) => evaluateAudit({advisories: list, ledger, now: BEFORE_EXPIRY, status: 1});
         const forward = run(items);
-        const reversed = run([...items].reverse());
+        const reversed = run(items.toReversed());
         expect(forward.covered.length + forward.unexpected.length).toBe(items.length);
         expect(forward.covered.every((item) => ids.includes(item.id))).toBe(true);
         expect(forward.unexpected.every((item) => item.id === null || !ids.includes(item.id))).toBe(true);
@@ -176,28 +180,28 @@ describe('evaluateAudit partition (property)', () => {
 
 describe('formatOutcome', () => {
   it('prints the covered summary', () => {
-    expect(
-      formatOutcome(evaluateAudit({advisories: [advisory(BRACES)], ledger: LEDGER, now: BEFORE_EXPIRY, status: 1}))
-    ).toMatchSnapshot();
+    const outcome = evaluateAudit({advisories: [advisory(BRACES)], ledger: LEDGER, now: BEFORE_EXPIRY, status: 1});
+    expect(formatOutcome(outcome)).toMatchSnapshot();
   });
 
   it('prints the unexpected advisories under their heading', () => {
-    expect(
-      formatOutcome(
-        evaluateAudit({advisories: [advisory(OTHER, 'other')], ledger: LEDGER, now: BEFORE_EXPIRY, status: 1})
-      )
-    ).toMatchSnapshot();
+    const outcome = evaluateAudit({
+      advisories: [advisory(OTHER, 'other')],
+      ledger: LEDGER,
+      now: BEFORE_EXPIRY,
+      status: 1
+    });
+    expect(formatOutcome(outcome)).toMatchSnapshot();
   });
 
   it('prints the expiry problem', () => {
-    expect(
-      formatOutcome(evaluateAudit({advisories: [advisory(BRACES)], ledger: LEDGER, now: AFTER_EXPIRY, status: 1}))
-    ).toMatchSnapshot();
+    const outcome = evaluateAudit({advisories: [advisory(BRACES)], ledger: LEDGER, now: AFTER_EXPIRY, status: 1});
+    expect(formatOutcome(outcome)).toMatchSnapshot();
   });
 });
 
 describe('runBunAudit', () => {
-  const spawn = (result) => () => result;
+  const spawn = spawnReturning;
 
   it('parses the report and keeps the status', () => {
     expect(runBunAudit(spawn({status: 1, stdout: ' {"a": []} '}))).toEqual({report: {a: []}, status: 1});

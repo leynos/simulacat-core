@@ -1,5 +1,6 @@
 /** @file Integration tests for repository-oriented REST endpoints. */
 import {afterAll, beforeAll, describe, expect, it} from 'bun:test';
+import {z} from 'zod';
 import {type InitialState, simulation} from '../src/index.ts';
 
 type SimulationServer = Awaited<ReturnType<ReturnType<typeof simulation>['listen']>>;
@@ -8,11 +9,35 @@ const basePort = 3320;
 const host = 'http://localhost';
 const url = `${host}:${basePort}`;
 
+/** A JSON scalar a REST response body can contain. */
+type JsonScalar = string | number | boolean | null;
+
+/** A decoded JSON object whose fields are validated before use. */
+interface JsonObject {
+  readonly [key: string]: JsonValue | undefined;
+}
+
+/** Any value a JSON response body can contain. */
+type JsonValue = JsonScalar | JsonObject | JsonValue[];
+
+const jsonValueSchema: z.ZodType<JsonValue, z.ZodTypeDef, unknown> = z.lazy(() =>
+  z.union([z.string(), z.number(), z.boolean(), z.null(), z.array(jsonValueSchema), jsonObjectSchema])
+);
+
+const jsonObjectSchema: z.ZodType<JsonObject, z.ZodTypeDef, unknown> = z.lazy(() =>
+  z.record(z.string(), jsonValueSchema)
+);
+
 interface ListAndGetConfig {
   listPath: string;
   getPath: string;
   listMatcher: ReturnType<typeof expect.objectContaining>;
-  assertGetResponse: (response: Record<string, unknown>) => void;
+  assertGetResponse: (response: JsonObject) => void;
+}
+
+/** A repository entity endpoint exercised through both its list and get routes. */
+interface ListAndGetCase extends ListAndGetConfig {
+  readonly kind: string;
 }
 
 /** Shared fixture state for repository-oriented REST endpoint tests. */
@@ -70,15 +95,40 @@ const REPOSITORY_TEST_FIXTURE: InitialState = {
 
 async function assertListAndGet(baseUrl: string, config: ListAndGetConfig): Promise<void> {
   const listRequest = await fetch(`${baseUrl}${config.listPath}`);
-  const listResponse = (await listRequest.json()) as unknown[];
+  const listResponse = z.array(z.unknown()).parse(await listRequest.json());
   const getRequest = await fetch(`${baseUrl}${config.getPath}`);
-  const getResponse = (await getRequest.json()) as Record<string, unknown>;
+  const getResponse = jsonObjectSchema.parse(await getRequest.json());
 
   expect(listRequest.status).toEqual(200);
   expect(listResponse).toEqual([config.listMatcher]);
   expect(getRequest.status).toEqual(200);
   config.assertGetResponse(getResponse);
 }
+
+/**
+ * Repository entity cases whose list and get routes share one fixture entity.
+ *
+ * Driving both entities from one table keeps the route-pair contract identical
+ * for issues and pull requests, so a regression in either route cannot pass by
+ * matching a duplicated test body.
+ */
+const LIST_AND_GET_CASES: ListAndGetCase[] = [
+  {
+    kind: 'issues',
+    listPath: '/repos/lovely-org/awesome-repo/issues',
+    getPath: '/repos/lovely-org/awesome-repo/issues/1',
+    listMatcher: expect.objectContaining({title: 'Lovely issue'}),
+    assertGetResponse: (response) => expect(response).toEqual(expect.objectContaining({title: 'Lovely issue'}))
+  },
+  {
+    kind: 'pull requests',
+    listPath: '/repos/lovely-org/awesome-repo/pulls',
+    getPath: '/repos/lovely-org/awesome-repo/pulls/2',
+    listMatcher: expect.objectContaining({title: 'Lovely pull request'}),
+    assertGetResponse: (response) =>
+      expect(response).toEqual(expect.objectContaining({head: expect.objectContaining({ref: 'feature/entity-spine'})}))
+  }
+];
 
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: legacy repository integration suite remains over the line gate.
 describe('GET repo endpoints', () => {
@@ -195,22 +245,8 @@ describe('GET repo endpoints', () => {
       expect(commitResponse.commit.message).toBe('Initial commit');
     });
 
-    it('lists and gets issues within the requested repository', async () => {
-      await assertListAndGet(url, {
-        listPath: '/repos/lovely-org/awesome-repo/issues',
-        getPath: '/repos/lovely-org/awesome-repo/issues/1',
-        listMatcher: expect.objectContaining({title: 'Lovely issue'}),
-        assertGetResponse: (r) => expect((r as {title: unknown}).title).toBe('Lovely issue')
-      });
-    });
-
-    it('lists and gets pull requests within the requested repository', async () => {
-      await assertListAndGet(url, {
-        listPath: '/repos/lovely-org/awesome-repo/pulls',
-        getPath: '/repos/lovely-org/awesome-repo/pulls/2',
-        listMatcher: expect.objectContaining({title: 'Lovely pull request'}),
-        assertGetResponse: (r) => expect((r as {head: {ref: unknown}}).head.ref).toBe('feature/entity-spine')
-      });
+    it.each(LIST_AND_GET_CASES)('lists and gets $kind within the requested repository', async (testCase) => {
+      await assertListAndGet(url, testCase);
     });
 
     it('does not fall through to same-name entities under another owner', async () => {

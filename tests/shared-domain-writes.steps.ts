@@ -18,14 +18,20 @@ const repositoryDescriptionResponseSchema = z.object({description: z.string().nu
 const {After, Given, When, Then} = withState<ScenarioState>();
 
 /** Reads a positional Cucumber step argument. */
-const requireStepArg = (args: string[], index: number): string => {
+const requireStepArg = (args: Array<string | undefined>, index: number): string => {
   const value = args[index];
   if (value === undefined) throw new Error(`Missing step argument ${index}`);
   return value;
 };
 
+/** An owner-qualified repository name split into its two segments. */
+interface RepositoryNameParts {
+  owner: string;
+  name: string;
+}
+
 /** Parses an owner-qualified repository name. */
-const parseFullName = (fullName: string): {owner: string; name: string} => {
+const parseFullName = (fullName: string): RepositoryNameParts => {
   const [owner, name, extra] = fullName.split('/');
   if (!owner || !name) throw new Error(`Expected owner/name, got "${fullName}"`);
   if (extra !== undefined) throw new Error(`Expected owner/name, got "${fullName}"`);

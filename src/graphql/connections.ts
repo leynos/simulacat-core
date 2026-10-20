@@ -7,15 +7,15 @@
 import type {Page} from './relay.ts';
 import type {
   GraphQLData,
-  LanguageConnectionShape,
-  OrganizationConnectionShape,
-  OrganizationMemberConnectionShape,
-  RepositoryCollaboratorConnectionShape,
-  RepositoryConnectionShape,
-  RepositoryTopicConnectionShape,
-  RepositoryTopicShape,
-  TeamConnectionShape
-} from './to-graphql-shapes.ts';
+  LanguageConnectionType,
+  OrganizationConnectionType,
+  OrganizationMemberConnectionType,
+  RepositoryCollaboratorConnectionType,
+  RepositoryConnectionType,
+  RepositoryTopicConnectionType,
+  RepositoryTopicType,
+  TeamConnectionType
+} from './to-graphql-types.ts';
 import type {PageInfo as GraphqlPageInfo, Team, User} from '../__generated__/resolvers-types.ts';
 import {OrganizationMemberRole, RepositoryPermission} from '../__generated__/resolvers-types.ts';
 
@@ -71,9 +71,7 @@ export const emptyStargazerConnection = () => ({
  * @param page Relay page of GraphQL organization nodes.
  * @returns Generated organization connection shape.
  */
-export const convertOrganizationConnection = (
-  page: Page<GraphQLData['Organization']>
-): OrganizationConnectionShape => ({
+export const convertOrganizationConnection = (page: Page<GraphQLData['Organization']>): OrganizationConnectionType => ({
   edges: page.edges.map((edge) => ({
     cursor: edge.cursor,
     node: edge.node
@@ -91,7 +89,7 @@ export const convertOrganizationConnection = (
  * @param page Relay page of GraphQL team nodes.
  * @returns Generated team connection shape.
  */
-export const convertTeamConnection = (page: Page<Team>): TeamConnectionShape => ({
+export const convertTeamConnection = (page: Page<Team>): TeamConnectionType => ({
   edges: page.edges.map((edge) => ({
     cursor: edge.cursor,
     node: edge.node
@@ -110,7 +108,7 @@ export const convertTeamConnection = (page: Page<Team>): TeamConnectionShape => 
  * @param page Relay page of GraphQL user nodes.
  * @returns Generated organization-member connection shape.
  */
-export const convertOrganizationMemberConnection = (page: Page<User>): OrganizationMemberConnectionShape => ({
+export const convertOrganizationMemberConnection = (page: Page<User>): OrganizationMemberConnectionType => ({
   edges: page.edges.map((edge) => ({
     cursor: edge.cursor,
     node: edge.node,
@@ -131,7 +129,7 @@ export const convertOrganizationMemberConnection = (page: Page<User>): Organizat
  * @param page Relay page of GraphQL user nodes.
  * @returns Generated repository-collaborator connection shape.
  */
-export const convertRepositoryCollaboratorConnection = (page: Page<User>): RepositoryCollaboratorConnectionShape => ({
+export const convertRepositoryCollaboratorConnection = (page: Page<User>): RepositoryCollaboratorConnectionType => ({
   edges: page.edges.map((edge) => ({
     cursor: edge.cursor,
     node: edge.node,
@@ -156,7 +154,7 @@ export const convertRepositoryCollaboratorConnection = (page: Page<User>): Repos
 export const convertLanguageConnection = (
   page: Page<{id: string; name: string; size: number}>,
   totalSize: number
-): LanguageConnectionShape => ({
+): LanguageConnectionType => ({
   edges: page.edges.map((edge) => ({
     cursor: edge.cursor,
     node: {
@@ -181,7 +179,7 @@ export const convertLanguageConnection = (
  *
  * @returns Empty repository connection placeholder.
  */
-export const emptyRepositoryConnection = (): RepositoryConnectionShape => ({
+export const emptyRepositoryConnection = (): RepositoryConnectionType => ({
   edges: [],
   nodes: [],
   pageInfo: toConnectionPageInfo({
@@ -201,7 +199,7 @@ export const emptyRepositoryConnection = (): RepositoryConnectionShape => ({
  * @param page Relay page of repository-topic nodes.
  * @returns Generated repository-topic connection shape.
  */
-export const convertRepositoryTopicConnection = (page: Page<RepositoryTopicShape>): RepositoryTopicConnectionShape => ({
+export const convertRepositoryTopicConnection = (page: Page<RepositoryTopicType>): RepositoryTopicConnectionType => ({
   edges: page.edges.map((edge) => ({
     cursor: edge.cursor,
     node: edge.node
@@ -220,7 +218,7 @@ export const convertRepositoryTopicConnection = (page: Page<RepositoryTopicShape
  * @param page Relay page of GraphQL repository nodes.
  * @returns Generated repository connection shape.
  */
-export const convertRepositoryConnection = (page: Page<GraphQLData['Repository']>): RepositoryConnectionShape => ({
+export const convertRepositoryConnection = (page: Page<GraphQLData['Repository']>): RepositoryConnectionType => ({
   edges: page.edges.map((edge) => ({
     cursor: edge.cursor,
     node: edge.node

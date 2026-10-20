@@ -39,6 +39,9 @@ type FakeShutdownObservationData =
 /** In-memory lifecycle observations captured before callbacks run. */
 export type FakeShutdownObservation = FakeShutdownObservationData & {time?: number | undefined};
 
+/** Placeholder resolver replaced when a virtual timer is registered. */
+const ignoreScheduledDelay = (): void => undefined;
+
 /** Monotonic fake clock that advances only when a test requests it. */
 export class ManualShutdownScheduler implements ShutdownScheduler {
   private currentTime = 0;
@@ -61,7 +64,7 @@ export class ManualShutdownScheduler implements ShutdownScheduler {
    * @returns The virtual timer handle.
    */
   schedule(delayMs: number): ShutdownTimer {
-    let resolvePromise: () => void = () => undefined;
+    let resolvePromise: () => void = ignoreScheduledDelay;
     const promise = new Promise<void>((resolve) => {
       resolvePromise = resolve;
     });
@@ -206,17 +209,17 @@ export class FakeShutdownTarget implements OwnedProcessTarget {
   signalResult: SignalAttempt = 'sent';
 
   /** Callback invoked after an attempted signal is recorded. */
-  onSignal: (signal: NodeJS.Signals) => void = () => undefined;
+  onSignal: (signal: NodeJS.Signals) => void = () => {};
 
   /** Callback invoked after parent-pipe release is recorded. */
-  onReleasePipes: () => void = () => undefined;
+  onReleasePipes: () => void = () => {};
 
   /** Number of parent-pipe release operations. */
   releasedPipeCount = 0;
 
   private readonly listeners = new Set<(event: ProcessShutdownEvent) => void>();
-  private resolveClosed: (result: CommandResult) => void = () => undefined;
-  private rejectClosed: (error: Error) => void = () => undefined;
+  private resolveClosed: (result: CommandResult) => void = () => {};
+  private rejectClosed: (error: Error) => void = () => {};
 
   /** Creates a fake target with the existing snapshot defaults.
    *
@@ -225,14 +228,14 @@ export class FakeShutdownTarget implements OwnedProcessTarget {
    */
   constructor(
     overrides: Partial<OwnedProcessSnapshot> = {},
-    private readonly now: (() => number) | undefined = undefined
+    private readonly now?: (() => number) | undefined
   ) {
     Object.assign(this.state, overrides);
     this.closed = new Promise<CommandResult>((resolve, reject) => {
       this.resolveClosed = resolve;
       this.rejectClosed = reject;
     });
-    void this.closed.catch(() => undefined);
+    void this.closed.catch(() => {});
   }
 
   /** Returns a copy of the current fake process facts.

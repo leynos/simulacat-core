@@ -72,7 +72,7 @@ export interface ShutdownLimits {
 
 /** Defaults keep normal termination brief and escalation bounded. */
 export const DOCUMENTED_EXAMPLE_SHUTDOWN_LIMITS: Readonly<ShutdownLimits> = {
-  gracefulMs: 3_000,
-  forcedMs: 2_000,
-  postExitMs: 2_000
+  gracefulMs: 3000,
+  forcedMs: 2000,
+  postExitMs: 2000
 };

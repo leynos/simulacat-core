@@ -1,6 +1,7 @@
 /** @file Executes users-guide examples from their marked source fences. */
 import assert from 'node:assert/strict';
 import {performance} from 'node:perf_hooks';
+import {z} from 'zod';
 import {
   assertCollaborationEntities,
   assertCurlResponses,
@@ -10,8 +11,10 @@ import {
   assertQuickStartRepository,
   assertRepositoryMetadataPatch,
   assertRepositoryNodeId,
+  parseJsonDocument,
   parseJsonOutput
 } from './documented-example-contracts.ts';
+import type {CapturedOutput} from './documented-example-contracts.ts';
 import {
   createExampleFixture,
   removeExampleFixture,
@@ -48,6 +51,30 @@ export const DOCUMENTED_EXAMPLE_IDS = [
 /** The finite set of example IDs supported by the runner. */
 export type DocumentedExampleId = (typeof DOCUMENTED_EXAMPLE_IDS)[number];
 
+/** A source example whose marker is a member of the supported inventory. */
+export interface DocumentedExampleEntry extends DocumentedExample {
+  readonly id: DocumentedExampleId;
+}
+
+const documentedExampleIds = new Set<string>(DOCUMENTED_EXAMPLE_IDS);
+
+/**
+ * Narrows a marker string to the runner's documented inventory.
+ *
+ * @param value Marker read from a guide fence.
+ * @returns Whether the marker names a supported example.
+ */
+export const isDocumentedExampleId = (value: string): value is DocumentedExampleId => documentedExampleIds.has(value);
+
+/** Reads the supported ID from an example, rejecting markers outside the inventory. */
+const documentedExampleIdFor = (example: DocumentedExample): DocumentedExampleId => {
+  if (!isDocumentedExampleId(example.id)) {
+    throw new Error(`Unsupported documented example identifier "${example.id}"`);
+  }
+
+  return example.id;
+};
+
 /** Example identifiers exercised by the BDD quick-start scenario. */
 export const QUICK_START_EXAMPLE_IDS: readonly DocumentedExampleId[] = [
   'install-local-package',
@@ -64,6 +91,7 @@ export interface DocumentedExampleRun {
 /** Prepared consumer fixture retained between setup and scenario steps. */
 export interface PreparedDocumentedExamples {
   fixture: ExampleFixture;
+  fixturePath?: string;
   examples: DocumentedExample[];
   programPaths: Map<DocumentedExampleId, string>;
   completedIds: DocumentedExampleId[];
@@ -112,9 +140,12 @@ export const prepareDocumentedExamples = async (
     fixture,
     examples: selectedExamples,
     programPaths: new Map(),
-    completedIds: [],
-    ...(observer ? {observer} : {})
+    completedIds: []
   };
+
+  if (observer) {
+    prepared.observer = observer;
+  }
 
   try {
     await preparePrograms(prepared, selectedExamples);
@@ -129,7 +160,8 @@ export const prepareDocumentedExamples = async (
     prepared.completedIds.push('install-local-package');
     return prepared;
   } catch (error) {
-    return await rethrowAfterCleanup(error, () => cleanupPreparedDocumentedExamples(prepared));
+    const failure: Error = z.instanceof(Error).parse(error);
+    return await rethrowAfterCleanup(failure, () => cleanupPreparedDocumentedExamples(prepared));
   }
 };
 
@@ -144,7 +176,7 @@ export const runPreparedDocumentedExamples = async (
   prepared: PreparedDocumentedExamples
 ): Promise<DocumentedExampleRun> => {
   for (const example of prepared.examples) {
-    const id = example.id as DocumentedExampleId;
+    const id = documentedExampleIdFor(example);
     if (prepared.completedIds.includes(id)) {
       continue;
     }
@@ -210,9 +242,9 @@ const logCleanupObservation = (observation: ExampleCleanupObservation): void => 
  * @throws Error when the guide and runner inventories differ.
  */
 export const assertExampleCoverage = (examples: DocumentedExample[]): void => {
-  const sourceIds = examples.map((example) => example.id).sort();
-  const expectedIds = [...DOCUMENTED_EXAMPLE_IDS].sort();
-  const handlerIds = Object.keys(handlers).sort();
+  const sourceIds = examples.map((example) => example.id).toSorted();
+  const expectedIds = [...DOCUMENTED_EXAMPLE_IDS].toSorted();
+  const handlerIds = Object.keys(handlers).toSorted();
   assert.deepEqual(sourceIds, expectedIds, 'users-guide markers must match the documented contract inventory');
   assert.deepEqual(handlerIds, expectedIds, 'every documented example must have exactly one handler');
 };
@@ -230,8 +262,8 @@ const selectExamples = (examples: DocumentedExample[], ids: readonly DocumentedE
     throw new Error('Example execution must include the local package installation fence');
   }
 
-  const selected = new Set(ids);
-  return examples.filter((example) => selected.has(example.id as DocumentedExampleId));
+  const selected = new Set<string>(ids);
+  return examples.filter((example) => selected.has(example.id));
 };
 
 /** Writes selected TypeScript fences unchanged for type-checking and execution. */
@@ -241,7 +273,7 @@ const preparePrograms = async (prepared: PreparedDocumentedExamples, examples: D
       continue;
     }
 
-    const id = example.id as DocumentedExampleId;
+    const id = documentedExampleIdFor(example);
     const fileName = id === 'start-simulator-program' ? 'simulation.ts' : `${id}.ts`;
     const path = await writeExampleProgram(prepared.fixture, example, fileName);
     prepared.programPaths.set(id, path);
@@ -264,7 +296,7 @@ const prepareSimulatorProgram: ExampleHandler = async (prepared) => {
 const runSimulatorCommand: ExampleHandler = async (prepared, example) => {
   prepared.server = await startShellExample(prepared.fixture, example, {PORT: '0'});
   const response = await fetch(`${prepared.server.baseUrl}/repos/acme/awesome-repo`);
-  const body: unknown = await response.json();
+  const body = parseJsonDocument(await response.text(), 'run-simulator-command response');
   prepared.observer?.record({kind: 'startup-response', id: 'run-simulator-command', status: response.status, body});
   assert.equal(response.status, 200);
   assertQuickStartRepository(body);
@@ -275,12 +307,15 @@ const querySimulatorWithCurl: ExampleHandler = async (prepared, example) => {
   assert.ok(prepared.server, 'the startup command must run before curl');
   const result = await runShellExample(prepared.fixture, example, {BASE_URL: prepared.server.baseUrl});
   prepared.observer?.record({kind: 'curl-output', id: 'query-simulator-with-curl', stdout: result.stdout});
-  assertCurlResponses(result.stdout);
+  assertCurlResponses({stdout: result.stdout, label: 'query-simulator-with-curl'});
 };
 
-/** Executes a TypeScript fence and returns its final output for assertions. */
-const executeProgram = async (prepared: PreparedDocumentedExamples, example: DocumentedExample): Promise<string> => {
-  const id = example.id as DocumentedExampleId;
+/** Executes a TypeScript fence and returns its final output and diagnostic label. */
+const executeProgram = async (
+  prepared: PreparedDocumentedExamples,
+  example: DocumentedExample
+): Promise<CapturedOutput> => {
+  const id = documentedExampleIdFor(example);
   const path = prepared.programPaths.get(id);
 
   if (!path) {
@@ -289,7 +324,7 @@ const executeProgram = async (prepared: PreparedDocumentedExamples, example: Doc
 
   const result = await runTypeScriptExample(prepared.fixture, {path, exampleId: id});
   prepared.observer?.record({kind: 'typescript-output', id, stdout: result.stdout});
-  return result.stdout;
+  return {stdout: result.stdout, label: id};
 };
 
 /** Executes the canonical repository node-ID example. */
@@ -299,42 +334,45 @@ const checkRepositoryNodeId: ExampleHandler = async (prepared, example) => {
 
 /** Executes and checks the six parsed fixture builder results. */
 const checkFixtureBuilders: ExampleHandler = async (prepared, example) => {
-  assertFixtureBuilders(parseJsonOutput({stdout: await executeProgram(prepared, example), label: example.id}));
+  assertFixtureBuilders(parseJsonOutput(await executeProgram(prepared, example)));
 };
 
 /** Exercises seeded collaboration routes and GraphQL fields over HTTP. */
 const checkCollaborationEntities: ExampleHandler = async (prepared, example) => {
-  assertCollaborationEntities(parseJsonOutput({stdout: await executeProgram(prepared, example), label: example.id}));
+  assertCollaborationEntities(parseJsonOutput(await executeProgram(prepared, example)));
 };
 
 /** Exercises persisted repository metadata through REST and GraphQL reads. */
 const checkRepositoryMetadataPatch: ExampleHandler = async (prepared, example) => {
-  assertRepositoryMetadataPatch(parseJsonOutput({stdout: await executeProgram(prepared, example), label: example.id}));
+  assertRepositoryMetadataPatch(parseJsonOutput(await executeProgram(prepared, example)));
 };
 
 /** Checks request-derived API URLs under the configured v3 mount. */
 const checkMountedApiRoot: ExampleHandler = async (prepared, example) => {
-  assertMountedApiRoot(parseJsonOutput({stdout: await executeProgram(prepared, example), label: example.id}));
+  assertMountedApiRoot(parseJsonOutput(await executeProgram(prepared, example)));
 };
 
 /** Checks seeded URLs override the host-derived repository URLs. */
 const checkFixtureUrlOverrides: ExampleHandler = async (prepared, example) => {
-  assertFixtureUrlOverrides(parseJsonOutput({stdout: await executeProgram(prepared, example), label: example.id}));
+  assertFixtureUrlOverrides(parseJsonOutput(await executeProgram(prepared, example)));
 };
 
 /** Checks the narrowed repository helper returns its canonical key. */
 const checkRepositoryStoreKey: ExampleHandler = async (prepared, example) => {
-  assert.equal((await executeProgram(prepared, example)).trim(), 'acme/awesome-repo');
+  const output = await executeProgram(prepared, example);
+  assert.equal(output.stdout.trim(), 'acme/awesome-repo');
 };
 
 /** Checks the narrowed branch helper returns its canonical key. */
 const checkBranchStoreKey: ExampleHandler = async (prepared, example) => {
-  assert.equal((await executeProgram(prepared, example)).trim(), 'acme/awesome-repo:main');
+  const output = await executeProgram(prepared, example);
+  assert.equal(output.stdout.trim(), 'acme/awesome-repo:main');
 };
 
 /** Checks the narrowed blob helper returns its path-based canonical key. */
 const checkBlobStoreKey: ExampleHandler = async (prepared, example) => {
-  assert.equal((await executeProgram(prepared, example)).trim(), 'acme/awesome-repo:README.md');
+  const output = await executeProgram(prepared, example);
+  assert.equal(output.stdout.trim(), 'acme/awesome-repo:README.md');
 };
 
 const handlers: Record<DocumentedExampleId, ExampleHandler> = {

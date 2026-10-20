@@ -13,7 +13,8 @@ import {
   githubPullRequestSchema,
   githubRefSchema,
   githubRepositorySchema,
-  githubUserSchema
+  githubUserSchema,
+  type GitHubInitialStore
 } from '../src/store/entities.ts';
 import {resetNextRepositoryId} from '../src/store/entities/repository.ts';
 import {
@@ -27,30 +28,30 @@ import {
 } from '../src/urls/index.ts';
 
 type GitHubInitialStoreFixture = {
-  users: Array<Record<string, unknown>>;
-  installations?: Array<Record<string, unknown>>;
-  organizations: Array<Record<string, unknown>>;
-  repositories: Array<Record<string, unknown>>;
-  branches: Array<Record<string, unknown>>;
-  blobs: Array<Record<string, unknown>>;
-  refs?: Array<Record<string, unknown>>;
-  commits?: Array<Record<string, unknown>>;
-  issues?: Array<Record<string, unknown>>;
-  pullRequests?: Array<Record<string, unknown>>;
+  users: NonNullable<GitHubInitialStore['users']>;
+  installations?: NonNullable<GitHubInitialStore['installations']>;
+  organizations: NonNullable<GitHubInitialStore['organizations']>;
+  repositories: NonNullable<GitHubInitialStore['repositories']>;
+  branches: NonNullable<GitHubInitialStore['branches']>;
+  blobs: NonNullable<GitHubInitialStore['blobs']>;
+  refs?: NonNullable<GitHubInitialStore['refs']>;
+  commits?: NonNullable<GitHubInitialStore['commits']>;
+  issues?: NonNullable<GitHubInitialStore['issues']>;
+  pullRequests?: NonNullable<GitHubInitialStore['pullRequests']>;
 };
 
 type BuildGithubInitialStoreOptions = {
   storeOverrides?: Partial<GitHubInitialStoreFixture>;
-  userOverrides?: Record<string, unknown>;
+  userOverrides?: Partial<GitHubInitialStoreFixture['users'][number]>;
 };
 
 const buildGithubInitialStore = (options: BuildGithubInitialStoreOptions = {}) => ({
-  users: [{login: 'dev', organizations: [], ...(options.userOverrides ?? {})}],
+  users: [{login: 'dev', organizations: [], ...options.userOverrides}],
   organizations: [{login: 'test-org'}],
   repositories: [{owner: 'test-org', name: 'test-repo'}],
   branches: [{owner: 'test-org', repo: 'test-repo', name: 'main'}],
   blobs: [],
-  ...(options.storeOverrides ?? {})
+  ...options.storeOverrides
 });
 
 const organizationLegacyUserUrlFields = [
@@ -69,7 +70,7 @@ const parseGithubInitialStore = (options: BuildGithubInitialStoreOptions = {}) =
 type StoreState = ReturnType<typeof convertInitialStateToStoreState>;
 
 /** Expects every named URL field to be absent from a sparse stored entity. */
-const expectFieldsAbsent = (value: object, fields: readonly string[]) => {
+const expectFieldsAbsent = <Entity>(value: Entity, fields: readonly string[]) => {
   for (const field of fields) {
     expect(value).not.toHaveProperty(field);
   }
@@ -87,7 +88,7 @@ describe('initialState user fields', () => {
   it('preserves all provided fields through to store state', () => {
     const parsed = parseGithubInitialStore({
       userOverrides: {
-        id: 99887766,
+        id: 99_887_766,
         name: 'dev User',
         email: 'dev@example.io'
       }
@@ -99,7 +100,7 @@ describe('initialState user fields', () => {
     if (!user) {
       throw new Error('expected seeded user to be present');
     }
-    expect(user.id).toBe(99887766);
+    expect(user.id).toBe(99_887_766);
     expect(user.login).toBe('dev');
     expect(user.name).toBe('dev User');
     expect(user.email).toBe('dev@example.io');

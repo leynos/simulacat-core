@@ -1,4 +1,11 @@
 /** @file Coordinates idempotent shutdown and removal of example fixtures. */
+import {z} from 'zod';
+
+/** Prepared fixture whose cleanup operation is shared across callers. */
+export interface FixtureOwner {
+  /** Fixture directory, present on prepared examples and absent in unit doubles. */
+  readonly fixturePath?: string;
+}
 
 /** Shutdown or removal phase recorded by fixture cleanup diagnostics. */
 export type ExampleCleanupPhase = 'shutdown' | 'removal';
@@ -34,7 +41,7 @@ const cleanupOperations = new WeakMap<object, Promise<void>>();
  * @returns Shared cleanup operation for the fixture owner.
  * @throws The phase error or an aggregate when shutdown and removal both fail.
  */
-export const cleanupExampleResources = (owner: object, actions: ExampleCleanupActions): Promise<void> => {
+export const cleanupExampleResources = (owner: FixtureOwner, actions: ExampleCleanupActions): Promise<void> => {
   const previous = cleanupOperations.get(owner);
 
   if (previous) {
@@ -80,7 +87,14 @@ const runCleanupPhase = async (
   try {
     await action();
   } catch (error) {
-    const failure = phaseFailure(phase, actions.fixturePath, error);
+    // `stop()` and `remove()` are injected, so a double can reject with a
+    // non-Error. Wrapping preserves the original value as the cause, and the
+    // removal phase still runs so both failures remain reportable.
+    const observed = thrownErrorSchema.safeParse(error);
+    const observedFailure = observed.success
+      ? observed.data
+      : new Error(`cleanup operation rejected with ${String(error)}`, {cause: error});
+    const failure = phaseFailure(phase, actions.fixturePath, observedFailure);
     failures.push(failure);
     reportObservation(actions, {
       fixturePath: actions.fixturePath,
@@ -111,10 +125,12 @@ const reportObservation = (actions: ExampleCleanupActions, observation: ExampleC
 };
 
 /** Adds the fixture and phase to an operation failure while retaining its cause. */
-const phaseFailure = (phase: ExampleCleanupPhase, fixturePath: string, error: unknown): Error => {
-  const message = error instanceof Error ? error.message : String(error);
-  return new Error(`${phase} failed for fixture ${fixturePath}: ${message}`, {cause: error});
+const phaseFailure = (phase: ExampleCleanupPhase, fixturePath: string, error: Error): Error => {
+  return new Error(`${phase} failed for fixture ${fixturePath}: ${error.message}`, {cause: error});
 };
+
+/** Schema that recognises an `Error` at a catch boundary. */
+const thrownErrorSchema = z.instanceof(Error);
 
 /** Measures non-negative elapsed time on the injected monotonic clock. */
 const elapsedSince = (actions: ExampleCleanupActions, startedAt: number): number => {

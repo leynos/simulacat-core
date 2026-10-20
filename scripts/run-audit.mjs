@@ -15,38 +15,50 @@
 import {spawnSync} from 'node:child_process';
 import {readFileSync, realpathSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
+import {z} from 'zod';
 
 const GHSA_PATTERN = /GHSA-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{4}/i;
 const DATE_ONLY = /^(\d{4})-(\d{2})-(\d{2})$/;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const LEDGER_URL = new URL('../security/audit-exceptions.json', import.meta.url);
 
+const advisorySchema = z
+  .object({
+    github_advisory_id: z.string().optional(),
+    url: z.string().optional(),
+    title: z.string().optional()
+  })
+  .passthrough();
+
+const plainObjectSchema = z.record(z.string(), z.unknown());
+
 /** A `bun audit --json` report that does not have the expected shape. */
 export class AuditReportError extends Error {}
 
-/** Read the `GHSA-…` identifier from one advisory record, or null. */
+/** Read the `GHSA-…` identifier from one decoded advisory record, or null. */
 function advisoryId(advisory) {
-  if (typeof advisory.github_advisory_id === 'string') {
+  if (advisory.github_advisory_id !== undefined) {
     return advisory.github_advisory_id;
   }
-  const match = typeof advisory.url === 'string' ? advisory.url.match(GHSA_PATTERN) : null;
+  const match = advisory.url?.match(GHSA_PATTERN) ?? null;
   return match ? match[0] : null;
 }
 
 /** Tell whether a value is a plain object (not null, not an array). */
 function isPlainObject(value) {
-  return value !== null && typeof value === 'object' && !Array.isArray(value);
+  return plainObjectSchema.safeParse(value).success;
 }
 
 /** Turn one package's advisory list into advisory summaries. */
 function summarisePackage(name, entries) {
-  if (!Array.isArray(entries)) {
+  const decoded = z.array(advisorySchema).safeParse(entries);
+  if (!decoded.success) {
     throw new AuditReportError(`bun audit reported a non-array entry for ${name}`);
   }
-  return entries.map((advisory) => ({
+  return decoded.data.map((advisory) => ({
     package: name,
-    id: advisoryId(advisory ?? {}),
-    title: typeof advisory?.title === 'string' ? advisory.title : ''
+    id: advisoryId(advisory),
+    title: advisory.title ?? ''
   }));
 }
 
@@ -106,7 +118,8 @@ function duplicateProblem(entry, repeated) {
 
 /** Name an entry whose expiry is missing, not a calendar date, or passed. */
 function expiryProblem(entry, now) {
-  const boundary = typeof entry.expiresAt === 'string' ? expiryBoundary(entry.expiresAt) : null;
+  const expiresAt = z.string().safeParse(entry.expiresAt);
+  const boundary = expiresAt.success ? expiryBoundary(expiresAt.data) : null;
   if (boundary === null) {
     return [`${entryLabel(entry)} for ${entry.advisory} needs an expiresAt calendar date in YYYY-MM-DD form.`];
   }
@@ -149,9 +162,9 @@ function sharedAdvisoryProblems(entries) {
   for (const entry of entries) {
     labelsByAdvisory.set(entry.advisory, [...(labelsByAdvisory.get(entry.advisory) ?? []), entryLabel(entry)]);
   }
-  return [...labelsByAdvisory]
-    .filter(([, labels]) => labels.length > 1)
-    .map(([advisory, labels]) => `${labels.join(' and ')} cover the same advisory ${advisory}.`);
+  return [...labelsByAdvisory].flatMap(([advisory, labels]) =>
+    labels.length > 1 ? [`${labels.join(' and ')} cover the same advisory ${advisory}.`] : []
+  );
 }
 
 /** Pick the exit code: any failure is 1, otherwise Bun's status stands when nothing was covered. */
@@ -240,7 +253,7 @@ function assertNormalExit(result) {
 export function runBunAudit(spawn = spawnSync) {
   const result = spawn('bun', ['audit', '--json'], {encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit']});
   assertNormalExit(result);
-  const raw = (result.stdout ?? '').trim();
+  const raw = (result.stdout || '').trim();
   try {
     return {report: raw === '' ? {} : JSON.parse(raw), status: result.status};
   } catch (error) {
@@ -287,5 +300,5 @@ export function main(deps = {}) {
 }
 
 if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) {
-  process.exit(main());
+  process.exitCode = main();
 }

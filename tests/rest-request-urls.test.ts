@@ -1,65 +1,41 @@
 /** @file Integration tests for request-scoped REST response URLs. */
 import {describe, expect, it} from 'bun:test';
+import {z} from 'zod';
 import {type InitialState, simulation} from '../src/index.ts';
 import {requestActorHeader} from '../src/store/actors.ts';
 
 type SimulationServer = Awaited<ReturnType<ReturnType<typeof simulation>['listen']>>;
 
-interface RepositoryPayload {
-  url: string;
-  html_url: string;
-  commits_url: string;
-  contents_url: string;
-  git_commits_url: string;
-  clone_url: string;
-  owner: {
-    url: string;
-    html_url: string;
-    followers_url: string;
-  };
-}
-
-interface BranchPayload {
-  protection_url: string;
-  commit: {url: string};
-}
-
-interface RefPayload {
-  url: string;
-  object: {url: string};
-}
-
-interface IssuePayload {
-  url: string;
-  html_url: string;
-  repository_url: string;
-}
-
-interface PullRequestPayload {
-  url: string;
-  html_url: string;
-  issue_url: string;
-}
-
-interface CommitPayload {
-  url: string;
-  html_url: string;
-  commit: {tree: {url: string}};
-}
-
-interface MembershipPayload {
-  organization_url: string;
-  organization: {url: string; html_url: string; repos_url: string};
-}
-
-interface ContentPayload {
-  url: string;
-}
-
 interface RequestUrlCase {
   apiRoot: string;
   rootPath: string;
 }
+
+const repositoryPayloadSchema = z.object({
+  url: z.string(),
+  html_url: z.string(),
+  commits_url: z.string(),
+  contents_url: z.string(),
+  git_commits_url: z.string(),
+  clone_url: z.string(),
+  owner: z.object({url: z.string(), html_url: z.string(), followers_url: z.string()})
+});
+
+const branchPayloadSchema = z.object({protection_url: z.string(), commit: z.object({url: z.string()})});
+const refPayloadSchema = z.object({url: z.string(), object: z.object({url: z.string()})});
+const issuePayloadSchema = z.object({url: z.string(), html_url: z.string(), repository_url: z.string()});
+const pullRequestPayloadSchema = z.object({url: z.string(), html_url: z.string(), issue_url: z.string()});
+const treePayloadSchema = z.object({url: z.string()});
+const commitPayloadSchema = z.object({
+  url: z.string(),
+  html_url: z.string(),
+  commit: z.object({tree: treePayloadSchema})
+});
+const membershipPayloadSchema = z.object({
+  organization_url: z.string(),
+  organization: z.object({url: z.string(), html_url: z.string(), repos_url: z.string()})
+});
+const contentPayloadSchema = z.object({url: z.string()});
 
 const requestUrlCases: RequestUrlCase[] = [
   {apiRoot: '/', rootPath: ''},
@@ -100,15 +76,19 @@ const fixture: InitialState = {
 };
 
 /** Fetches JSON from a REST URL and asserts a successful response. */
-const fetchJson = async <Payload>(url: string, init?: RequestInit): Promise<Payload> => {
+const fetchJson = async <Payload>(url: string, schema: z.ZodType<Payload>, init?: RequestInit): Promise<Payload> => {
   const response = await fetch(url, init);
   expect(response.status).toBe(200);
-  return (await response.json()) as Payload;
+  return schema.parse(await response.json());
 };
 
 /** Fetches a REST list response that should contain exactly one item. */
-const fetchListItem = async <Payload>(url: string, init?: RequestInit): Promise<Payload> => {
-  const items = await fetchJson<Payload[]>(url, init);
+const fetchListItem = async <Payload>(
+  url: string,
+  schema: z.ZodType<Payload>,
+  init?: RequestInit
+): Promise<Payload> => {
+  const items = await fetchJson(url, z.array(schema), init);
   expect(items).toHaveLength(1);
   const [item] = items;
   if (item === undefined) {
@@ -132,7 +112,7 @@ describe('request-scoped REST URLs', () => {
   it.each(requestUrlCases)('derives repository URLs from apiRoot $apiRoot', async ({apiRoot, rootPath}) => {
     await withServer(apiRoot, async (origin) => {
       const apiBaseUrl = `${origin}${rootPath}`;
-      const repository = await fetchJson<RepositoryPayload>(`${apiBaseUrl}/repos/lovely-org/awesome-repo`);
+      const repository = await fetchJson(`${apiBaseUrl}/repos/lovely-org/awesome-repo`, repositoryPayloadSchema);
 
       expect(repository.url).toBe(`${apiBaseUrl}/repos/lovely-org/awesome-repo`);
       expect(repository.html_url).toBe(`${origin}/lovely-org/awesome-repo`);
@@ -149,12 +129,18 @@ describe('request-scoped REST URLs', () => {
   it.each(requestUrlCases)('derives navigable entity URLs from apiRoot $apiRoot', async ({apiRoot, rootPath}) => {
     await withServer(apiRoot, async (origin) => {
       const apiBaseUrl = `${origin}${rootPath}`;
-      const branch = await fetchListItem<BranchPayload>(`${apiBaseUrl}/repos/lovely-org/awesome-repo/branches`);
-      const ref = await fetchJson<RefPayload>(`${apiBaseUrl}/repos/lovely-org/awesome-repo/git/ref/main`);
-      const issue = await fetchJson<IssuePayload>(`${apiBaseUrl}/repos/lovely-org/awesome-repo/issues/1`);
-      const pull = await fetchJson<PullRequestPayload>(`${apiBaseUrl}/repos/lovely-org/awesome-repo/pulls/2`);
-      const commit = await fetchJson<CommitPayload>(`${apiBaseUrl}/repos/lovely-org/awesome-repo/git/commits/commit-a`);
-      const content = await fetchJson<ContentPayload>(`${apiBaseUrl}/repos/lovely-org/awesome-repo/contents/README.md`);
+      const branch = await fetchListItem(`${apiBaseUrl}/repos/lovely-org/awesome-repo/branches`, branchPayloadSchema);
+      const ref = await fetchJson(`${apiBaseUrl}/repos/lovely-org/awesome-repo/git/ref/main`, refPayloadSchema);
+      const issue = await fetchJson(`${apiBaseUrl}/repos/lovely-org/awesome-repo/issues/1`, issuePayloadSchema);
+      const pull = await fetchJson(`${apiBaseUrl}/repos/lovely-org/awesome-repo/pulls/2`, pullRequestPayloadSchema);
+      const commit = await fetchJson(
+        `${apiBaseUrl}/repos/lovely-org/awesome-repo/git/commits/commit-a`,
+        commitPayloadSchema
+      );
+      const content = await fetchJson(
+        `${apiBaseUrl}/repos/lovely-org/awesome-repo/contents/README.md`,
+        contentPayloadSchema
+      );
 
       expect(branch.protection_url).toBe(`${apiBaseUrl}/repos/lovely-org/awesome-repo/branches/main/protection`);
       expect(branch.commit.url).toBe(`${apiBaseUrl}/repos/lovely-org/awesome-repo/commits/commit-a`);
@@ -176,7 +162,10 @@ describe('request-scoped REST URLs', () => {
   it('derives configured API-root URLs from the slash-ref shim', async () => {
     await withServer('/api/v3', async (origin) => {
       const apiBaseUrl = `${origin}/api/v3`;
-      const ref = await fetchJson<RefPayload>(`${origin}/repos/lovely-org/awesome-repo/git/ref/feature/request-urls`);
+      const ref = await fetchJson(
+        `${origin}/repos/lovely-org/awesome-repo/git/ref/feature/request-urls`,
+        refPayloadSchema
+      );
 
       expect(ref.url).toBe(`${apiBaseUrl}/repos/lovely-org/awesome-repo/git/refs/heads/feature/request-urls`);
       expect(ref.object.url).toBe(`${apiBaseUrl}/repos/lovely-org/awesome-repo/git/commits/commit-a`);
@@ -189,7 +178,7 @@ describe('request-scoped REST URLs', () => {
   }) => {
     await withServer(apiRoot, async (origin) => {
       const apiBaseUrl = `${origin}${rootPath}`;
-      const membership = await fetchListItem<MembershipPayload>(`${apiBaseUrl}/user/memberships/orgs`, {
+      const membership = await fetchListItem(`${apiBaseUrl}/user/memberships/orgs`, membershipPayloadSchema, {
         headers: {[requestActorHeader]: 'user:dev'}
       });
 

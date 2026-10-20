@@ -163,16 +163,14 @@ const assertClosedOutcomeHasCloseEvent = (actual: ShutdownRun): void => {
 /** Requires every parent-pipe release to follow the observed direct-child exit. */
 const assertPipesFollowExit = (observations: readonly FakeShutdownObservation[]): void => {
   const exitIndex = observations.findIndex((observation) => observation.kind === 'exit');
-  const releases = observations
-    .map((observation, index) => ({observation, index}))
-    .filter(({observation}) => observation.kind === 'release-pipes');
+  const releases = observations.flatMap((observation, index) =>
+    observation.kind === 'release-pipes' ? [{observation, index}] : []
+  );
 
   for (const release of releases) {
-    if (release.observation.kind === 'release-pipes') {
-      expect(release.observation.hasExited).toBe(true);
-      expect(exitIndex).toBeGreaterThanOrEqual(0);
-      expect(release.index).toBeGreaterThan(exitIndex);
-    }
+    expect(release.observation.hasExited).toBe(true);
+    expect(exitIndex).toBeGreaterThanOrEqual(0);
+    expect(release.index).toBeGreaterThan(exitIndex);
   }
 };
 

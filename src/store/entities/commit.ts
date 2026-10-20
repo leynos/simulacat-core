@@ -18,6 +18,13 @@ export const commitStoreKey = (commit: CommitStoreKeyInput): string => `${commit
 const STATIC_DEFAULT_COMMIT_SHA = '0000000000000000000000000000000000000000';
 const STATIC_DEFAULT_COMMIT_TIMESTAMP = '1970-01-01T00:00:00.000Z';
 
+/** Builds a trimmed, non-empty string validator. */
+const nonEmptyTrimmedString = (): z.ZodString => {
+  const trimmed = z.string().trim();
+  const nonEmpty = trimmed.min(1);
+  return nonEmpty;
+};
+
 const actorSchema = z
   .object({
     /** Display name of the person who authored or committed the change. */
@@ -26,6 +33,38 @@ const actorSchema = z
     email: z.string().email().optional().default('simulacat@example.test'),
     /** ISO 8601 timestamp recording when the authoring or committing action occurred. */
     date: z.string().optional().default(STATIC_DEFAULT_COMMIT_TIMESTAMP)
+  })
+  .optional()
+  .default({});
+
+/** Validator for one optional REST/Git-tree pointer object. */
+const commitTreeSchema = z.object({
+  /** SHA-1 hash of the tree object recorded by this commit. */
+  sha: z.string().optional(),
+  /** API URL for the tree object recorded by this commit. */
+  url: z.string().optional()
+});
+
+/** Validator for one optional REST/Git parent commit reference. */
+const parentCommitSchema = z.object({
+  /** SHA-1 hash of the parent commit. */
+  sha: nonEmptyTrimmedString(),
+  /** API URL for the parent commit. */
+  url: z.string().optional()
+});
+
+/** Validator for the nested Git commit object. */
+const commitObjectSchema = z
+  .object({
+    /** Commit message text. */
+    message: z.string().optional().default('Seeded commit'),
+    /** Person who authored the change captured by the commit. */
+    author: actorSchema,
+    /** Person who committed the change, who may differ from the author. */
+    committer: actorSchema,
+    tree: commitTreeSchema.optional().default({}),
+    /** Parent commit references nested under the Git commit object. */
+    parents: z.array(parentCommitSchema).optional()
   })
   .optional()
   .default({});
@@ -49,9 +88,9 @@ const actorSchema = z
 export const githubCommitSchema = z
   .object({
     /** Login of the account that owns the repository the commit belongs to. */
-    owner: z.string().trim().min(1),
+    owner: nonEmptyTrimmedString(),
     /** Name of the repository the commit belongs to. */
-    repo: z.string().trim().min(1),
+    repo: nonEmptyTrimmedString(),
     /** SHA-1 hash identifying the commit. */
     sha: z.string().trim().min(1).optional().default(STATIC_DEFAULT_COMMIT_SHA),
     /** The GraphQL global node identifier for the commit. */
@@ -61,48 +100,9 @@ export const githubCommitSchema = z
     /** Web URL for viewing the commit. */
     html_url: z.string().optional(),
     /** Git commit object data, distinct from the REST-only fields above. */
-    commit: z
-      .object({
-        /** Commit message text. */
-        message: z.string().optional().default('Seeded commit'),
-        /** Person who authored the change captured by the commit. */
-        author: actorSchema,
-        /** Person who committed the change, who may differ from the author. */
-        committer: actorSchema,
-        tree: z
-          .object({
-            /** SHA-1 hash of the tree object recorded by this commit. */
-            sha: z.string().optional(),
-            /** API URL for the tree object recorded by this commit. */
-            url: z.string().optional()
-          })
-          .optional()
-          .default({}),
-        /** Parent commit references nested under the Git commit object. */
-        parents: z
-          .array(
-            z.object({
-              /** SHA-1 hash of the parent commit. */
-              sha: z.string().trim().min(1),
-              /** API URL for the parent commit. */
-              url: z.string().optional()
-            })
-          )
-          .optional()
-      })
-      .optional()
-      .default({}),
+    commit: commitObjectSchema,
     /** Top-level REST parent commit references, taking precedence over `commit.parents`. */
-    parents: z
-      .array(
-        z.object({
-          /** SHA-1 hash of the parent commit. */
-          sha: z.string().trim().min(1),
-          /** API URL for the parent commit. */
-          url: z.string().optional()
-        })
-      )
-      .optional()
+    parents: z.array(parentCommitSchema).optional()
   })
   .transform((input) => {
     // Early slices only need a stable tree link; callers can provide a real

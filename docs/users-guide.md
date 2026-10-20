@@ -85,6 +85,19 @@ to choose another port. The library example above supplies its own fixtures.
 - `extend.openapiHandlers` adds or overrides OpenAPI operation handlers.
 - `extend.extendRouter` adds Express routes for a particular test harness.
 
+Name collisions resolve differently for each `extendStore` section:
+
+- Selectors merge with caller selectors last, so an extension can replace a
+  built-in selector such as `getRepository`.
+- Actions merge with the built-in action set last, so a built-in action such as
+  `updateRepository` keeps precedence over an extension with the same name.
+  Register an extending action under a fresh name to add behaviour.
+- Schema slices merge with caller slices last, so an extension can add a slice
+  or replace a built-in slice only by supplying that same key.
+
+The [updating repository metadata](#updating-repository-metadata) section
+describes the built-in write action.
+
 See the [API reference](api-reference.md) for argument details and supported
 operations, and the [architecture guide](architecture.md#extension-seams) for
 the responsibilities of each extension hook. Unlisted API operations should be
@@ -94,6 +107,16 @@ The sections below explain identity, fixture construction, shared writes, and
 request actors. Contributor setup and validation commands are in the
 [developers guide](developers-guide.md); the
 [documentation contents](contents.md) links the remaining references.
+
+## OAuth authorization helper
+
+`GET /login/oauth/authorize` is a development helper that redirects to the
+supplied `redirect_uri` with the fixed code `dev_code`. The query must contain
+one string `redirect_uri`; `state` and `env` are optional string values. Missing
+`redirect_uri` or repeating any of these parameters returns status 400 with
+`{"message":"Bad Request"}`. When omitted, both `env` and `state` are included
+in the redirect with empty values. See the
+[API reference](api-reference.md#rest-endpoints) for the supported REST surface.
 
 ## Canonical key formats
 

@@ -4,6 +4,7 @@
  * This module stays framework-neutral: REST and GraphQL adapters extract a
  * plain origin record from their request types before calling these helpers.
  */
+import {z} from 'zod';
 import {
   observeBaseUrl,
   observeRejectedRequestOrigin,
@@ -12,8 +13,33 @@ import {
   type UrlObservationReason
 } from './url-observability.ts';
 
-/** Transport origin values extracted from an inbound request. */
+/**
+ * Transport origin values extracted from an inbound request.
+ *
+ * Adapters build this from framework request fields, so the two members are
+ * intentionally plain strings; {@link decodeRequestOrigin} decides whether the
+ * runtime values actually satisfy that contract.
+ */
 export type RequestOrigin = {protocol: string; host: string};
+
+/**
+ * The untrusted runtime shape an adapter may hand over before decoding.
+ *
+ * Express exposes `protocol` as a string and `host` as `string | undefined`,
+ * while tests and third-party adapters can supply anything at all.
+ */
+export type UnvalidatedRequestOrigin = {protocol?: unknown; host?: unknown};
+
+const requestOriginSchema = z.object({protocol: z.string(), host: z.string()});
+
+/** Decodes untrusted request origin fields into a validated {@link RequestOrigin}. */
+const decodeRequestOrigin = (
+  value: UnvalidatedRequestOrigin
+): {ok: true; value: RequestOrigin} | {ok: false; reason: UrlObservationReason} => {
+  const parsed = requestOriginSchema.safeParse(value);
+  if (parsed.success) return {ok: true, value: parsed.data};
+  return {ok: false, reason: parsed.error.issues[0]?.path[0] === 'protocol' ? 'invalid-protocol' : 'invalid-host'};
+};
 
 /** API and web URL bases used when projecting stored entities to wire payloads. */
 export type BaseUrls = {apiBaseUrl: string; webBaseUrl: string};
@@ -22,10 +48,10 @@ const missingHostMessage = 'SIMULACAT: cannot derive base URL';
 const httpProtocols = new Set(['http:', 'https:']);
 
 /** Removes duplicate slashes from an API-root path. */
-const collapseSlashes = (value: string): string => value.replace(/\/+/g, '/');
+const collapseSlashes = (value: string): string => value.replaceAll(/\/+/g, '/');
 
 /** Removes trailing slashes while preserving the root slash. */
-const stripTrailingSlashes = (value: string): string => value.replace(/\/+$/g, '');
+const stripTrailingSlashes = (value: string): string => value.replaceAll(/\/+$/g, '');
 
 /**
  * Normalizes an API root to empty or `/segment` form.
@@ -61,8 +87,8 @@ export const normalizeApiRoot = (apiRoot: string): string => {
  * @returns Joined URL string.
  */
 export const buildUrl = (base: string, path: string): string => {
-  const normalizedBase = base.replace(/\/+$/g, '');
-  const normalizedPath = path.replace(/^\/+/g, '');
+  const normalizedBase = base.replaceAll(/\/+$/g, '');
+  const normalizedPath = path.replaceAll(/^\/+/g, '');
   return normalizedPath === '' ? normalizedBase : `${normalizedBase}/${normalizedPath}`;
 };
 
@@ -72,12 +98,6 @@ const normalizeProtocol = (protocol: string): string =>
     .trim()
     .replace(/:\/{2}$/u, '')
     .replace(/:$/u, '');
-
-/** Checks raw JavaScript input before string methods are called. */
-const isString = (value: unknown): value is string => typeof value === 'string';
-
-/** Checks raw JavaScript input before property access. */
-const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null;
 
 /** Parses an absolute URL without leaking constructor-specific errors. */
 const parseAbsoluteUrl = (value: string): URL | undefined => {
@@ -96,16 +116,12 @@ const containsUrlComponents = (host: string): boolean => /[@/?#\\]/u.test(host);
 
 type OriginAttempt = {url?: URL; reason: UrlObservationReason};
 
-/** Builds an origin URL from request protocol and host. */
+/** Builds an origin URL from decoded request protocol and host. */
 const originFromRequest = (origin: RequestOrigin): OriginAttempt => {
-  if (!isRecord(origin)) return {reason: 'invalid-host'};
-  const {protocol, host} = origin;
-  if (!isString(protocol)) return {reason: 'invalid-protocol'};
-  if (!isString(host)) return {reason: 'invalid-host'};
-  const trimmedHost = host.trim();
+  const trimmedHost = origin.host.trim();
   if (trimmedHost === '') return {reason: 'missing-host'};
   if (containsUrlComponents(trimmedHost)) return {reason: 'invalid-host'};
-  const parsedUrl = parseAbsoluteUrl(`${normalizeProtocol(protocol)}://${trimmedHost}`);
+  const parsedUrl = parseAbsoluteUrl(`${normalizeProtocol(origin.protocol)}://${trimmedHost}`);
   if (!parsedUrl) return {reason: 'invalid-host'};
   if (!isHttpUrl(parsedUrl)) return {reason: 'invalid-protocol'};
   return {url: parsedUrl, reason: 'none'};
@@ -113,7 +129,7 @@ const originFromRequest = (origin: RequestOrigin): OriginAttempt => {
 
 /** Builds an origin URL from a configured fallback base URL. */
 const originFromFallback = (fallbackBaseUrl: string | undefined): OriginAttempt => {
-  if (!isString(fallbackBaseUrl)) return {reason: 'missing-fallback'};
+  if (fallbackBaseUrl === undefined) return {reason: 'missing-fallback'};
   const trimmedFallback = fallbackBaseUrl.trim();
   if (trimmedFallback === '') return {reason: 'missing-fallback'};
   const parsedUrl = parseAbsoluteUrl(trimmedFallback);
@@ -124,11 +140,14 @@ const originFromFallback = (fallbackBaseUrl: string | undefined): OriginAttempt 
 
 /** Selects a request or fallback origin and records its bounded outcome. */
 const resolveOrigin = (
-  origin: RequestOrigin,
+  origin: UnvalidatedRequestOrigin,
   fallbackBaseUrl: string | undefined,
   observationContext: UrlObservationContext
 ): URL | undefined => {
-  const requestOrigin = originFromRequest(origin);
+  const decodedOrigin = decodeRequestOrigin(origin);
+  const requestOrigin: OriginAttempt = decodedOrigin.ok
+    ? originFromRequest(decodedOrigin.value)
+    : {reason: decodedOrigin.reason};
   if (requestOrigin.url) {
     observeBaseUrl(observationContext, 'request-origin', 'none');
     return requestOrigin.url;
@@ -163,12 +182,13 @@ const resolveOrigin = (
  * @throws {Error} When neither request host nor fallback base URL provides a host.
  */
 export const buildBaseUrls = (
-  origin: RequestOrigin,
+  origin: UnvalidatedRequestOrigin,
   apiRoot: string,
   fallbackBaseUrl?: string,
-  observationContext: UrlObservationContext = {transport: 'internal'}
+  observationContext?: UrlObservationContext
 ): BaseUrls => {
-  const originUrl = resolveOrigin(origin, fallbackBaseUrl, observationContext);
+  const context = observationContext ?? {transport: 'internal'};
+  const originUrl = resolveOrigin(origin, fallbackBaseUrl, context);
   if (!originUrl) throw new Error(missingHostMessage);
 
   const webBaseUrl = originUrl.origin;
@@ -178,6 +198,6 @@ export const buildBaseUrls = (
     apiBaseUrl,
     webBaseUrl
   };
-  rememberBaseUrlObservationContext(baseUrls, observationContext);
+  rememberBaseUrlObservationContext(baseUrls, context);
   return baseUrls;
 };

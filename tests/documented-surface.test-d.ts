@@ -68,6 +68,33 @@ type PullRequestBuilderInput = Expect<Equal<Parameters<typeof buildPullRequestFi
 type RefBuilderInput = Expect<Equal<Parameters<typeof buildRefFixture>[0], RefFixtureInput>>;
 type RepositoryBuilderInput = Expect<Equal<Parameters<typeof buildRepositoryFixture>[0], RepositoryFixtureInput>>;
 
+/**
+ * Groups every compile-time surface assertion so each alias is referenced.
+ *
+ * The tuple is never constructed; naming the aliases here keeps them reachable
+ * for editors and makes the full set visible in one place.
+ */
+export type DocumentedSurfaceAssertions = [
+  BranchAliasParity,
+  CommitAliasParity,
+  IssueAliasParity,
+  PullRequestAliasParity,
+  RefAliasParity,
+  RepositoryAliasParity,
+  BranchBuilderReturn,
+  CommitBuilderReturn,
+  IssueBuilderReturn,
+  PullRequestBuilderReturn,
+  RefBuilderReturn,
+  RepositoryBuilderReturn,
+  BranchBuilderInput,
+  CommitBuilderInput,
+  IssueBuilderInput,
+  PullRequestBuilderInput,
+  RefBuilderInput,
+  RepositoryBuilderInput
+];
+
 declare const args: GitHubSimulatorArgs;
 
 // The documented extension hooks must remain callable from the public type.
@@ -75,29 +102,18 @@ const extendRouter = args.extend?.extendRouter;
 const openapiHandlers = args.extend?.openapiHandlers;
 const extendStore = args.extend?.extendStore;
 
-/** Asserts the router hook rejects a call missing the simulation store argument. */
-// @ts-expect-error The router hook takes a router and the simulation store, not one argument.
-const arityGuard = (): void => extendRouter?.({} as never);
+/** Asserts the router hook rejects a call missing both required arguments. */
+// @ts-expect-error The router hook takes a router and the simulation store, not zero arguments.
+const arityGuard = (): void => extendRouter?.();
+
+/** Asserts the router hook keeps the simulation store argument required. */
+const storeArityGuard = (router: Parameters<NonNullable<typeof extendRouter>>[0]): void => {
+  // @ts-expect-error The router hook requires the simulation store as its second argument.
+  extendRouter?.(router);
+};
 
 void extendRouter;
 void openapiHandlers;
 void extendStore;
+void storeArityGuard;
 void arityGuard;
-void (null as unknown as BranchAliasParity);
-void (null as unknown as CommitAliasParity);
-void (null as unknown as IssueAliasParity);
-void (null as unknown as PullRequestAliasParity);
-void (null as unknown as RefAliasParity);
-void (null as unknown as RepositoryAliasParity);
-void (null as unknown as BranchBuilderReturn);
-void (null as unknown as CommitBuilderReturn);
-void (null as unknown as IssueBuilderReturn);
-void (null as unknown as PullRequestBuilderReturn);
-void (null as unknown as RefBuilderReturn);
-void (null as unknown as RepositoryBuilderReturn);
-void (null as unknown as BranchBuilderInput);
-void (null as unknown as CommitBuilderInput);
-void (null as unknown as IssueBuilderInput);
-void (null as unknown as PullRequestBuilderInput);
-void (null as unknown as RefBuilderInput);
-void (null as unknown as RepositoryBuilderInput);

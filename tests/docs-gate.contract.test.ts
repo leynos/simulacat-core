@@ -9,45 +9,59 @@
  */
 import {describe, expect, it} from 'bun:test';
 import {readFileSync} from 'node:fs';
-import {join} from 'node:path';
+import path from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {z} from 'zod';
 
 const repositoryRoot = fileURLToPath(new URL('..', import.meta.url));
 
 /** Reads a repository-relative file as UTF-8 text. */
 const readRepositoryFile = (relativePath: string): string => {
-  return readFileSync(join(repositoryRoot, relativePath), 'utf8');
+  return readFileSync(path.join(repositoryRoot, relativePath), 'utf8');
 };
 
-/** A parsed GitHub Actions step, narrowed to the fields the contract reads. */
-type WorkflowStep = {
-  run?: unknown;
-  if?: unknown;
-  'continue-on-error'?: unknown;
-};
+const workflowStepSchema = z
+  .object({
+    run: z.unknown().optional(),
+    if: z.unknown().optional(),
+    'continue-on-error': z.unknown().optional()
+  })
+  .passthrough();
 
-/** A parsed GitHub Actions job, narrowed to the fields the contract reads. */
-type WorkflowJob = {
-  steps?: WorkflowStep[];
-  if?: unknown;
-  'continue-on-error'?: unknown;
-};
+const workflowJobSchema = z
+  .object({
+    steps: z.array(workflowStepSchema).optional(),
+    if: z.unknown().optional(),
+    'continue-on-error': z.unknown().optional()
+  })
+  .passthrough();
 
-/** The CI workflow, narrowed to the fields the contract reads. */
-type Workflow = {jobs?: {verify?: WorkflowJob}};
+const workflowSchema = z.object({
+  jobs: z.object({verify: workflowJobSchema.optional()}).optional()
+});
 
-const workflow = Bun.YAML.parse(readRepositoryFile('.github/workflows/ci.yml')) as Workflow;
+const packageManifestSchema = z.object({
+  scripts: z.record(z.string(), z.string()).optional(),
+  devDependencies: z.object({typedoc: z.string().optional()}).optional()
+});
+
+const typedocOptionsSchema = z.object({
+  emit: z.unknown().optional(),
+  entryPoints: z.unknown().optional(),
+  treatValidationWarningsAsErrors: z.unknown().optional(),
+  validation: z
+    .object({
+      notDocumented: z.unknown().optional(),
+      invalidLink: z.unknown().optional(),
+      invalidPath: z.unknown().optional()
+    })
+    .optional()
+});
+
+const workflow = workflowSchema.parse(Bun.YAML.parse(readRepositoryFile('.github/workflows/ci.yml')));
 const makefile = readRepositoryFile('Makefile');
-const packageManifest = JSON.parse(readRepositoryFile('package.json')) as {
-  scripts?: Record<string, string>;
-  devDependencies?: {typedoc?: string};
-};
-const typedocOptions = JSON.parse(readRepositoryFile('typedoc.json')) as {
-  emit?: unknown;
-  entryPoints?: unknown;
-  treatValidationWarningsAsErrors?: unknown;
-  validation?: {notDocumented?: unknown; invalidLink?: unknown; invalidPath?: unknown};
-};
+const packageManifest = packageManifestSchema.parse(JSON.parse(readRepositoryFile('package.json')));
+const typedocOptions = typedocOptionsSchema.parse(JSON.parse(readRepositoryFile('typedoc.json')));
 
 /** Splits a shell command into whitespace-separated tokens. */
 const tokenize = (command: string): string[] => command.split(/\s+/u).filter((token) => token.length > 0);
@@ -64,7 +78,7 @@ const invokesMakeTarget = (script: string, target: string): boolean => {
     .some((line) => {
       const tokens = tokenize(line);
       const makeIndex = tokens.indexOf('make');
-      return makeIndex >= 0 && tokens.slice(makeIndex + 1).includes(target);
+      return makeIndex !== -1 && tokens.slice(makeIndex + 1).includes(target);
     });
 };
 
@@ -94,7 +108,7 @@ describe('CI runs the documentation gate', () => {
 
   it('runs `make all`, which is what reaches the gate', () => {
     const gateSteps = (verify?.steps ?? []).filter(
-      (step) => typeof step.run === 'string' && invokesMakeTarget(step.run, 'all')
+      (step) => z.string().safeParse(step.run).success && invokesMakeTarget(z.string().parse(step.run), 'all')
     );
 
     expect(gateSteps).toHaveLength(1);
@@ -102,7 +116,7 @@ describe('CI runs the documentation gate', () => {
 
   it('runs the gate unconditionally and fails the job on it', () => {
     const gateStep = (verify?.steps ?? []).find(
-      (step) => typeof step.run === 'string' && invokesMakeTarget(step.run, 'all')
+      (step) => z.string().safeParse(step.run).success && invokesMakeTarget(z.string().parse(step.run), 'all')
     );
 
     expect(gateStep?.if).toBeUndefined();

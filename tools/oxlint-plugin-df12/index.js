@@ -6,6 +6,7 @@
  */
 import {existsSync, readFileSync} from 'node:fs';
 import path from 'node:path';
+import {z} from 'zod';
 
 const MODULE_JSDOC_PATTERN =
   /^(?:#![^\n]*\n)?(?:\/\*![\s\S]*?\*\/\s*)?(?:(?:'use strict'|"use strict");\s*)?\s*\/\*\*[\s\S]*?@file[\s\S]*?\*\//;
@@ -26,7 +27,7 @@ function loadBaseline() {
 
   try {
     const parsed = JSON.parse(readFileSync(baselinePath, 'utf8'));
-    baselineCache = new Set(parsed.entries ?? []);
+    baselineCache = new Set(parsed.entries);
     return baselineCache;
   } catch (error) {
     console.warn(
@@ -161,7 +162,7 @@ function defaultFunctionExpressionRecord(node) {
 function parseLeadingJsDoc(context, node) {
   const comments = context.sourceCode.getCommentsBefore(node) ?? [];
   const jsdoc = comments.findLast((comment) => comment.type === 'Block' && comment.value.trimStart().startsWith('*'));
-  if (!jsdoc) return undefined;
+  if (!jsdoc) return;
   return parseJsDocBlock(`/*${jsdoc.value}*/`);
 }
 
@@ -288,13 +289,13 @@ function childNodes(node) {
 
 /** Converts a node property value into child AST nodes. */
 function nodeValues(value) {
-  if (Array.isArray(value)) return value.filter(isAstNode);
+  if (Array.isArray(value)) return value.filter((item) => isAstNode(item));
   return isAstNode(value) ? [value] : [];
 }
 
 /** Reports whether a value looks like an ESTree AST node. */
 function isAstNode(value) {
-  return Boolean(value && typeof value.type === 'string');
+  return Boolean(value && z.string().safeParse(value.type).success);
 }
 
 /** Reports whether a function record is skipped by the baseline. */

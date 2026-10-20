@@ -13,8 +13,9 @@ import {
   emptyStargazerConnection
 } from '../connections.ts';
 import {deriveOwner} from '../owners.ts';
-import type {DataSchemas, GraphQLData, ToGraphqlDispatcher} from '../to-graphql-shapes.ts';
+import type {DataSchemas, GraphQLData, ToGraphqlDispatcher} from '../to-graphql-types.ts';
 import type {BaseUrls} from '../../http/request-url.ts';
+import {GraphqlProjectionError} from '../projection-error.ts';
 import type {ExtendedSimulationStore} from '../../store/index.ts';
 import {branchStoreKey, repositoryNodeId} from '../../store/keys.ts';
 import {projectRepositoryUrls} from '../../urls/index.ts';
@@ -108,17 +109,13 @@ export function convertRepositoryToGraphql(
   toGraphql: ToGraphqlDispatcher,
   baseUrls: BaseUrls
 ): GraphQLData['Repository'] {
-  const defaultBranchName = repo.default_branch ?? 'main';
-  const state = simulationStore.store?.getState();
-  const getRef = simulationStore.selectors?.getRef;
-  let seededDefaultRef: DataSchemas['Ref'] | undefined;
-  if (state && getRef) {
-    seededDefaultRef = getRef(state, {
-      owner: repo.owner,
-      repo: repo.name,
-      qualifiedName: defaultBranchName
-    });
-  }
+  const defaultBranchName = repo.default_branch;
+  const state = simulationStore.store.getState();
+  const seededDefaultRef = simulationStore.selectors.getRef(state, {
+    owner: repo.owner,
+    repo: repo.name,
+    qualifiedName: defaultBranchName
+  });
   const defaultBranchId =
     seededDefaultRef?.node_id ??
     Buffer.from(`Branch:${branchStoreKey({owner: repo.owner, repo: repo.name, name: defaultBranchName})}`).toString(
@@ -126,18 +123,27 @@ export function convertRepositoryToGraphql(
     );
   const projectedRepository = projectRepositoryUrls(repo, baseUrls);
   const repositoryUrl = projectedRepository.html_url;
-  if (typeof repositoryUrl !== 'string') {
-    throw new Error(`GraphQL repository URL could not be projected for ${repo.full_name}`);
+  if (repositoryUrl === null || repositoryUrl === undefined) {
+    throw new GraphqlProjectionError('repository');
   }
 
   return {
     __typename: 'Repository',
-    id: repo.node_id ?? repositoryNodeId({owner: repo.owner, name: repo.name}),
+    // A stored repository already carries its node id, and `docs/api-reference.md`
+    // promises that an explicit noncanonical value is preserved, so GraphQL must
+    // report the stored identity too.
+    // SAFETY: a raw fixture that bypassed the store schema transform can reach
+    // this converter with `node_id` absent. The optional shape is checked by the
+    // `??` fallback before the value is used, and the cast only widens the
+    // published `GitHubRepository.node_id` type at this internal seam.
+    id: (repo as {node_id?: string | undefined}).node_id ?? repositoryNodeId({owner: repo.owner, name: repo.name}),
     name: repo.name,
     nameWithOwner: repo.full_name,
     url: repositoryUrl,
-    createdAt: repo.created_at ?? new Date(0).toISOString(),
-    ...(repo.description ? {description: repo.description} : {}),
+    // The repository schema defaults `created_at` and `description`, so both
+    // are always present on a stored entity.
+    createdAt: repo.created_at,
+    description: repo.description,
     collaborators(pageArgs: PageArgs) {
       return convertRepositoryCollaboratorConnection(applyRelayPagination([], pageArgs, (user: User) => user));
     },
@@ -151,7 +157,6 @@ export function convertRepositoryToGraphql(
           name: defaultBranchName
         },
     ref({qualifiedName}: {qualifiedName: string}) {
-      if (!state || !simulationStore.selectors?.getRef) return undefined;
       const ref = simulationStore.selectors.getRef(state, {
         owner: repo.owner,
         repo: repo.name,
@@ -160,44 +165,28 @@ export function convertRepositoryToGraphql(
       return ref ? toGraphql(simulationStore, 'Ref', ref) : undefined;
     },
     refs(pageArgs: PageArgs & {refPrefix: string}) {
-      if (!state || !simulationStore.selectors?.listRefsForRepository) {
-        return applyRelayPagination([], pageArgs, (ref) => toGraphql(simulationStore, 'Ref', ref));
-      }
       const refs = simulationStore.selectors
         .listRefsForRepository(state, {owner: repo.owner, repo: repo.name})
         .filter((ref) => ref.ref.startsWith(pageArgs.refPrefix));
       return applyRelayPagination(refs, pageArgs, (ref) => toGraphql(simulationStore, 'Ref', ref));
     },
     issue({number}: {number: number}) {
-      const getIssue = simulationStore.selectors?.getIssue;
-      let item: DataSchemas['Issue'] | undefined;
-      if (state && getIssue) {
-        item = getIssue(state, {owner: repo.owner, repo: repo.name, number});
-      }
+      const item = simulationStore.selectors.getIssue(state, {owner: repo.owner, repo: repo.name, number});
       return resolveRepoItem(item, 'Issue', {simulationStore, toGraphql});
     },
     issues(pageArgs: PageArgs) {
-      const listIssues = simulationStore.selectors?.listIssuesForRepository;
-      let items: DataSchemas['Issue'][] = [];
-      if (state && listIssues) {
-        items = listIssues(state, {owner: repo.owner, repo: repo.name});
-      }
+      const items = simulationStore.selectors.listIssuesForRepository(state, {owner: repo.owner, repo: repo.name});
       return paginateRepoItems(items, pageArgs, 'Issue', {simulationStore, toGraphql});
     },
     pullRequest({number}: {number: number}) {
-      const getPullRequest = simulationStore.selectors?.getPullRequest;
-      let item: DataSchemas['PullRequest'] | undefined;
-      if (state && getPullRequest) {
-        item = getPullRequest(state, {owner: repo.owner, repo: repo.name, number});
-      }
+      const item = simulationStore.selectors.getPullRequest(state, {owner: repo.owner, repo: repo.name, number});
       return resolveRepoItem(item, 'PullRequest', {simulationStore, toGraphql});
     },
     pullRequests(pageArgs: PageArgs) {
-      const listPullRequests = simulationStore.selectors?.listPullRequestsForRepository;
-      let items: DataSchemas['PullRequest'][] = [];
-      if (state && listPullRequests) {
-        items = listPullRequests(state, {owner: repo.owner, repo: repo.name});
-      }
+      const items = simulationStore.selectors.listPullRequestsForRepository(state, {
+        owner: repo.owner,
+        repo: repo.name
+      });
       return paginateRepoItems(items, pageArgs, 'PullRequest', {simulationStore, toGraphql});
     },
     languages(pageArgs: PageArgs) {

@@ -5,7 +5,7 @@ import type {PageArgs} from '../relay.ts';
 import {applyRelayPagination} from '../relay.ts';
 import {convertOrganizationMemberConnection, convertTeamConnection} from '../connections.ts';
 import {toGithubRepositoryOwner} from '../owners.ts';
-import type {DataSchemas, GraphQLData, ToGraphqlDispatcher} from '../to-graphql-shapes.ts';
+import type {DataSchemas, GraphQLData, ToGraphqlDispatcher} from '../to-graphql-types.ts';
 import type {BaseUrls} from '../../http/request-url.ts';
 import type {ExtendedSimulationStore} from '../../store/index.ts';
 import type {Team, User} from '../../__generated__/resolvers-types.ts';
@@ -29,10 +29,12 @@ export function convertOrganizationToGraphql(
     ...toGithubRepositoryOwner(simulationStore, org, toGraphql, baseUrls),
     __typename: 'Organization',
     id: org.id.toString(),
-    createdAt: org.created_at ?? new Date(0).toISOString(),
-    ...(org.name ? {name: org.name} : {}),
-    ...(org.description ? {description: org.description} : {}),
-    ...(org.email ? {email: org.email} : {}),
+    // The store schema derives `name` and `email` and defaults `description`,
+    // so every optional GraphQL field is always populated here.
+    name: org.name,
+    description: org.description,
+    email: org.email,
+    createdAt: org.created_at,
     teams(pageArgs: PageArgs) {
       return convertTeamConnection(applyRelayPagination([], pageArgs, (team: Team) => team));
     },

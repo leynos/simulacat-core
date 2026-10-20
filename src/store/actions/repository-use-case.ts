@@ -2,6 +2,7 @@
 import type {ExtendedSimulationStore} from '../index.ts';
 import type {GitHubRepository} from '../entities.ts';
 import {dispatchWrite} from './dispatch.ts';
+import {decodeUpdateRepositoryCommand} from './repository-command.ts';
 import type {UpdateRepositoryCommand} from './repository.ts';
 
 /** Result returned by the shared repository update use case. */
@@ -39,15 +40,18 @@ export const updateRepositoryUseCase = async (
   simulationStore: ExtendedSimulationStore,
   command: UpdateRepositoryCommand
 ): Promise<UpdateRepositoryResult> => {
-  const before = simulationStore.selectors.getRepository(simulationStore.store.getState(), command.owner, command.name);
+  // JavaScript callers can reach the use case with values outside the
+  // TypeScript contract, so decode before the lookup and dispatch.
+  const decoded = decodeUpdateRepositoryCommand(command);
+  const before = simulationStore.selectors.getRepository(simulationStore.store.getState(), decoded.owner, decoded.name);
   if (!before) return {ok: false, reason: 'not-found'};
 
-  await dispatchWrite(simulationStore.store, simulationStore.actions.updateRepository(command));
+  await dispatchWrite(simulationStore.store, simulationStore.actions.updateRepository(decoded));
 
   const repository = simulationStore.selectors.getRepository(
     simulationStore.store.getState(),
-    command.owner,
-    command.name
+    decoded.owner,
+    decoded.name
   );
 
   return repository ? {ok: true, repository} : {ok: false, reason: 'not-found'};

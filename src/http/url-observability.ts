@@ -9,8 +9,12 @@ export type UrlObservationReason =
   | 'invalid-protocol'
   | 'missing-fallback'
   | 'missing-host'
+  | 'missing-projection'
   | 'none'
   | 'unknown-typename';
+
+/** Entity kinds that produce a GraphQL projection failure. */
+export type UrlProjectionEntity = 'commit' | 'issue' | 'pull-request' | 'repository';
 
 export type UrlObservationContext = {
   transport: UrlObservationTransport;
@@ -18,15 +22,20 @@ export type UrlObservationContext = {
 };
 
 type UrlObservation = {
-  event: 'base-url' | 'graphql-dispatch' | 'request-host';
+  event: 'base-url' | 'graphql-dispatch' | 'graphql-projection' | 'request-host';
   transport: UrlObservationTransport;
   outcome: UrlObservationOutcome;
   reason: UrlObservationReason;
   requestId?: string;
   typename?: string;
+  entity?: UrlProjectionEntity;
 };
 
-const urlObservationCounters: Record<string, number> = {};
+/** Finite counter key: the four bounded label components joined by dots. */
+type UrlObservationCounterKey =
+  `${UrlObservation['event']}.${UrlObservationTransport}.${UrlObservationOutcome}.${UrlObservationReason}`;
+
+const urlObservationCounters: Partial<Record<UrlObservationCounterKey, number>> = {};
 let baseUrlObservationContexts = new WeakMap<BaseUrls, UrlObservationContext>();
 
 /**
@@ -49,12 +58,16 @@ const isUrlObservationEnabled = (): boolean => {
 
 /** Escapes a Prometheus label value for text exposition. */
 const escapePrometheusLabel = (value: string): string => {
-  return value.replaceAll('\\', '\\\\').replaceAll('"', '\\"').replaceAll('\n', '\\n');
+  return value.replaceAll('\\', String.raw`\\`).replaceAll('"', String.raw`\"`).replaceAll('\n', String.raw`\n`);
 };
 
 /** Records one bounded URL observation and emits optional structured diagnostics. */
 const recordUrlObservation = (observation: UrlObservation): void => {
-  const key = [observation.event, observation.transport, observation.outcome, observation.reason].join('.');
+  // SAFETY: every component is a literal union member, so joining them with a
+  // dot produces exactly the template-literal counter key type.
+  const key = [observation.event, observation.transport, observation.outcome, observation.reason].join(
+    '.'
+  ) as UrlObservationCounterKey;
   urlObservationCounters[key] = (urlObservationCounters[key] ?? 0) + 1;
 
   if (isUrlObservationEnabled()) {
@@ -98,17 +111,58 @@ export const rememberBaseUrlObservationContext = (baseUrls: BaseUrls, context: U
 };
 
 /**
+ * Bounded GraphQL failure shapes recorded by this module.
+ *
+ * The event, outcome, and reason move together by construction, so a caller
+ * cannot pair a projection failure with a dispatch label.
+ */
+type GraphqlFailureObservation =
+  | {
+      event: 'graphql-dispatch';
+      outcome: 'unhandled-typename';
+      reason: 'unknown-typename';
+      typename: string;
+    }
+  | {
+      event: 'graphql-projection';
+      outcome: 'failure';
+      reason: 'missing-projection';
+      entity: UrlProjectionEntity;
+    };
+
+/** Records one GraphQL failure with the transport and request context. */
+const observeGraphqlFailure = (baseUrls: BaseUrls, observation: GraphqlFailureObservation): void => {
+  const context = baseUrlObservationContexts.get(baseUrls) ?? {transport: 'graphql'};
+  recordUrlObservation({...observation, ...context, transport: 'graphql'});
+};
+
+/**
+ * Records a GraphQL entity that could not be projected into a usable URL.
+ *
+ * Only the bounded entity kind is recorded; owner, repository, SHA, and URL
+ * values stay out of the metric labels.
+ *
+ * @param baseUrls Derived request URL bases carrying request context.
+ * @param entity Entity kind whose URL projection failed.
+ */
+export const observeGraphqlProjectionFailure = (baseUrls: BaseUrls, entity: UrlProjectionEntity): void => {
+  observeGraphqlFailure(baseUrls, {
+    event: 'graphql-projection',
+    outcome: 'failure',
+    reason: 'missing-projection',
+    entity
+  });
+};
+
+/**
  * Records an unknown GraphQL typename without serialising the rejected entity.
  *
  * @param baseUrls Derived request URL bases carrying request context.
  * @param typename Stable GraphQL typename supplied to the dispatcher.
  */
 export const observeUnhandledGraphqlTypename = (baseUrls: BaseUrls, typename: string): void => {
-  const context = baseUrlObservationContexts.get(baseUrls) ?? {transport: 'graphql'};
-  recordUrlObservation({
+  observeGraphqlFailure(baseUrls, {
     event: 'graphql-dispatch',
-    ...context,
-    transport: 'graphql',
     outcome: 'unhandled-typename',
     reason: 'unknown-typename',
     typename
@@ -120,7 +174,9 @@ export const observeUnhandledGraphqlTypename = (baseUrls: BaseUrls, typename: st
  *
  * @returns Current bounded counter values.
  */
-export const getUrlObservabilityCounters = (): Readonly<Record<string, number>> => ({...urlObservationCounters});
+export const getUrlObservabilityCounters = (): Readonly<Partial<Record<UrlObservationCounterKey, number>>> => ({
+  ...urlObservationCounters
+});
 
 /**
  * Exports bounded URL observations in Prometheus text exposition format.
@@ -132,7 +188,7 @@ export const getUrlObservabilityMetrics = (): string => {
     '# HELP simulacat_url_derivation_observations_total Request-derived URL observations.',
     '# TYPE simulacat_url_derivation_observations_total counter'
   ];
-  for (const [key, value] of Object.entries(urlObservationCounters).sort(([left], [right]) =>
+  for (const [key, value] of Object.entries(urlObservationCounters).toSorted(([left], [right]) =>
     left.localeCompare(right)
   )) {
     const [event = '', transport = '', outcome = '', reason = ''] = key.split('.');
@@ -149,7 +205,9 @@ export const getUrlObservabilityMetrics = (): string => {
 
 /** Clears URL counters and request-context associations for test isolation. */
 export const resetUrlObservabilityCounters = (): void => {
-  for (const key of Object.keys(urlObservationCounters)) {
+  // SAFETY: `urlObservationCounters` is only written under a
+  // `UrlObservationCounterKey` index, so its own keys are that union.
+  for (const key of Object.keys(urlObservationCounters) as UrlObservationCounterKey[]) {
     delete urlObservationCounters[key];
   }
   baseUrlObservationContexts = new WeakMap<BaseUrls, UrlObservationContext>();

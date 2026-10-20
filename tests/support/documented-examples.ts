@@ -1,9 +1,9 @@
 /** @file Reads tested examples from the shipped users guide. */
 import {readFile} from 'node:fs/promises';
-import {resolve} from 'node:path';
+import path from 'node:path';
 
 /** Stable source location for the consumer-facing users guide. */
-export const USERS_GUIDE_PATH = resolve(import.meta.dir, '../../docs/users-guide.md');
+export const USERS_GUIDE_PATH = path.resolve(import.meta.dir, '../../docs/users-guide.md');
 
 /** A marked code fence together with its location in the source document. */
 export interface DocumentedExample {

@@ -10,8 +10,10 @@ import {
   assertQuickStartRepository,
   assertRepositoryMetadataPatch,
   assertRepositoryNodeId,
+  parseJsonDocument,
   parseJsonOutput
 } from './documented-example-contracts.ts';
+import type {CapturedOutput, JsonValue} from './documented-example-contracts.ts';
 import type {DocumentedExampleId, PreparedDocumentedExamples} from './documented-example-execution.ts';
 import type {DocumentedExample} from './documented-examples.ts';
 
@@ -24,7 +26,7 @@ export type DocumentedExampleObservation =
       readonly kind: 'startup-response';
       readonly id: 'run-simulator-command';
       readonly status: number;
-      readonly body: unknown;
+      readonly body: JsonValue;
     };
 
 /** Receives observations from one prepared example session. */
@@ -46,8 +48,8 @@ export interface DocumentedExampleOracleInput {
 }
 
 type TypeScriptOutputContract =
-  | {kind: 'stdout'; validate: (stdout: string) => void}
-  | {kind: 'json'; validate: (value: unknown) => void}
+  | {kind: 'stdout'; validate: (output: CapturedOutput) => void}
+  | {kind: 'json'; validate: (value: JsonValue) => void}
   | {kind: 'text'; expected: string};
 
 const typeScriptOutputContracts: Partial<Record<DocumentedExampleId, TypeScriptOutputContract>> = {
@@ -74,7 +76,7 @@ export const createDocumentedExampleObservationCollector = (): DocumentedExample
     record: (observation) => {
       observations.push(Object.freeze(observation));
     },
-    snapshot: () => observations.slice()
+    snapshot: () => [...observations]
   };
 };
 
@@ -101,11 +103,11 @@ const selectSourceExamples = (
 ): DocumentedExample[] => {
   assert.ok(selectedIds.length > 0, 'the observation oracle requires selected source examples');
   assert.equal(new Set(selectedIds).size, selectedIds.length, 'selected example IDs must be unique');
-  const selected = new Set(selectedIds);
-  const examples = sourceExamples.filter((example) => selected.has(example.id as DocumentedExampleId));
+  const selected = new Set<string>(selectedIds);
+  const examples = sourceExamples.filter((example) => selected.has(example.id));
   assert.deepEqual(
-    examples.map((example) => example.id).sort(),
-    [...selectedIds].sort(),
+    examples.map((example) => example.id).toSorted(),
+    [...selectedIds].toSorted(),
     'selected IDs must exist in the current users-guide source'
   );
   return examples;
@@ -116,7 +118,7 @@ const assertCompletionTrace = (
   examples: readonly DocumentedExample[],
   observations: readonly DocumentedExampleObservation[]
 ): void => {
-  const completedIds = observations.filter(isCompletion).map((observation) => observation.id);
+  const completedIds = observations.flatMap((observation) => (isCompletion(observation) ? [observation.id] : []));
   assert.deepEqual(
     completedIds,
     examples.map((example) => example.id),
@@ -129,48 +131,87 @@ const assertCapturedOutputs = (
   examples: readonly DocumentedExample[],
   observations: readonly DocumentedExampleObservation[]
 ): void => {
-  const outputs = observations.filter(isTypeScriptOutput);
-  const expectedOutputIds = examples
-    .filter((example) => example.language === 'typescript' && example.id !== 'start-simulator-program')
-    .map((example) => example.id);
+  assertTypeScriptOutputs(examples, observations);
+  assertCurlOutputs(examples, observations);
+  assertStartupResponses(examples, observations);
+};
+
+/** One observation kind, the source-derived IDs it must cover, and its validator. */
+interface ObservationExpectation<Observation extends DocumentedExampleObservation> {
+  readonly isKind: (observation: DocumentedExampleObservation) => observation is Observation;
+  readonly expectedIds: readonly string[];
+  readonly validate: (observation: Observation) => void;
+  readonly incompleteMessage: string;
+}
+
+/** Requires exactly the source-derived observations of one kind, in trace order, and validates each one. */
+const assertObservedKind = <Observation extends DocumentedExampleObservation>(
+  observations: readonly DocumentedExampleObservation[],
+  expectation: ObservationExpectation<Observation>
+): void => {
+  const matched = observations.flatMap((observation) => (expectation.isKind(observation) ? [observation] : []));
+  // Both halves matter: a missing observation and a stray or reordered one are
+  // equally invalid evidence, so the comparison is over the full ID sequence
+  // rather than merely checking that an expected ID is present.
   assert.deepEqual(
-    outputs.map((output) => output.id),
-    expectedOutputIds,
-    'TypeScript output evidence is incomplete'
+    matched.map((observation) => observation.id),
+    expectation.expectedIds,
+    expectation.incompleteMessage
   );
 
-  for (const output of outputs) {
-    validateTypeScriptOutput(output);
+  for (const observation of matched) {
+    expectation.validate(observation);
   }
+};
 
-  const curlOutputs = observations.filter(isCurlOutput);
-  const expectedCurlIds = examples
-    .filter((example) => example.id === 'query-simulator-with-curl')
-    .map((example) => example.id);
-  assert.deepEqual(
-    curlOutputs.map((output) => output.id),
-    expectedCurlIds,
-    'curl output evidence is incomplete'
-  );
+/** Lists an example ID when the selected fences include it. */
+const expectedIdsFor = (examples: readonly DocumentedExample[], id: DocumentedExampleId): readonly string[] =>
+  examples.flatMap((example) => (example.id === id ? [example.id] : []));
 
-  for (const output of curlOutputs) {
-    assertCurlResponses(output.stdout);
-  }
+/** Lists IDs of selected fences whose source is a TypeScript program. */
+const executedTypeScriptIds = (examples: readonly DocumentedExample[]): readonly string[] =>
+  examples.flatMap((example) => (isExecutedTypeScriptExample(example) ? [example.id] : []));
 
-  const startupResponses = observations.filter(isStartupResponse);
-  const expectedStartupIds = examples
-    .filter((example) => example.id === 'run-simulator-command')
-    .map((example) => example.id);
-  assert.deepEqual(
-    startupResponses.map((response) => response.id),
-    expectedStartupIds,
-    'startup response evidence is incomplete'
-  );
+/** Requires one captured program output per selected executing TypeScript fence. */
+const assertTypeScriptOutputs = (
+  examples: readonly DocumentedExample[],
+  observations: readonly DocumentedExampleObservation[]
+): void => {
+  assertObservedKind(observations, {
+    isKind: isTypeScriptOutput,
+    expectedIds: executedTypeScriptIds(examples),
+    validate: validateTypeScriptOutput,
+    incompleteMessage: 'TypeScript output evidence is incomplete'
+  });
+};
 
-  for (const response of startupResponses) {
-    assert.equal(response.status, 200);
-    assertQuickStartRepository(response.body);
-  }
+/** Requires the curl guide's output when that fence is selected. */
+const assertCurlOutputs = (
+  examples: readonly DocumentedExample[],
+  observations: readonly DocumentedExampleObservation[]
+): void => {
+  assertObservedKind(observations, {
+    isKind: isCurlOutput,
+    expectedIds: expectedIdsFor(examples, 'query-simulator-with-curl'),
+    validate: (output) => assertCurlResponses({stdout: output.stdout, label: output.id}),
+    incompleteMessage: 'curl output evidence is incomplete'
+  });
+};
+
+/** Requires the startup guide's recorded HTTP response when that fence is selected. */
+const assertStartupResponses = (
+  examples: readonly DocumentedExample[],
+  observations: readonly DocumentedExampleObservation[]
+): void => {
+  assertObservedKind(observations, {
+    isKind: isStartupResponse,
+    expectedIds: expectedIdsFor(examples, 'run-simulator-command'),
+    validate: (response) => {
+      assert.equal(response.status, 200);
+      assertQuickStartRepository(response.body);
+    },
+    incompleteMessage: 'startup response evidence is incomplete'
+  });
 };
 
 /** Applies the existing output contract for one captured TypeScript program. */
@@ -179,7 +220,7 @@ const validateTypeScriptOutput = (output: TypeScriptOutputObservation): void => 
   assert.ok(contract, `no captured-output contract exists for ${output.id}`);
 
   if (contract.kind === 'stdout') {
-    contract.validate(output.stdout);
+    contract.validate({stdout: output.stdout, label: output.id});
     return;
   }
 
@@ -224,8 +265,12 @@ const assertLiveRepositoryResponse = async (
   assert.ok(server, 'the selected startup command must leave its owned server available to the oracle');
   const response = await fetch(`${server.baseUrl}/repos/acme/awesome-repo`);
   assert.equal(response.status, 200);
-  assertQuickStartRepository(await response.json());
+  assertQuickStartRepository(parseJsonDocument(await response.text(), 'live repository response'));
 };
+
+/** Selects fences whose captured stdout must match a TypeScript output contract. */
+const isExecutedTypeScriptExample = (example: DocumentedExample): boolean =>
+  example.language === 'typescript' && example.id !== 'start-simulator-program';
 
 type TypeScriptOutputObservation = Extract<DocumentedExampleObservation, {kind: 'typescript-output'}>;
 type CurlOutputObservation = Extract<DocumentedExampleObservation, {kind: 'curl-output'}>;

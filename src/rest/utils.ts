@@ -114,7 +114,7 @@ export const commitStatusResponse = ({
     sha: ref,
     total_count: statuses.length,
     repository: {
-      id: 1296269,
+      id: 1_296_269,
       node_id: 'MDEwOlJlcG9zaXRvcnkxMjk2MjY5',
       name: repo,
       full_name: `${owner}/${repo}`,

@@ -3,6 +3,7 @@ import {beforeEach, describe, expect, it} from 'bun:test';
 import type {NextFunction, Request, Response} from 'express';
 import {requestActorMiddleware} from '../src/middleware/request-actor.ts';
 import {
+  type ActorContextCarrier,
   correlationIdHeader,
   getActorObservabilityCounters,
   legacyGitHubUserHeader,
@@ -11,14 +12,23 @@ import {
   resetActorObservationCounters
 } from '../src/store/actors.ts';
 
+/** The request surface the middleware reads and decorates. */
+type RequestDouble = ActorContextCarrier & {
+  get(name: string): string | undefined;
+};
+
 /** Builds the small request surface the middleware reads in these tests. */
 const requestWithHeaders = (headers: Record<string, string | undefined>): Request => {
-  const request = {
-    get(name: string) {
-      return headers[name];
-    }
-  };
-  return request as unknown as Request;
+  const request: RequestDouble = {get: (name) => headers[name]};
+  // SAFETY: the middleware under test reads `get` and writes `simulacatActor`;
+  // the double models exactly that surface and is never dispatched through Express.
+  return request as Request;
+};
+
+/** Stands in for the Express response the middleware never reads. */
+const unusedResponse = (): Response => {
+  // SAFETY: `requestActorMiddleware` ignores its second argument entirely.
+  return {} as Response;
 };
 
 /** Invokes the request actor middleware and asserts it passes control onward. */
@@ -28,7 +38,7 @@ const runMiddleware = (request: Request): void => {
   const next: NextFunction = () => {
     didCallNext = true;
   };
-  middleware(request, {} as Response, next);
+  middleware(request, unusedResponse(), next);
   expect(didCallNext).toBe(true);
 };
 

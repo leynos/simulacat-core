@@ -5,7 +5,7 @@ import type {PageArgs} from '../relay.ts';
 import {applyRelayPagination} from '../relay.ts';
 import {convertOrganizationConnection} from '../connections.ts';
 import {toGithubRepositoryOwner} from '../owners.ts';
-import type {DataSchemas, GraphQLData, ToGraphqlDispatcher} from '../to-graphql-shapes.ts';
+import type {DataSchemas, GraphQLData, ToGraphqlDispatcher} from '../to-graphql-types.ts';
 import type {BaseUrls} from '../../http/request-url.ts';
 import type {ExtendedSimulationStore} from '../../store/index.ts';
 
@@ -26,20 +26,19 @@ export function convertUserToGraphql(
 ): GraphQLData['User'] {
   return {
     ...toGithubRepositoryOwner(simulationStore, user, toGraphql, baseUrls),
-    __typename: 'User',
+    __typename: 'User' as const,
     id: user.id.toString(),
+    // The user schema derives `name` from `login` and defaults `bio` and
+    // `created_at`, so these GraphQL fields are always populated.
+    name: user.name,
     bio: user.bio,
-    createdAt: user.created_at ?? new Date(0).toISOString(),
-    ...(user.name ? {name: user.name} : {}),
+    createdAt: user.created_at,
     organizations(pageArgs: PageArgs) {
+      const organizations = simulationStore.schema.organizations.selectByIds(simulationStore.store.getState(), {
+        ids: user.organizations
+      });
       return convertOrganizationConnection(
-        applyRelayPagination(
-          simulationStore.schema.organizations.selectByIds(simulationStore.store.getState(), {
-            ids: user.organizations
-          }),
-          pageArgs,
-          (org) => toGraphql(simulationStore, 'Organization', org)
-        )
+        applyRelayPagination(organizations, pageArgs, (org) => toGraphql(simulationStore, 'Organization', org))
       );
     }
   };

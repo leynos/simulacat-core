@@ -16,8 +16,8 @@ const makeCleanupActions = (
 ): ExampleCleanupActions => ({
   fixturePath: overrides.fixturePath ?? '/cache/documented-examples-test',
   now: overrides.now ?? now,
-  stop: overrides.stop ?? (async () => undefined),
-  remove: overrides.remove ?? (async () => undefined),
+  stop: overrides.stop ?? (async () => {}),
+  remove: overrides.remove ?? (async () => {}),
   observe: overrides.observe ?? ((observation) => observations.push(observation))
 });
 
@@ -149,10 +149,10 @@ describe('documented-example process shutdown failures', () => {
     await scheduler.waitForScheduledTimer(0);
     scheduler.advanceBy(DOCUMENTED_EXAMPLE_SHUTDOWN_LIMITS.gracefulMs);
 
-    const failure = await stopping.catch((error: unknown) => error);
-    expect(failure).toBeInstanceOf(Error);
-    expect((failure as Error).message).toContain('sending SIGKILL to the owned process group failed');
-    expect((failure as Error).cause).toBe(signalError);
+    const failure = await stopping.catch((error: Error) => error);
+    if (!(failure instanceof Error)) throw new Error('shutdown should reject with an Error');
+    expect(failure.message).toContain('sending SIGKILL to the owned process group failed');
+    expect(failure.cause).toBe(signalError);
     expect(target.listenerCount).toBe(0);
     expect(scheduler.cancellationCount).toBe(1);
   });

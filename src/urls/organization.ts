@@ -28,8 +28,31 @@ export const organizationUrlFields = [
 ] as const;
 
 export type OrganizationUrlField = (typeof organizationUrlFields)[number];
-export type OrganizationUrlPayload = Omit<GitHubOrganization, OrganizationUrlField> &
-  Partial<Record<OrganizationUrlField, string | undefined>>;
+
+/**
+ * Extra owner URL fields retained when projecting a repository owner.
+ *
+ * `toRepoOwner` keeps these fields while dropping organization-only ones, so
+ * the projection payload must allow them through unchanged.
+ */
+type OrganizationOwnerUrlField =
+  | 'followers_url'
+  | 'following_url'
+  | 'gists_url'
+  | 'starred_url'
+  | 'subscriptions_url'
+  | 'organizations_url'
+  | 'received_events_url';
+
+/**
+ * Minimum organization data the URL builders read.
+ *
+ * Callers such as REST repository-owner projection pass a partial owner record
+ * rather than a full fixture, so the payload requires only the identity fields
+ * and treats every derived URL field as optional.
+ */
+export type OrganizationUrlPayload = Pick<GitHubOrganization, 'id' | 'login'> &
+  Partial<Record<OrganizationUrlField | OrganizationOwnerUrlField, string | undefined>>;
 
 const organizationUrlBuilders = {
   url: (organization, baseUrls) => apiUrl(baseUrls, `/orgs/${urlPathSegment(organization.login)}`),

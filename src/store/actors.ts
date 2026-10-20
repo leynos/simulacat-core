@@ -232,14 +232,18 @@ export type RequireUserActorResult = RequiredUserActor | RequiredUserActorFailur
  */
 const actorDiagnosticLabel = (actor: RequestActor | ResolvedRequestActor): string => {
   switch (actor.kind) {
-    case 'anonymous':
+    case 'anonymous': {
       return 'anonymous';
-    case 'user':
+    }
+    case 'user': {
       return `user:${actor.login}`;
-    case 'app':
+    }
+    case 'app': {
       return actor.appId === undefined ? `app:${actor.slug}` : `app:${actor.appId}`;
-    case 'installation':
+    }
+    case 'installation': {
       return `installation:${actor.installationId}`;
+    }
     default: {
       const exhaustive: never = actor;
       return JSON.stringify(exhaustive);
@@ -342,7 +346,7 @@ export const getActorObservabilityCounters = (): Readonly<Record<string, number>
  * @returns Label value with backslashes, quotes, and newlines escaped.
  */
 const escapePrometheusLabel = (value: string): string => {
-  return value.replaceAll('\\', '\\\\').replaceAll('"', '\\"').replaceAll('\n', '\\n');
+  return value.replaceAll('\\', String.raw`\\`).replaceAll('"', String.raw`\"`).replaceAll('\n', String.raw`\n`);
 };
 
 /**
@@ -356,7 +360,7 @@ export const getActorObservabilityMetrics = (): string => {
     '# HELP simulacat_actor_observations_total Actor authentication observations.',
     '# TYPE simulacat_actor_observations_total counter'
   ];
-  for (const [key, value] of Object.entries(actorObservationCounters).sort(([left], [right]) =>
+  for (const [key, value] of Object.entries(actorObservationCounters).toSorted(([left], [right]) =>
     left.localeCompare(right)
   )) {
     const [event = '', actorKind = '', outcome = '', source = '', ...reasonParts] = key.split('.');
@@ -444,14 +448,18 @@ type SplitHeaderValue = {
  */
 const parseKindedActor = ({kind, rawIdentifier}: SplitHeaderValue): RequestActor | undefined => {
   switch (kind) {
-    case 'user':
+    case 'user': {
       return {kind: 'user', login: rawIdentifier};
-    case 'app':
+    }
+    case 'app': {
       return parseAppActor(rawIdentifier);
-    case 'installation':
+    }
+    case 'installation': {
       return parseInstallationActor(rawIdentifier);
-    default:
+    }
+    default: {
       return undefined;
+    }
   }
 };
 
@@ -470,7 +478,7 @@ export const parseActorHeaderValue = (headerValue: string): RequestActor | undef
   }
 
   const separatorIndex = value.indexOf(':');
-  if (separatorIndex < 0) {
+  if (separatorIndex === -1) {
     return undefined;
   }
 
@@ -626,14 +634,18 @@ export const resolveRequestActor = (
   }
 ): ResolvedRequestActor => {
   switch (actor.kind) {
-    case 'anonymous':
+    case 'anonymous': {
       return actor;
-    case 'user':
+    }
+    case 'user': {
       return resolveUserActor(actor, input.users);
-    case 'app':
+    }
+    case 'app': {
       return resolveAppActor(actor, input.installations);
-    case 'installation':
+    }
+    case 'installation': {
       return resolveInstallationActor(actor, input.installations);
+    }
     default: {
       const exhaustive: never = actor;
       throw new Error(`Unsupported request actor kind: ${JSON.stringify(exhaustive)}`);
@@ -832,14 +844,18 @@ const installationResolutionOutcome = (resolvedActor: ResolvedRequestActor): Res
  */
 const actorResolutionOutcome = (actor: RequestActor, resolvedActor: ResolvedRequestActor): ResolutionOutcome => {
   switch (actor.kind) {
-    case 'anonymous':
+    case 'anonymous': {
       return {outcome: 'anonymous'};
-    case 'user':
+    }
+    case 'user': {
       return userResolutionOutcome(resolvedActor);
-    case 'app':
+    }
+    case 'app': {
       return appResolutionOutcome(resolvedActor);
-    case 'installation':
+    }
+    case 'installation': {
       return installationResolutionOutcome(resolvedActor);
+    }
     default: {
       const exhaustive: never = actor;
       throw new Error(`Unsupported request actor kind: ${JSON.stringify(exhaustive)}`);

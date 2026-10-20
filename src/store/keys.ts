@@ -1,21 +1,19 @@
 /** @file Canonical store key helpers for GitHub repository-owned entities. */
-import {blobStoreKey} from './entities/blob.ts';
-import {branchStoreKey} from './entities/branch.ts';
+export {blobStoreKey} from './entities/blob.ts';
+export {branchStoreKey} from './entities/branch.ts';
+export {commitStoreKey} from './entities/commit.ts';
+export {issueStoreKey} from './entities/issue.ts';
+export {pullRequestStoreKey} from './entities/pull-request.ts';
+export {refStoreKey} from './entities/ref.ts';
+export {repositoryStoreKey} from './entities/repository.ts';
+
+// Re-exported values are referenced by the node-ID helpers below; `export ...
+// from` alone would keep them out of this module's scope.
 import {commitStoreKey} from './entities/commit.ts';
 import {issueStoreKey} from './entities/issue.ts';
 import {pullRequestStoreKey} from './entities/pull-request.ts';
 import {refStoreKey} from './entities/ref.ts';
 import {repositoryStoreKey} from './entities/repository.ts';
-
-export {
-  blobStoreKey,
-  branchStoreKey,
-  commitStoreKey,
-  issueStoreKey,
-  pullRequestStoreKey,
-  refStoreKey,
-  repositoryStoreKey
-};
 
 /** The `owner` and `name` parts of a repository store key. */
 export type RepositoryStoreKeyParts = {
@@ -60,9 +58,15 @@ export type IssueStoreKeyParts = {
 
 /**
  * The `owner`, `repo`, and positive `number` parts of a pull-request store
- * key.
+ * key. Pull requests and issues share the same key coordinates but remain
+ * distinct entities, so the structure is declared here rather than aliasing
+ * the issue key.
  */
-export type PullRequestStoreKeyParts = IssueStoreKeyParts;
+export type PullRequestStoreKeyParts = {
+  owner: string;
+  repo: string;
+  number: number;
+};
 
 /** Shared coordinates for any repository-scoped entity. */
 export type RepositoryCoords = {

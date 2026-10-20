@@ -1,4 +1,5 @@
 /** @file Shared helpers for request-scoped URL projection. */
+import {z} from 'zod';
 import type {BaseUrls} from '../http/request-url.ts';
 import {buildUrl} from '../http/request-url.ts';
 
@@ -22,6 +23,12 @@ export type UrlBuilder<Entity extends object, Value> = (entity: Entity, baseUrls
  */
 export const urlPathSegment = (value: string | number): string => encodeURIComponent(String(value));
 
+/** Normalizes a repository owner supplied as a login or REST owner object. */
+const repositoryOwnerLoginSchema = z.union([
+  z.object({login: z.string()}).transform((owner) => owner.login),
+  z.string()
+]);
+
 /**
  * Builds an encoded owner and repository path from separate fixture fields.
  *
@@ -30,7 +37,7 @@ export const urlPathSegment = (value: string | number): string => encodeURICompo
  * @returns Encoded owner/repository path.
  */
 export const repositoryPath = (owner: string | {login: string}, repository: string): string => {
-  const login = typeof owner === 'string' ? owner : owner.login;
+  const login = repositoryOwnerLoginSchema.parse(owner);
   return `${urlPathSegment(login)}/${urlPathSegment(repository)}`;
 };
 
@@ -40,7 +47,11 @@ export const repositoryPath = (owner: string | {login: string}, repository: stri
  * @param ref Qualified Git ref name.
  * @returns Encoded Git ref path with separators preserved.
  */
-export const gitRefPath = (ref: string): string => ref.split('/').map(urlPathSegment).join('/');
+export const gitRefPath = (ref: string): string =>
+  ref
+    .split('/')
+    .map((segment) => urlPathSegment(segment))
+    .join('/');
 
 /**
  * Describes a set of fields that share one host class.
@@ -87,6 +98,9 @@ export const projectDerivedFields = <Entity extends object, Field extends string
   fields: readonly Field[],
   builders: Record<Field, UrlBuilder<Entity, Value>>
 ): Entity & Partial<Record<Field, Value>> => {
+  // SAFETY: the copy starts with the same fields as `entity`; the widened
+  // declaration only lets the loop add the derived URL fields, which every
+  // caller lists in `fields` and `builders`.
   const projected = {...entity} as Entity & Partial<Record<Field, Value>>;
   const projectedFields: Partial<Record<Field, Value>> = projected;
 

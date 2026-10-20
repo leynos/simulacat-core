@@ -21,16 +21,11 @@ import {
   selectAuthenticatedUser,
   type RequestActor
 } from '../src/store/actors.ts';
-import type {GraphQLUserContext} from '../src/graphql/handler.ts';
 import type {GraphQLContext} from '../src/graphql/resolvers.ts';
 import type {GitHubAppInstallation, GitHubUser} from '../src/store/entities.ts';
 
-// Compile-time assertion: the Yoga context shape must carry requestActor.
-type _AssertContext = GraphQLUserContext extends {requestActor: RequestActor} ? true : never;
-const _ctx: _AssertContext = true;
-void _ctx;
-
-// Compile-time assertion: handler and resolver contexts agree on requestActor.
+// Compile-time assertion: the handler and resolver share one context shape and
+// that shape must carry requestActor.
 type _AssertGraphQLContext = GraphQLContext extends {requestActor: RequestActor} ? true : never;
 const _graphqlCtx: _AssertGraphQLContext = true;
 void _graphqlCtx;
@@ -89,6 +84,11 @@ type PrecedenceActorValues = {
   githubLogin: string;
 };
 
+/** Request headers supplied to the actor parser; absent headers are omitted. */
+interface PrecedenceHeaders {
+  readonly [name: string]: string;
+}
+
 /**
  * Builds the header record for one precedence test combination.
  *
@@ -99,11 +99,23 @@ type PrecedenceActorValues = {
 const buildPrecedenceHeaders = (
   combination: PrecedenceCombination,
   values: PrecedenceActorValues
-): Record<string, string> => ({
-  ...(combination.hasPreferred ? {[requestActorHeader]: values.preferredValue} : {}),
-  ...(combination.hasSimulacat ? {[legacySimulacatUserHeader]: values.simulacatLogin} : {}),
-  ...(combination.hasGithub ? {[legacyGitHubUserHeader]: values.githubLogin} : {})
-});
+): PrecedenceHeaders => {
+  const headerValues: Record<string, string> = {};
+
+  if (combination.hasPreferred) {
+    headerValues[requestActorHeader] = values.preferredValue;
+  }
+
+  if (combination.hasSimulacat) {
+    headerValues[legacySimulacatUserHeader] = values.simulacatLogin;
+  }
+
+  if (combination.hasGithub) {
+    headerValues[legacyGitHubUserHeader] = values.githubLogin;
+  }
+
+  return headerValues;
+};
 
 /**
  * Computes the actor expected for one precedence test combination.
@@ -267,17 +279,16 @@ describe('request actor parsing', () => {
   });
 
   it('rejects unsafe integers in app and installation positions', () => {
+    const unsafeInteger = fc.bigInt({
+      min: BigInt(Number.MAX_SAFE_INTEGER) + 1n,
+      max: BigInt(Number.MAX_SAFE_INTEGER) + 1_000_000n
+    });
+
     fc.assert(
-      fc.property(
-        fc.bigInt({
-          min: BigInt(Number.MAX_SAFE_INTEGER) + 1n,
-          max: BigInt(Number.MAX_SAFE_INTEGER) + 1_000_000n
-        }),
-        (n) => {
-          expect(parseActorHeaderValue(`installation:${n}`)).toBeUndefined();
-          expect(parseActorHeaderValue(`app:${n}`)).toBeUndefined();
-        }
-      )
+      fc.property(unsafeInteger, (n) => {
+        expect(parseActorHeaderValue(`installation:${n}`)).toBeUndefined();
+        expect(parseActorHeaderValue(`app:${n}`)).toBeUndefined();
+      })
     );
   });
 
@@ -422,8 +433,8 @@ describe('actor observability counters', () => {
     const {SIMULACAT_ACTOR_OBSERVABILITY: originalEnabled} = process.env;
     const lines: string[] = [];
 
-    console.debug = (message?: unknown) => {
-      lines.push(String(message));
+    console.debug = (message: string) => {
+      lines.push(message);
     };
     Reflect.set(process.env, 'SIMULACAT_ACTOR_OBSERVABILITY', '1');
     try {
@@ -469,10 +480,11 @@ describe('actor observability counters', () => {
       'rest-resolution.user.unresolved.unknown-user': 1,
       'graphql-authentication.anonymous.failure.Query.viewer': 1
     });
-    expect(getActorObservabilityMetrics()).toContain(
+    const metrics = getActorObservabilityMetrics();
+    expect(metrics).toContain(
       'simulacat_actor_observations_total{event="rest-parse",actor_kind="anonymous",outcome="fallback",source="preferred",reason="invalid-preferred-header"} 1'
     );
-    expect(getActorObservabilityMetrics()).toContain(
+    expect(metrics).toContain(
       'simulacat_actor_observations_total{event="graphql-authentication",actor_kind="anonymous",outcome="failure",source="",reason="Query.viewer"} 1'
     );
   });

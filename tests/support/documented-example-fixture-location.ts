@@ -1,5 +1,5 @@
 /** @file Guards external cache locations for documented-example consumers. */
-import {isAbsolute, relative, sep} from 'node:path';
+import path from 'node:path';
 
 /**
  * Rejects a fixture cache parent at or below the canonical checkout path.
@@ -9,7 +9,7 @@ import {isAbsolute, relative, sep} from 'node:path';
  * @throws Error when the cache parent is equal to or inside the checkout.
  */
 export const assertFixtureCacheOutsideCheckout = (checkoutPath: string, cacheParent: string): void => {
-  const relativePath = relative(checkoutPath, cacheParent);
+  const relativePath = path.relative(checkoutPath, cacheParent);
 
   if (relativePath === '' || !isParentTraversal(relativePath)) {
     throw new Error(`Documented-example cache must be outside the checkout: ${cacheParent}`);
@@ -17,14 +17,14 @@ export const assertFixtureCacheOutsideCheckout = (checkoutPath: string, cachePar
 };
 
 /** Identifies a relative path that escapes its parent directory. */
-const isParentTraversal = (path: string): boolean => {
-  if (path === '..') {
+const isParentTraversal = (relativePath: string): boolean => {
+  if (relativePath === '..') {
     return true;
   }
 
-  if (path.startsWith(`..${sep}`)) {
+  if (relativePath.startsWith(`..${path.sep}`)) {
     return true;
   }
 
-  return isAbsolute(path);
+  return path.isAbsolute(relativePath);
 };

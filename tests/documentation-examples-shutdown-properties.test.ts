@@ -13,7 +13,7 @@ import {
 
 type ShutdownOutcome =
   | {kind: 'closed'; result: CommandResult; settledAt: number}
-  | {kind: 'rejected'; error: unknown; settledAt: number};
+  | {kind: 'rejected'; error: Error; settledAt: number};
 
 interface ShutdownHarness {
   target: FakeShutdownTarget;
@@ -62,7 +62,7 @@ const createShutdownHarness = (scenario: ShutdownScenario): ShutdownHarness => {
     (result) => {
       observedOutcome = {kind: 'closed', result, settledAt: scheduler.now()};
     },
-    (error: unknown) => {
+    (error: Error) => {
       observedOutcome = {kind: 'rejected', error, settledAt: scheduler.now()};
     }
   );

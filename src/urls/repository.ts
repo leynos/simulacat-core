@@ -59,8 +59,19 @@ export const repositoryUrlFields = [
 ] as const;
 
 export type RepositoryUrlField = (typeof repositoryUrlFields)[number];
-export type RepositoryUrlPayload = Omit<GitHubRepository, RepositoryUrlField> &
-  Partial<Record<RepositoryUrlField, string | null | undefined>>;
+
+/**
+ * Repository owner as accepted by URL projection.
+ *
+ * Stored repositories carry the owner login, while REST repository listings
+ * resolve it to a user or organization object; both forms expose `login` (or
+ * are a login themselves) and drive the same path segments.
+ */
+export type RepositoryOwnerPathInput = string | {login: string};
+
+export type RepositoryUrlPayload = Omit<GitHubRepository, RepositoryUrlField | 'owner'> & {
+  owner: RepositoryOwnerPathInput;
+} & Partial<Record<RepositoryUrlField, string | null | undefined>>;
 
 /** Builds the repository API path shared by derived fields. */
 const apiPath = (repository: RepositoryUrlPayload) => `/repos/${repositoryPath(repository.owner, repository.name)}`;

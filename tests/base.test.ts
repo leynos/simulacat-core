@@ -19,6 +19,70 @@ const buildActorObservabilityState = () => ({
   blobs: []
 });
 
+describe('OAuth authorize route query validation', () => {
+  let server: SimulationServer;
+  let baseUrl: string;
+
+  beforeAll(async () => {
+    server = await simulation({initialState: buildActorObservabilityState()}).listen(0);
+    baseUrl = `http://localhost:${server.port}`;
+  });
+
+  afterAll(async () => {
+    await server.ensureClose();
+  });
+
+  it('redirects with the development code when the query values are strings', async () => {
+    const response = await fetch(
+      `${baseUrl}/login/oauth/authorize?redirect_uri=${encodeURIComponent('http://localhost:3000/callback')}&state=xyz`,
+      {redirect: 'manual'}
+    );
+
+    expect(response.status).toBe(302);
+    // `env` stays in the query string even when absent, matching the helper's
+    // fixed development payload.
+    expect(response.headers.get('location')).toBe('http://localhost:3000/callback?code=dev_code&env=&state=xyz');
+  });
+
+  it('redirects with empty optional values when only redirect_uri is supplied', async () => {
+    const params = new URLSearchParams({redirect_uri: 'http://localhost:3000/callback'});
+    const response = await fetch(`${baseUrl}/login/oauth/authorize?${params}`, {redirect: 'manual'});
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get('location')).toBe('http://localhost:3000/callback?code=dev_code&env=&state=');
+  });
+
+  it('rejects a repeated redirect_uri instead of coercing it into the redirect', async () => {
+    const response = await fetch(
+      `${baseUrl}/login/oauth/authorize?redirect_uri=${encodeURIComponent('http://localhost:3000/a')}&redirect_uri=${encodeURIComponent('http://localhost:3000/b')}`,
+      {redirect: 'manual'}
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({message: 'Bad Request'});
+  });
+
+  for (const optionalField of ['state', 'env']) {
+    it(`rejects a repeated ${optionalField} instead of coercing optional query values`, async () => {
+      const params = new URLSearchParams({redirect_uri: 'http://localhost:3000/callback'});
+      params.append(optionalField, 'first');
+      params.append(optionalField, 'second');
+      const response = await fetch(`${baseUrl}/login/oauth/authorize?${params}`, {redirect: 'manual'});
+
+      expect(response.status).toBe(400);
+      expect(await response.json()).toEqual({message: 'Bad Request'});
+      expect(response.headers.get('location')).toBeNull();
+    });
+  }
+
+  it('rejects a missing redirect_uri', async () => {
+    const response = await fetch(`${baseUrl}/login/oauth/authorize`, {redirect: 'manual'});
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({message: 'Bad Request'});
+  });
+});
+
 describe('router extension tests', () => {
   let server: SimulationServer;
   beforeAll(async () => {
@@ -115,7 +179,7 @@ describe('actor observability end-to-end', () => {
       .filter((line) => !line.startsWith('#') && line.includes('simulacat_actor_observations_total'))
       .some((line) => {
         const parts = line.split(' ');
-        return parts.length >= 2 && Number(parts[parts.length - 1]) > 0;
+        return parts.length >= 2 && Number(parts.at(-1)) > 0;
       });
     expect(nonZeroCounter).toBe(true);
   });

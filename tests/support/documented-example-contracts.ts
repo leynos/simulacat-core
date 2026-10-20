@@ -1,43 +1,97 @@
 /** @file Checks observable results produced by users-guide examples. */
 import assert from 'node:assert/strict';
-
-type JsonObject = Record<string, unknown>;
+import {z} from 'zod';
 
 /** Captured command output paired with the label used for diagnostics. */
 export interface CapturedOutput {
-  stdout: string;
-  label: string;
+  readonly stdout: string;
+  readonly label: string;
 }
 
 /**
- * Parses a command's final JSON line as an untrusted value.
+ * A JSON scalar the guide examples emit.
+ *
+ * The contracts assert against decoded command output rather than trusting a
+ * producer-supplied type, so every leaf is narrowed from this union before it
+ * is compared.
+ */
+export type JsonScalar = string | number | boolean | null;
+
+/** A decoded JSON object whose fields are validated on access. */
+export interface JsonObject {
+  [key: string]: JsonValue | undefined;
+}
+
+/** Any value a JSON document can contain. */
+export type JsonValue = JsonScalar | JsonObject | JsonValue[];
+
+const jsonValueSchema: z.ZodType<JsonValue, z.ZodTypeDef, unknown> = z.lazy(() =>
+  z.union([z.string(), z.number(), z.boolean(), z.null(), z.array(jsonValueSchema), jsonObjectSchema])
+);
+
+const jsonObjectSchema: z.ZodType<JsonObject, z.ZodTypeDef, unknown> = z.lazy(() =>
+  z.record(z.string(), jsonValueSchema)
+);
+
+const jsonOutputSchema = z.union([jsonValueSchema, z.null()]);
+
+/**
+ * Parses a command's final JSON line, rejecting lines that are not JSON.
  *
  * @param output Captured command output and its diagnostic label.
- * @returns Parsed JSON value.
+ * @returns Decoded JSON value for the contract under test.
  * @throws Error when output has no final line or contains invalid JSON.
  */
-export const parseJsonOutput = (output: CapturedOutput): unknown => {
+export const parseJsonOutput = (output: CapturedOutput): JsonValue => {
   const line = output.stdout.trim().split(/\r?\n/).at(-1);
 
   if (!line) {
     throw new Error(`${output.label} produced no JSON output`);
   }
 
+  return parseJsonDocument(line, output.label);
+};
+
+/**
+ * Decodes a JSON document such as an HTTP response body.
+ *
+ * @param text Raw JSON text.
+ * @param label Diagnostic name for the document.
+ * @returns Decoded JSON value for the contract under test.
+ * @throws Error when the text is not valid JSON.
+ */
+export const parseJsonDocument = (text: string, label: string): JsonValue => {
+  let decoded: JsonValue;
   try {
-    return JSON.parse(line) as unknown;
+    decoded = parseJsonLine(text);
   } catch (error) {
-    throw new Error(`${output.label} produced invalid JSON`, {cause: error});
+    throw new Error(`${label} produced invalid JSON`, {cause: error});
   }
+
+  return decoded;
+};
+
+/** Decodes one line of JSON, preserving the parser's error as the cause. */
+const parseJsonLine = (line: string): JsonValue => {
+  const decoded = jsonOutputSchema.safeParse(JSON.parse(line));
+  if (!decoded.success) {
+    throw new TypeError('JSON output has an unsupported shape', {cause: decoded.error});
+  }
+  return decoded.data;
 };
 
 /**
  * Checks that the repository node ID encodes its documented canonical value.
  *
- * @param stdout Captured ID from the documented program.
+ * @param output Captured ID from the documented program and its diagnostic label.
  */
-export const assertRepositoryNodeId = (stdout: string): void => {
-  const nodeId = stdout.trim();
-  assert.equal(Buffer.from(nodeId, 'base64').toString(), 'Repository:acme/awesome-repo');
+export const assertRepositoryNodeId = (output: CapturedOutput): void => {
+  const nodeId = output.stdout.trim();
+  assert.equal(
+    Buffer.from(nodeId, 'base64').toString(),
+    'Repository:acme/awesome-repo',
+    `${output.label} did not produce the canonical repository node ID`
+  );
 };
 
 /**
@@ -45,14 +99,14 @@ export const assertRepositoryNodeId = (stdout: string): void => {
  *
  * @param value Parsed builder output.
  */
-export const assertFixtureBuilders = (value: unknown): void => {
+export const assertFixtureBuilders = (value: JsonValue): void => {
   const results = asObject(value, 'fixture builder results');
-  assert.equal(stringAt(asObject(propertyAt(results, 'repo'), 'repo'), 'full_name'), 'acme/awesome-repo');
-  assert.equal(stringAt(asObject(propertyAt(results, 'branch'), 'branch'), 'name'), 'main');
-  assert.equal(stringAt(asObject(propertyAt(results, 'commit'), 'commit'), 'sha'), 'abc123');
-  assert.equal(stringAt(asObject(propertyAt(results, 'ref'), 'ref'), 'qualifiedName'), 'main');
-  assert.equal(numberAt(asObject(propertyAt(results, 'issue'), 'issue'), 'number'), 1);
-  assert.equal(numberAt(asObject(propertyAt(results, 'pullRequest'), 'pull request'), 'number'), 2);
+  assert.equal(stringAt(objectAt(results, 'repo', 'repo'), 'full_name'), 'acme/awesome-repo');
+  assert.equal(stringAt(objectAt(results, 'branch', 'branch'), 'name'), 'main');
+  assert.equal(stringAt(objectAt(results, 'commit', 'commit'), 'sha'), 'abc123');
+  assert.equal(stringAt(objectAt(results, 'ref', 'ref'), 'qualifiedName'), 'main');
+  assert.equal(numberAt(objectAt(results, 'issue', 'issue'), 'number'), 1);
+  assert.equal(numberAt(objectAt(results, 'pullRequest', 'pull request'), 'number'), 2);
 };
 
 /**
@@ -60,30 +114,25 @@ export const assertFixtureBuilders = (value: unknown): void => {
  *
  * @param value Parsed REST and GraphQL output.
  */
-export const assertCollaborationEntities = (value: unknown): void => {
+export const assertCollaborationEntities = (value: JsonValue): void => {
   const result = asObject(value, 'collaboration results');
-  const rest = asArray(propertyAt(result, 'rest'), 'REST results');
+  const rest = arrayAt(result, 'rest', 'REST results');
   assert.equal(rest.length, 4);
 
   for (const [index, response] of rest.entries()) {
     assert.equal(numberAt(asObject(response, `REST response ${index}`), 'status'), 200);
   }
 
-  const ref = asObject(propertyAt(asObject(rest[0], 'ref response'), 'body'), 'ref body');
-  const commit = asObject(propertyAt(asObject(rest[1], 'commit response'), 'body'), 'commit body');
-  const issue = asObject(propertyAt(asObject(rest[2], 'issue response'), 'body'), 'issue body');
-  const pullRequest = asObject(propertyAt(asObject(rest[3], 'pull request response'), 'body'), 'pull request body');
-  assert.equal(stringAt(ref, 'ref'), 'refs/heads/main');
-  assert.equal(stringAt(commit, 'sha'), 'abc123');
-  assert.equal(numberAt(issue, 'number'), 1);
-  assert.equal(numberAt(pullRequest, 'number'), 2);
+  assert.equal(stringAt(bodyOf(rest, 0, 'ref response'), 'ref'), 'refs/heads/main');
+  assert.equal(stringAt(bodyOf(rest, 1, 'commit response'), 'sha'), 'abc123');
+  assert.equal(numberAt(bodyOf(rest, 2, 'issue response'), 'number'), 1);
+  assert.equal(numberAt(bodyOf(rest, 3, 'pull request response'), 'number'), 2);
 
-  const graphQl = asObject(propertyAt(result, 'graphQl'), 'GraphQL response');
+  const graphQl = objectAt(result, 'graphQl', 'GraphQL response');
   assert.equal(propertyAt(graphQl, 'errors'), undefined);
-  const data = asObject(propertyAt(graphQl, 'data'), 'GraphQL data');
-  const repository = asObject(propertyAt(data, 'repository'), 'GraphQL repository');
-  assert.equal(stringAt(asObject(propertyAt(repository, 'defaultBranchRef'), 'default branch ref'), 'name'), 'main');
-  assert.equal(stringAt(asObject(propertyAt(repository, 'ref'), 'branch ref'), 'name'), 'main');
+  const repository = objectAt(objectAt(graphQl, 'data', 'GraphQL data'), 'repository', 'GraphQL repository');
+  assert.equal(stringAt(objectAt(repository, 'defaultBranchRef', 'default branch ref'), 'name'), 'main');
+  assert.equal(stringAt(objectAt(repository, 'ref', 'branch ref'), 'name'), 'main');
   assert.equal(numberAt(firstNode(repository, 'issues'), 'number'), 1);
   assert.equal(numberAt(firstNode(repository, 'pullRequests'), 'number'), 2);
 };
@@ -93,16 +142,15 @@ export const assertCollaborationEntities = (value: unknown): void => {
  *
  * @param value Parsed write and read output.
  */
-export const assertRepositoryMetadataPatch = (value: unknown): void => {
+export const assertRepositoryMetadataPatch = (value: JsonValue): void => {
   const result = asObject(value, 'repository metadata results');
-  const responseRepository = asObject(propertyAt(result, 'repository'), 'PATCH response repository');
-  const persisted = asObject(propertyAt(result, 'persisted'), 'persisted repository');
-  const organizationRepositories = asArray(propertyAt(result, 'organizationRepositories'), 'organization repositories');
+  const responseRepository = objectAt(result, 'repository', 'PATCH response repository');
+  const persisted = objectAt(result, 'persisted', 'persisted repository');
+  const organizationRepositories = arrayAt(result, 'organizationRepositories', 'organization repositories');
   const organizationRepository = asObject(organizationRepositories[0], 'organization repository');
-  const graphQl = asObject(propertyAt(result, 'graphQl'), 'GraphQL response');
+  const graphQl = objectAt(result, 'graphQl', 'GraphQL response');
   assert.equal(propertyAt(graphQl, 'errors'), undefined);
-  const graphQlData = asObject(propertyAt(graphQl, 'data'), 'GraphQL data');
-  const graphQlRepository = asObject(propertyAt(graphQlData, 'repository'), 'GraphQL repository');
+  const graphQlRepository = objectAt(objectAt(graphQl, 'data', 'GraphQL data'), 'repository', 'GraphQL repository');
 
   for (const repository of [responseRepository, persisted, organizationRepository]) {
     assert.equal(stringAt(repository, 'description'), 'Patched via shared action');
@@ -120,7 +168,7 @@ export const assertRepositoryMetadataPatch = (value: unknown): void => {
  *
  * @param value Parsed repository response.
  */
-export const assertMountedApiRoot = (value: unknown): void => {
+export const assertMountedApiRoot = (value: JsonValue): void => {
   const repository = asObject(value, 'mounted API repository');
   const apiUrl = stringAt(repository, 'url');
   const webUrl = stringAt(repository, 'html_url');
@@ -134,7 +182,7 @@ export const assertMountedApiRoot = (value: unknown): void => {
  *
  * @param value Parsed repository response.
  */
-export const assertFixtureUrlOverrides = (value: unknown): void => {
+export const assertFixtureUrlOverrides = (value: JsonValue): void => {
   const repository = asObject(value, 'fixture URL repository');
   assert.equal(stringAt(repository, 'html_url'), 'https://docs.example.test/acme/awesome-repo');
   assert.equal(propertyAt(repository, 'mirror_url'), null);
@@ -143,11 +191,11 @@ export const assertFixtureUrlOverrides = (value: unknown): void => {
 /**
  * Checks a curl client reads both the seeded repository and request actor.
  *
- * @param stdout Captured output from both curl commands.
+ * @param output Captured output from both curl commands and its diagnostic label.
  */
-export const assertCurlResponses = (stdout: string): void => {
-  const lines = stdout.trim().split(/\r?\n/);
-  assert.equal(lines.length, 2);
+export const assertCurlResponses = (output: CapturedOutput): void => {
+  const lines = output.stdout.trim().split(/\r?\n/);
+  assert.equal(lines.length, 2, `${output.label} must print one JSON line per curl command`);
   const repository = asObject(
     parseJsonOutput({stdout: lines[0] ?? '', label: 'repository curl'}),
     'repository curl response'
@@ -162,63 +210,63 @@ export const assertCurlResponses = (stdout: string): void => {
  *
  * @param value Parsed repository response.
  */
-export const assertQuickStartRepository = (value: unknown): void => {
+export const assertQuickStartRepository = (value: JsonValue): void => {
   assert.equal(stringAt(asObject(value, 'quick-start repository'), 'full_name'), 'acme/awesome-repo');
 };
 
 /** Returns an object after verifying an untrusted JSON value's shape. */
-const asObject = (value: unknown, label: string): JsonObject => {
-  if (typeof value !== 'object' || value === null) {
-    throw new Error(`${label} must be a JSON object`);
+const asObject = (value: JsonValue | undefined, label: string): JsonObject => {
+  const decoded = jsonObjectSchema.safeParse(value);
+  if (!decoded.success) {
+    throw new TypeError(`${label} must be a JSON object`, {cause: decoded.error});
   }
-
-  if (Array.isArray(value)) {
-    throw new Error(`${label} must be a JSON object`);
-  }
-
-  return value as JsonObject;
-};
-
-/** Reads one JSON field without assuming its value type. */
-const propertyAt = (value: JsonObject, key: string): unknown => {
-  return value[key];
+  return decoded.data;
 };
 
 /** Returns an array after verifying an untrusted JSON value's shape. */
-const asArray = (value: unknown, label: string): unknown[] => {
-  if (!Array.isArray(value)) {
-    throw new Error(`${label} must be a JSON array`);
+const asArray = (value: JsonValue | undefined, label: string): JsonValue[] => {
+  const decoded = z.array(jsonValueSchema).safeParse(value);
+  if (!decoded.success) {
+    throw new TypeError(`${label} must be a JSON array`, {cause: decoded.error});
   }
-
-  return value;
+  return decoded.data;
 };
+
+/** Reads a field that the calling contract asserts is present. */
+const propertyAt = (value: JsonObject, key: string): JsonValue | undefined => value[key];
+
+/** Reads a nested object field, naming the source value in any failure. */
+const objectAt = (value: JsonObject, key: string, label: string): JsonObject => asObject(propertyAt(value, key), label);
+
+/** Reads an array field, naming the source value in any failure. */
+const arrayAt = (value: JsonObject, key: string, label: string): JsonValue[] => asArray(propertyAt(value, key), label);
+
+/** Reads the response body at one REST position. */
+const bodyOf = (responses: JsonValue[], index: number, label: string): JsonObject =>
+  objectAt(asObject(responses[index], label), 'body', `${label} body`);
 
 /** Reads a required string property from a checked JSON object. */
 const stringAt = (value: JsonObject, key: string): string => {
-  const property = value[key];
-
-  if (typeof property !== 'string') {
-    throw new Error(`Expected ${key} to be a string`);
+  const decoded = z.string().safeParse(value[key]);
+  if (!decoded.success) {
+    throw new TypeError(`Expected ${key} to be a string`, {cause: decoded.error});
   }
-
-  return property;
+  return decoded.data;
 };
 
 /** Reads a required numeric property from a checked JSON object. */
 const numberAt = (value: JsonObject, key: string): number => {
-  const property = value[key];
-
-  if (typeof property !== 'number') {
-    throw new Error(`Expected ${key} to be a number`);
+  const decoded = z.number().safeParse(value[key]);
+  if (!decoded.success) {
+    throw new TypeError(`Expected ${key} to be a number`, {cause: decoded.error});
   }
-
-  return property;
+  return decoded.data;
 };
 
 /** Returns the first node in a connection after validating its shape. */
 const firstNode = (repository: JsonObject, field: string): JsonObject => {
-  const connection = asObject(repository[field], field);
-  const nodes = asArray(propertyAt(connection, 'nodes'), `${field} nodes`);
+  const connection = objectAt(repository, field, field);
+  const nodes = arrayAt(connection, 'nodes', `${field} nodes`);
   const first = nodes[0];
 
   if (first === undefined) {

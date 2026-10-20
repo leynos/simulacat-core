@@ -271,6 +271,8 @@ const fetchGraphqlData = async <Payload, Variables extends Record<string, unknow
     headers,
     body: JSON.stringify({query, variables})
   });
+  // SAFETY: this helper is only used with query types that describe the
+  // expected GraphQL payload; the generic is the caller's decoded contract.
   const response = (await request.json()) as {data?: Payload; errors?: unknown};
   expect(request.status).toBe(200);
   expect(response.errors).toBe(undefined);
@@ -695,6 +697,8 @@ describe('graphql queries', () => {
         })
       });
 
+      // SAFETY: the simulator serves this exact query; the cast names the
+      // fields this test reads from its response.
       const graphqlBody = (await graphqlResponse.json()) as {
         data?: {
           viewer?: {
@@ -717,6 +721,8 @@ describe('graphql queries', () => {
         continue;
       }
 
+      // SAFETY: the REST adapter serves this exact viewer shape; only `login`
+      // is read, and absence is asserted below.
       const restBody = (await restResponse.json()) as {
         login?: string;
       };
@@ -913,6 +919,8 @@ describe('graphql queries', () => {
         (node: {number: number}) => node.number === 2
       );
 
+      // SAFETY: the singular query selects `name` and `prefix` for every ref
+      // node, which is exactly the shape named here.
       const refs = singularResponse.data.repository.refs.nodes as Array<{
         name: string;
         prefix: string;

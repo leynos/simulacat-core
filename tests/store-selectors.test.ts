@@ -1,6 +1,6 @@
-/** @file Regression tests for targeted repository owner selectors. */
+/** @file Regression tests for targeted repository owner selectors and selector overrides. */
 import {afterAll, beforeAll, describe, expect, it} from 'bun:test';
-import {simulation, type InitialState} from '../src/index.ts';
+import {buildRepositoryFixture, simulation, type InitialState} from '../src/index.ts';
 
 type SimulationServer = Awaited<ReturnType<ReturnType<typeof simulation>['listen']>>;
 
@@ -110,4 +110,36 @@ describe('targeted repository owner selector', () => {
       expect(select(absentCase.owner, absentCase.name)).toBeUndefined();
     });
   }
+});
+
+describe('caller selector extensions', () => {
+  let server: SimulationServer;
+
+  beforeAll(async () => {
+    server = await simulation({
+      initialState,
+      extend: {
+        extendStore: {
+          // The override returns a sentinel repository so a caller-supplied
+          // selector is distinguishable from the built-in lookup.
+          selectors: () => ({
+            getRepository: () =>
+              buildRepositoryFixture({id: 9001, owner: 'override', name: 'from-extension', description: 'sentinel'})
+          })
+        }
+      }
+    }).listen(0);
+  });
+
+  afterAll(async () => {
+    await server.ensureClose();
+  });
+
+  it('lets a caller selector override the built-in selector of the same name', () => {
+    const state = server.simulationStore.store.getState();
+
+    expect(server.simulationStore.selectors.getRepository(state, 'acme', 'shared-name')).toEqual(
+      expect.objectContaining({id: 9001, owner: 'override', name: 'from-extension'})
+    );
+  });
 });

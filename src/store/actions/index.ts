@@ -14,6 +14,7 @@ import {
 } from 'starfx';
 import type {GitHubRepository} from '../entities.ts';
 import {repositoryStoreKey} from '../keys.ts';
+import {decodeUpdateRepositoryCommand} from './repository-command.ts';
 import {applyRepositoryUpdate, type UpdateRepositoryCommand} from './repository.ts';
 
 type StoreThunks = ReturnType<typeof createThunks>;
@@ -32,6 +33,7 @@ type EntityUpdateThunkArgs<Command, Entity extends AnyState, State extends AnySt
   update: SchemaUpdate<State>;
   table: EntityTable<Entity, State>;
   keyOf: (command: Command) => string;
+  decode: (command: Command) => Command;
   reduce: (current: Entity, command: Command) => Entity;
 };
 
@@ -75,8 +77,8 @@ export const processEntityUpdateQueue = (
     let completed = 0;
 
     try {
-      while (completed < queue.length) {
-        yield* operation(queue[completed] as Action);
+      for (const queuedAction of queue) {
+        yield* operation(queuedAction);
         completed += 1;
       }
     } finally {
@@ -85,21 +87,31 @@ export const processEntityUpdateQueue = (
   };
 
 /** Creates a supervisor that serializes updates for each entity key. */
-const createEntityUpdateSupervisor = <Command>(keyOf: (command: Command) => string): Supervisor => {
+const createEntityUpdateSupervisor = <Command>(
+  keyOf: (command: Command) => string,
+  decode: (command: Command) => Command
+): Supervisor => {
   return function* superviseEntityUpdates(pattern, operation) {
     const queues = new Map<string, Action[]>();
     const activeQueueIds = new Set<string>();
     const actions = useActions(pattern);
 
     for (const action of yield* each(actions)) {
-      const id = keyOf((action as EntityUpdateAction<Command>).payload.options);
+      // SAFETY: the pattern this supervisor is registered with only matches
+      // actions produced by `createEntityUpdateThunk`. Its command value can
+      // still be malformed at runtime, so decode it before deriving the key.
+      const command = decode((action as EntityUpdateAction<Command>).payload.options);
+      const id = keyOf(command);
       const queue = queues.get(id) ?? [];
       queue.push(action);
       queues.set(id, queue);
 
       if (!activeQueueIds.has(id)) {
         activeQueueIds.add(id);
-        yield* spawn(function* () {
+        // The drain task is fire-and-forget: its failures are contained below
+        // and the supervisor never joins it, so the returned Task handle is
+        // intentionally discarded rather than awaited.
+        void (yield* spawn(function* () {
           try {
             yield* processEntityUpdateQueue(queues, id, operation)();
           } catch {
@@ -110,7 +122,7 @@ const createEntityUpdateSupervisor = <Command>(keyOf: (command: Command) => stri
           } finally {
             activeQueueIds.delete(id);
           }
-        });
+        }));
       }
       yield* each.next();
     }
@@ -151,17 +163,20 @@ export type DomainActionArgs<State extends AnyState = AnyState> = {
 export const createEntityUpdateThunk = <Command, Entity extends AnyState, State extends AnyState>(
   args: EntityUpdateThunkArgs<Command, Entity, State>
 ) => {
-  const {name, thunks, update, table, keyOf, reduce} = args;
+  const {name, thunks, update, table, keyOf, decode, reduce} = args;
 
   return thunks.create<Command>(
     name,
-    {supervisor: createEntityUpdateSupervisor(keyOf)},
+    {supervisor: createEntityUpdateSupervisor(keyOf, decode)},
     function* updateEntity(ctx, next) {
-      const id = keyOf(ctx.payload);
+      // Decode before the key lookup and reducer so a runtime caller cannot
+      // smuggle non-string values past the public action contract.
+      const command = decode(ctx.payload);
+      const id = keyOf(command);
       const current = yield* select(table.selectById, {id});
 
       if (current) {
-        yield* update(table.add({[id]: reduce(current, ctx.payload)}));
+        yield* update(table.add({[id]: reduce(current, command)}));
       }
 
       yield* next();
@@ -190,6 +205,7 @@ export const buildDomainActions = <State extends AnyState>(args: DomainActionArg
       update: args.schema.update,
       table: args.schema.repositories,
       keyOf: repositoryStoreKey,
+      decode: decodeUpdateRepositoryCommand,
       reduce: applyRepositoryUpdate
     })
   };

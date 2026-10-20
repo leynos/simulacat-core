@@ -1,24 +1,23 @@
 /** @file Integration tests for actor context in caller extension handlers. */
 import {afterAll, beforeAll, beforeEach, describe, expect, it} from 'bun:test';
+import {z} from 'zod';
 import {type InitialState, simulation} from '../src/index.ts';
 import {requireRestUserActor} from '../src/rest/actor-context.ts';
+import type {Response} from 'express';
 import type {UpdateRepositoryCommand} from '../src/store/actions/repository.ts';
 import {requestActorHeader, resetActorObservationCounters} from '../src/store/actors.ts';
 
 type SimulationServer = Awaited<ReturnType<ReturnType<typeof simulation>['listen']>>;
 
-type LoginResponse = {
-  login: string;
-};
-
-type GraphQLViewerResponse = {
-  data?: {
-    viewer?: {
-      login: string;
-    };
-  };
-  errors?: Array<{message: string}>;
-};
+const loginResponseSchema = z.object({login: z.string()});
+const messageResponseSchema = z.object({message: z.string()});
+const viewerSchema = z.object({login: z.string()});
+const viewerDataSchema = z.object({viewer: viewerSchema.optional()});
+const graphQLErrorSchema = z.object({message: z.string()});
+const graphQLViewerResponseSchema = z.object({
+  data: viewerDataSchema.nullable().optional(),
+  errors: z.array(graphQLErrorSchema).optional()
+});
 
 const fixtureState: InitialState = {
   users: [
@@ -31,10 +30,21 @@ const fixtureState: InitialState = {
   blobs: []
 };
 
+/** A response body decoded by a schema supplied by the caller. */
+interface DecodedBody<T> {
+  readonly status: number;
+  readonly body: T;
+}
+
 /** Extracts a JSON response body with its HTTP status. */
-const fetchJson = async <T>(url: string, headers: Record<string, string> = {}): Promise<{status: number; body: T}> => {
+const fetchJson = async <T>(
+  url: string,
+  schema: z.ZodType<T>,
+  headers: Record<string, string> = {}
+): Promise<DecodedBody<T>> => {
   const response = await fetch(url, {headers});
-  return {status: response.status, body: (await response.json()) as T};
+  const payload: unknown = await response.json();
+  return {status: response.status, body: schema.parse(payload)};
 };
 
 /** Runs the GraphQL viewer query against the simulator. */
@@ -44,7 +54,7 @@ const fetchViewer = async (baseUrl: string, headers: Record<string, string> = {}
     headers: {'content-type': 'application/json', ...headers},
     body: JSON.stringify({query: '{ viewer { login } }'})
   });
-  return {status: response.status, body: (await response.json()) as GraphQLViewerResponse};
+  return {status: response.status, body: graphQLViewerResponseSchema.parse(await response.json())};
 };
 
 /** Resolves the request actor for a REST surface. Writes a 401 response and returns null when authentication fails. */
@@ -52,7 +62,7 @@ const resolveUserActorOrReject = (
   surface: string,
   store: Parameters<typeof requireRestUserActor>[1],
   request: Parameters<typeof requireRestUserActor>[0],
-  response: {status: (statusCode: number) => {json: (body: unknown) => unknown}}
+  response: Response
 ) => {
   const result = requireRestUserActor(request, store, surface);
   if ('failure' in result) {
@@ -86,9 +96,9 @@ const createAgreementSimulation = () =>
 
 /** Fetches all actor-aware success surfaces and returns their selected logins. */
 const fetchSurfaceLogins = async (baseUrl: string, headers: Record<string, string>) => {
-  const builtInRest = await fetchJson<LoginResponse>(`${baseUrl}/user`, headers);
-  const extensionRest = await fetchJson<LoginResponse>(`${baseUrl}/users/ignored`, headers);
-  const extensionRouter = await fetchJson<LoginResponse>(`${baseUrl}/labs/whoami`, headers);
+  const builtInRest = await fetchJson(`${baseUrl}/user`, loginResponseSchema, headers);
+  const extensionRest = await fetchJson(`${baseUrl}/users/ignored`, loginResponseSchema, headers);
+  const extensionRouter = await fetchJson(`${baseUrl}/labs/whoami`, loginResponseSchema, headers);
   const viewer = await fetchViewer(baseUrl, headers);
 
   return {
@@ -134,9 +144,9 @@ describe('extension handlers with actor context', () => {
   });
 
   it('reports authentication failures consistently when no actor header is present', async () => {
-    const builtInRest = await fetchJson<{message: string}>(`${baseUrl}/user`);
-    const extensionRest = await fetchJson<{message: string}>(`${baseUrl}/users/ignored`);
-    const extensionRouter = await fetchJson<{message: string}>(`${baseUrl}/labs/whoami`);
+    const builtInRest = await fetchJson(`${baseUrl}/user`, messageResponseSchema);
+    const extensionRest = await fetchJson(`${baseUrl}/users/ignored`, messageResponseSchema);
+    const extensionRouter = await fetchJson(`${baseUrl}/labs/whoami`, messageResponseSchema);
     const viewer = await fetchViewer(baseUrl);
 
     expect([builtInRest.status, extensionRest.status, extensionRouter.status, viewer.status]).toEqual([

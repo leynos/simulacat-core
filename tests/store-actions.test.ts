@@ -1,9 +1,11 @@
 /** @file Unit and store-level tests for shared repository write actions. */
 import {describe, expect, it} from 'bun:test';
+import type {Effect, Operation} from 'effection';
 import fc from 'fast-check';
 import {simulation, type InitialState, buildRepositoryFixture} from '../src/index.ts';
 import type {GitHubRepository} from '../src/store/entities.ts';
 import {createEntityUpdateThunk, processEntityUpdateQueue} from '../src/store/actions/index.ts';
+import {decodeUpdateRepositoryCommand} from '../src/store/actions/repository-command.ts';
 import {applyRepositoryUpdate, type UpdateRepositoryCommand} from '../src/store/actions/repository.ts';
 import {updateRepositoryUseCase} from '../src/store/actions/repository-use-case.ts';
 import {repositoryStoreKey} from '../src/store/keys.ts';
@@ -34,19 +36,33 @@ const command: UpdateRepositoryCommand = {
   changes: {description: 'Updated description'}
 };
 
-type EntityUpdateOperation = Parameters<typeof processEntityUpdateQueue>[2];
-type QueueInstruction =
-  ReturnType<ReturnType<EntityUpdateOperation>[typeof Symbol.iterator]> extends Iterator<infer Yield> ? Yield : never;
 type QueueDrain = ReturnType<ReturnType<typeof processEntityUpdateQueue>>;
+type QueueIterator = ReturnType<QueueDrain[typeof Symbol.iterator]>;
 
-/** Pauses a manually advanced queue operation exactly once. */
-const pauseOnce = function* () {
-  yield undefined as unknown as QueueInstruction;
+// The queue tests drive their drains step by step, so this effect is yielded
+// but never evaluated; it only needs the shape the iterator's yield type names.
+/** Placeholder effect yielding a single hand-advanced suspension point. */
+const inertEffect: Effect<void> = {
+  description: 'inert queue-test suspension',
+  enter: () => () => {}
 };
 
-/** Views the operation as an iterator for deterministic queue-draining tests. */
-const manuallyAdvanceQueueDrain = (operation: QueueDrain): Iterator<QueueInstruction, void> =>
-  operation as unknown as Iterator<QueueInstruction, void>;
+/** Pauses a manually advanced queue operation exactly once. */
+const pauseOnce = function* (): Operation<void> {
+  yield inertEffect;
+};
+
+/** Reads an operation as an iterator for deterministic queue-draining tests. */
+const queueIterator = (operation: QueueDrain): QueueIterator => operation[Symbol.iterator]();
+
+/** Returns values a JavaScript caller can pass where the contract expects strings. */
+const nonStringWritableValues = (): readonly string[] => {
+  const runtimeValues: unknown[] = [null, 42, {}];
+  // SAFETY: these values model callers that bypass the TypeScript contract at
+  // runtime; the action's schema discards them, which is the behaviour under
+  // test. The declared type keeps the call sites honest about their intent.
+  return runtimeValues as string[];
+};
 
 const writeableString = fc.string({maxLength: 80});
 const commandArbitrary = fc.record({
@@ -64,15 +80,11 @@ const commandArbitrary = fc.record({
 describe('repository write action reducer', () => {
   it('applies whitelisted repository fields without mutating the current repository', () => {
     const current = repositoryFixture();
-    const updated = applyRepositoryUpdate(current, {
-      owner: current.owner,
-      name: current.name,
-      changes: {
-        description: 'New description',
-        homepage: 'https://new.example.test',
-        private: 'ignored'
-      } as UpdateRepositoryCommand['changes']
-    });
+    // `private` sits outside the writable whitelist and survives here only as
+    // an extra property on a non-fresh object, so the reducer's filtering can
+    // be observed at runtime.
+    const changes = {description: 'New description', homepage: 'https://new.example.test', private: 'ignored'};
+    const updated = applyRepositoryUpdate(current, {owner: current.owner, name: current.name, changes});
 
     expect(updated).not.toBe(current);
     expect(updated.description).toBe('New description');
@@ -123,10 +135,10 @@ describe('repository write action reducer', () => {
     fc.assert(
       fc.property(writeableString, (policyValue) => {
         const current = repositoryFixture();
-        const updated = applyRepositoryUpdate(current, {
-          ...command,
-          changes: {description: 'Allowed', private: policyValue} as UpdateRepositoryCommand['changes']
-        });
+        // `private` is not writable; carrying it on a non-fresh object proves
+        // policy filtering holds for arbitrary runtime values.
+        const changes = {description: 'Allowed', private: policyValue};
+        const updated = applyRepositoryUpdate(current, {...command, changes});
 
         expect(updated.private).toBe(current.private);
         expect(updated.description).toBe('Allowed');
@@ -135,39 +147,53 @@ describe('repository write action reducer', () => {
   });
 });
 
-describe('repository write action reducer runtime validation', () => {
-  it('ignores runtime-invalid writable-field values without mutating the source repository', () => {
-    const current = repositoryFixture();
-    const snapshot = structuredClone(current);
-    const updated = applyRepositoryUpdate(current, {
-      owner: current.owner,
-      name: current.name,
-      changes: {
-        description: 'Valid description',
-        homepage: 'https://valid.example.test'
-      }
+describe('repository update command decoding', () => {
+  it('drops runtime-invalid writable-field values and keeps valid siblings', () => {
+    const decoded = decodeUpdateRepositoryCommand({
+      owner: 'acme',
+      name: 'awesome-repo',
+      changes: {description: 'Valid description', homepage: 'https://valid.example.test'}
     });
 
-    expect(updated).toMatchObject({
-      description: 'Valid description',
-      homepage: 'https://valid.example.test'
+    expect(decoded).toEqual({
+      owner: 'acme',
+      name: 'awesome-repo',
+      changes: {description: 'Valid description', homepage: 'https://valid.example.test'}
     });
 
-    for (const invalidValue of [null, 42, {}]) {
-      const invalidUpdated = applyRepositoryUpdate(current, {
-        owner: current.owner,
-        name: current.name,
-        changes: {
-          description: invalidValue,
-          homepage: invalidValue
-        } as unknown as UpdateRepositoryCommand['changes']
-      });
+    for (const invalidValue of nonStringWritableValues()) {
+      expect(
+        decodeUpdateRepositoryCommand({
+          owner: 'acme',
+          name: 'awesome-repo',
+          changes: {description: invalidValue, homepage: invalidValue}
+        })
+      ).toEqual({owner: 'acme', name: 'awesome-repo', changes: {}});
 
-      expect(invalidUpdated.description).toBe(current.description);
-      expect(invalidUpdated.homepage).toBe(current.homepage);
+      expect(
+        decodeUpdateRepositoryCommand({
+          owner: 'acme',
+          name: 'awesome-repo',
+          changes: {description: 'Kept', homepage: invalidValue}
+        })
+      ).toEqual({owner: 'acme', name: 'awesome-repo', changes: {description: 'Kept'}});
     }
+  });
 
-    expect(current).toEqual(snapshot);
+  it('decodes malformed payloads to an empty command instead of throwing', () => {
+    // Runtime callers can dispatch anything; an empty command finds no
+    // repository, so the action performs no write.
+    const malformedPayloads: unknown[] = [null, undefined, 42, 'not-a-command', {}];
+
+    for (const payload of malformedPayloads) {
+      // SAFETY: these values model runtime callers that bypass the TypeScript
+      // contract; the decoder must reject them instead of throwing.
+      expect(decodeUpdateRepositoryCommand(payload as UpdateRepositoryCommand)).toEqual({
+        owner: '',
+        name: '',
+        changes: {}
+      });
+    }
   });
 });
 
@@ -203,13 +229,11 @@ describe('repository write action queue', () => {
       persisted.push('other');
     };
 
-    const sameKeyDrain = manuallyAdvanceQueueDrain(processEntityUpdateQueue(queues, 'acme/awesome-repo', operation)());
-    expect(sameKeyDrain.next().value).toBeUndefined();
+    const sameKeyDrain = queueIterator(processEntityUpdateQueue(queues, 'acme/awesome-repo', operation)());
+    expect(sameKeyDrain.next().done).toBe(false);
 
     queues.get('acme/awesome-repo')?.push(second);
-    const otherKeyDrain = manuallyAdvanceQueueDrain(
-      processEntityUpdateQueue(queues, 'globex/awesome-repo', operation)()
-    );
+    const otherKeyDrain = queueIterator(processEntityUpdateQueue(queues, 'globex/awesome-repo', operation)());
     expect(otherKeyDrain.next().done).toBe(true);
 
     expect(sameKeyDrain.next().done).toBe(true);
@@ -232,15 +256,13 @@ describe('repository write action queue failures', () => {
       yield* [];
     };
 
-    const failedDrain = manuallyAdvanceQueueDrain(processEntityUpdateQueue(queues, 'acme/awesome-repo', operation)());
+    const failedDrain = queueIterator(processEntityUpdateQueue(queues, 'acme/awesome-repo', operation)());
     expect(() => failedDrain.next()).toThrow('first write failed');
     expect(queues.get('acme/awesome-repo')).toEqual([first, second]);
     expect(processed).toEqual([]);
 
     shouldFail = false;
-    expect(
-      manuallyAdvanceQueueDrain(processEntityUpdateQueue(queues, 'acme/awesome-repo', operation)()).next().done
-    ).toBe(true);
+    expect(queueIterator(processEntityUpdateQueue(queues, 'acme/awesome-repo', operation)()).next().done).toBe(true);
     expect(processed).toEqual(['first', 'second']);
     expect(queues.size).toBe(0);
   });
@@ -258,9 +280,7 @@ describe('repository write action queue batches', () => {
       yield* [];
     };
 
-    expect(
-      manuallyAdvanceQueueDrain(processEntityUpdateQueue(queues, 'acme/awesome-repo', operation)()).next().done
-    ).toBe(true);
+    expect(queueIterator(processEntityUpdateQueue(queues, 'acme/awesome-repo', operation)()).next().done).toBe(true);
     expect(processed).toEqual(actions.map((action) => action.type));
     expect(description).toBe('Batch update 127');
     expect(queues.size).toBe(0);
@@ -352,13 +372,13 @@ describe('repository write action dispatch', () => {
   it('reports not-found updates through the shared use case', async () => {
     const server = await simulation({initialState}).listen(0);
     try {
-      await expect(
-        updateRepositoryUseCase(server.simulationStore, {
-          owner: 'acme',
-          name: 'missing',
-          changes: {description: 'No repository'}
-        })
-      ).resolves.toEqual({ok: false, reason: 'not-found'});
+      const result = await updateRepositoryUseCase(server.simulationStore, {
+        owner: 'acme',
+        name: 'missing',
+        changes: {description: 'No repository'}
+      });
+
+      expect(result).toEqual({ok: false, reason: 'not-found'});
     } finally {
       await server.ensureClose();
     }
@@ -378,6 +398,7 @@ describe('repository write action supervisor failure isolation', () => {
               update: schema.update,
               table: schema.repositories,
               keyOf: repositoryStoreKey,
+              decode: decodeUpdateRepositoryCommand,
               reduce: (current: GitHubRepository, command: UpdateRepositoryCommand): GitHubRepository => {
                 if (command.owner === 'acme') throw new Error('forced repository write failure');
                 return applyRepositoryUpdate(current, command);
@@ -388,7 +409,13 @@ describe('repository write action supervisor failure isolation', () => {
       }
     }).listen(0);
 
-    const extendedActions = server.simulationStore.actions as unknown as {
+    // StarFX merges extension actions at runtime, so the static store surface
+    // cannot name `failingUpdate`; the extension config above is the evidence
+    // that the action exists with the built-in creator's payload contract.
+    const registeredActions: unknown = server.simulationStore.actions;
+    // SAFETY: `extendStore` registers `failingUpdate` through
+    // `createEntityUpdateThunk` with the same command payload as the built-in.
+    const extendedActions = registeredActions as {
       failingUpdate: typeof server.simulationStore.actions.updateRepository;
     };
     const failingUpdate = extendedActions.failingUpdate;
@@ -438,19 +465,19 @@ describe('repository write action direct runtime payloads', () => {
         server.simulationStore.selectors.getRepository(stateBefore, 'globex', 'awesome-repo')
       );
 
+      // The cast models runtime callers that bypass the TypeScript contract;
+      // the action must still discard the non-string values it receives.
       await Promise.all(
-        [null, 42, {}].map((invalidValue) =>
-          server.simulationStore.store.dispatch(
+        nonStringWritableValues().map((invalidValue) => {
+          const invalidChanges = {description: invalidValue, homepage: invalidValue};
+          return server.simulationStore.store.dispatch(
             server.simulationStore.actions.updateRepository({
               owner: 'acme',
               name: 'awesome-repo',
-              changes: {
-                description: invalidValue,
-                homepage: invalidValue
-              } as unknown as UpdateRepositoryCommand['changes']
+              changes: invalidChanges
             })
-          )
-        )
+          );
+        })
       );
 
       const stateAfter = server.simulationStore.store.getState();

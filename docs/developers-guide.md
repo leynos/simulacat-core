@@ -18,6 +18,15 @@ bun install
 
 The package expects Bun to run scripts, tests, and formatting commands.
 
+`tsconfig.json` emits for the `ES2022` target but type-checks against the `DOM`
+and `ES2023` libraries. The library setting is deliberate: the codebase uses
+`toSorted()` and `toReversed()` for immutable ordering, whose declarations are
+provided by `ES2023`. The `lib` setting affects type-checking only: an `ES2022`
+emit target does not downlevel these method calls or provide a polyfill. Check
+that each supported Node.js or Bun runtime supplies both methods, or provide a
+polyfill. See the [TypeScript `lib` reference][typescript-lib] for the
+distinction between type definitions and runtime support.
+
 `make fmt` and `make check-fmt` run `mdtablefix` (version 0.6.1, the same
 release CI installs); install it once with
 `cargo install --locked mdtablefix --version 0.6.1`. `make fmt` also runs
@@ -240,8 +249,12 @@ Makefile.
 
 ## Linting rules
 
-`make all` runs Biome and Oxlint as maintainability gates. Biome enforces exact
-rules where it has native support:
+`make all` runs Biome and Oxlint as maintainability gates. The Oxlint toolchain
+is pinned in `package.json` and its plug-ins are recorded in the
+[Linting strategy ADR][adr-linting]. Type-aware Oxlint rules use the
+`oxlint-tsgolint` backend, which is installed as an exact dev dependency and
+recorded in that ADR's component table. Biome enforces exact rules where it has
+native support:
 
 - `complexity.noExcessiveLinesPerFunction`: functions may not exceed 70 lines,
   counting blank lines.
@@ -274,6 +287,27 @@ documentation (JSDoc) enforcement into separate Oxlint rules:
 Existing documentation debt is isolated in `.jsdoc-baseline.json` as per-symbol
 entries. Do not add new entries for new code; remove baseline entries as those
 functions receive complete JSDoc.
+
+Oxlint also loads two JavaScript plug-ins. The built-in `unicorn` plug-in is
+enabled with every supported rule at `error`; the only exception is
+`unicorn/no-null`, which is disabled because the GitHub API contracts require
+`null` in nullable fields. `ai-deslop` contributes the `deslop/*` evidence
+rules, including:
+
+- `deslop/require-safety-comment-for-type-assertion`: a non-constant type
+  assertion needs a nearby comment containing `SAFETY:` that states the
+  invariant the compiler cannot see.
+- `deslop/no-runtime-typeof`: ad hoc `typeof` narrowing is rejected; parse at
+  the boundary with a schema or a named type guard instead.
+- `deslop/no-unknown-parameters` and `deslop/no-unknown-returns`: function
+  contracts must name their types rather than accept or return `unknown`.
+- `deslop/no-array-filter-map`: combine adjacent `filter` and `map` passes
+  with `flatMap`.
+
+The two plug-ins can flag the same construct. Rewrite the call site to the form
+both accept, preferring the `unicorn` spelling when the two disagree. The
+[Linting strategy ADR][adr-linting] records the pinned versions and the
+conflict decisions.
 
 The local plugin keeps the maintainability contract in the same Oxlint process
 as the complexity rules. `eslint-plugin-jsdoc` is a broader ESLint ecosystem
@@ -615,3 +649,5 @@ test files, and the [documentation contents](contents.md) to find the relevant
 reference before changing a public contract.
 
 [complexity-guide]: complexity-antipatterns-and-refactoring-strategies.md
+[adr-linting]: adr-001-linting-strategy.md
+[typescript-lib]: https://www.typescriptlang.org/tsconfig/lib.html
