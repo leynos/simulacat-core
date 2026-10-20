@@ -44,6 +44,14 @@ describe('OAuth authorize route query validation', () => {
     expect(response.headers.get('location')).toBe('http://localhost:3000/callback?code=dev_code&env=&state=xyz');
   });
 
+  it('redirects with empty optional values when only redirect_uri is supplied', async () => {
+    const params = new URLSearchParams({redirect_uri: 'http://localhost:3000/callback'});
+    const response = await fetch(`${baseUrl}/login/oauth/authorize?${params}`, {redirect: 'manual'});
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get('location')).toBe('http://localhost:3000/callback?code=dev_code&env=&state=');
+  });
+
   it('rejects a repeated redirect_uri instead of coercing it into the redirect', async () => {
     const response = await fetch(
       `${baseUrl}/login/oauth/authorize?redirect_uri=${encodeURIComponent('http://localhost:3000/a')}&redirect_uri=${encodeURIComponent('http://localhost:3000/b')}`,

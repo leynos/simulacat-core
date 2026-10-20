@@ -114,8 +114,8 @@ request actors. Contributor setup and validation commands are in the
 supplied `redirect_uri` with the fixed code `dev_code`. The query must contain
 one string `redirect_uri`; `state` and `env` are optional string values. Missing
 `redirect_uri` or repeating any of these parameters returns status 400 with
-`{"message":"Bad Request"}`. When omitted, `env` is included in the redirect
-with an empty value, while `state` is omitted. See the
+`{"message":"Bad Request"}`. When omitted, both `env` and `state` are included
+in the redirect with empty values. See the
 [API reference](api-reference.md#rest-endpoints) for the supported REST surface.
 
 ## Canonical key formats
