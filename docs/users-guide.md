@@ -108,6 +108,16 @@ request actors. Contributor setup and validation commands are in the
 [developers guide](developers-guide.md); the
 [documentation contents](contents.md) links the remaining references.
 
+## OAuth authorization helper
+
+`GET /login/oauth/authorize` is a development helper that redirects to the
+supplied `redirect_uri` with the fixed code `dev_code`. The query must contain
+one string `redirect_uri`; `state` and `env` are optional string values. Missing
+`redirect_uri` or repeating any of these parameters returns status 400 with
+`{"message":"Bad Request"}`. When omitted, `env` is included in the redirect
+with an empty value, while `state` is omitted. See the
+[API reference](api-reference.md#rest-endpoints) for the supported REST surface.
+
 ## Canonical key formats
 
 The canonical identity scheme uses these key formats:

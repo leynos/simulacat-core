@@ -20,10 +20,12 @@ The package expects Bun to run scripts, tests, and formatting commands.
 
 `tsconfig.json` emits for the `ES2022` target but type-checks against the `DOM`
 and `ES2023` libraries. The library setting is deliberate: the codebase uses
-`toSorted()` and `toReversed()` for immutable ordering, which `ES2023` provides
-while the emitted syntax stays compatible with the `ES2022` target.
-Type-checking therefore accepts those methods, but do not assume newer
-runtime-only APIs are available without checking the emit target.
+`toSorted()` and `toReversed()` for immutable ordering, whose declarations are
+provided by `ES2023`. The `lib` setting affects type-checking only: an `ES2022`
+emit target does not downlevel these method calls or provide a polyfill. Check
+that each supported Node.js or Bun runtime supplies both methods, or provide a
+polyfill. See the [TypeScript `lib` reference][typescript-lib] for the
+distinction between type definitions and runtime support.
 
 `make fmt` and `make check-fmt` run `mdtablefix` (version 0.6.1, the same
 release CI installs); install it once with
@@ -648,3 +650,4 @@ reference before changing a public contract.
 
 [complexity-guide]: complexity-antipatterns-and-refactoring-strategies.md
 [adr-linting]: adr-001-linting-strategy.md
+[typescript-lib]: https://www.typescriptlang.org/tsconfig/lib.html

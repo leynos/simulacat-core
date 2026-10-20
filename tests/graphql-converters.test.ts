@@ -7,6 +7,7 @@ import {
 } from '../src/graphql/converters/early-entities.ts';
 import {convertRepositoryToGraphql} from '../src/graphql/converters/repository.ts';
 import {makeToGraphql} from '../src/graphql/to-graphql.ts';
+import {GraphqlProjectionError} from '../src/graphql/projection-error.ts';
 import type {DataSchemas, ToGraphqlDispatcher} from '../src/graphql/to-graphql-types.ts';
 import {buildBaseUrls, type BaseUrls} from '../src/http/request-url.ts';
 import {getUrlObservabilityCounters, resetUrlObservabilityCounters} from '../src/http/url-observability.ts';
@@ -215,36 +216,6 @@ describe('issue and pull request GraphQL URL conversion', () => {
   });
 });
 
-describe('GraphQL projection observability', () => {
-  it('records a bounded counter and omits entity details when a URL cannot be projected', () => {
-    resetUrlObservabilityCounters();
-    const observedBaseUrls = buildBaseUrls({protocol: 'https', host: 'graphql.example.test'}, '/', undefined, {
-      transport: 'graphql',
-      requestId: 'graphql-projection-1'
-    });
-    const repository = makeRepositoryFixture();
-    // Projection fills only `undefined` fields, so a runtime `null` is what
-    // reaches the failure branch. The store schema cannot express `null`,
-    // which is why the value is written onto the parsed fixture.
-    Object.defineProperty(repository, 'html_url', {value: null, enumerable: true, configurable: true});
-
-    expect(() =>
-      convertRepositoryToGraphql(makeRepositoryConverterStore(), repository, toGraphql, observedBaseUrls)
-    ).toThrow('GraphQL repository URL could not be projected');
-
-    const counters = getUrlObservabilityCounters();
-    // `buildBaseUrls` records the request-origin base alongside the failure.
-    expect(counters).toEqual({
-      'base-url.graphql.request-origin.none': 1,
-      'graphql-projection.graphql.failure.missing-projection': 1
-    });
-    // The bounded labels must not leak the repository identity or request id.
-    const counterKeys = Object.keys(counters).join(',');
-    expect(counterKeys).not.toContain('test-org');
-    expect(counterKeys).not.toContain('graphql-projection-1');
-  });
-});
-
 describe('GraphQL dispatch observability', () => {
   it('observes unknown typenames and preserves the error contract', () => {
     resetUrlObservabilityCounters();
@@ -270,4 +241,62 @@ describe('GraphQL dispatch observability', () => {
       'graphql-dispatch.graphql.unhandled-typename.unknown-typename': 1
     });
   });
+});
+
+/** Makes a parsed fixture model a runtime-null URL that bypassed its schema. */
+const withNullHtmlUrl = <Entity extends {html_url?: string | undefined}>(entity: Entity): Entity => {
+  Object.defineProperty(entity, 'html_url', {value: null, enumerable: true, configurable: true});
+  return entity;
+};
+
+describe('pure GraphQL projection failures', () => {
+  const store = makeRepositoryConverterStore();
+  const coordinates = {owner: 'test-org', repo: 'test-repo'};
+  const conversions = [
+    {
+      entity: 'repository',
+      convert: () => convertRepositoryToGraphql(store, withNullHtmlUrl(makeRepositoryFixture()), toGraphql, baseUrls)
+    },
+    {
+      entity: 'commit',
+      convert: () => convertCommitToGraphql(store, withNullHtmlUrl(buildCommitFixture(coordinates)), baseUrls)
+    },
+    {
+      entity: 'issue',
+      convert: () =>
+        convertIssueToGraphql(
+          store,
+          withNullHtmlUrl(buildIssueFixture({...coordinates, number: 42, title: 'Issue'})),
+          baseUrls
+        )
+    },
+    {
+      entity: 'pull-request',
+      convert: () =>
+        convertPullRequestToGraphql(
+          store,
+          withNullHtmlUrl(
+            buildPullRequestFixture({
+              ...coordinates,
+              number: 42,
+              title: 'Pull request',
+              base: {ref: 'main', sha: 'base'},
+              head: {ref: 'feature', sha: 'head'}
+            })
+          ),
+          toGraphql,
+          baseUrls
+        )
+    }
+  ];
+
+  for (const {entity, convert} of conversions) {
+    it(`throws a typed ${entity} URL failure without mutating counters`, () => {
+      resetUrlObservabilityCounters();
+      expect(convert).toThrow(TypeError);
+      expect(convert).toThrow(GraphqlProjectionError);
+      expect(convert).toThrow('URL could not be projected');
+      expect(getUrlObservabilityCounters()).toEqual({});
+    });
+  }
 });

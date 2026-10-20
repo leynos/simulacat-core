@@ -13,7 +13,7 @@ export type UpdateRepositoryCommand = {
   owner: string;
   /** Repository name within the owner's namespace. */
   name: string;
-  /** Writable fields to apply; absent and non-string values are ignored. */
+  /** Writable strings to apply; absent and undefined values are ignored. */
   changes: Partial<Record<RepositoryWritableField, string | undefined>>;
 };
 
@@ -51,6 +51,10 @@ export const applyRepositoryUpdate = (
 ): GitHubRepository => {
   return {
     ...current,
-    ...Object.fromEntries(Object.entries(command.changes).filter(([field]) => isRepositoryWritableField(field)))
+    ...Object.fromEntries(
+      Object.entries(command.changes).filter(
+        ([field, value]) => isRepositoryWritableField(field) && value !== undefined
+      )
+    )
   };
 };

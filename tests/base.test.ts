@@ -54,6 +54,19 @@ describe('OAuth authorize route query validation', () => {
     expect(await response.json()).toEqual({message: 'Bad Request'});
   });
 
+  for (const optionalField of ['state', 'env']) {
+    it(`rejects a repeated ${optionalField} instead of coercing optional query values`, async () => {
+      const params = new URLSearchParams({redirect_uri: 'http://localhost:3000/callback'});
+      params.append(optionalField, 'first');
+      params.append(optionalField, 'second');
+      const response = await fetch(`${baseUrl}/login/oauth/authorize?${params}`, {redirect: 'manual'});
+
+      expect(response.status).toBe(400);
+      expect(await response.json()).toEqual({message: 'Bad Request'});
+      expect(response.headers.get('location')).toBeNull();
+    });
+  }
+
   it('rejects a missing redirect_uri', async () => {
     const response = await fetch(`${baseUrl}/login/oauth/authorize`, {redirect: 'manual'});
 

@@ -9,6 +9,7 @@
 import {createSchema, createYoga, processRegularResult} from 'graphql-yoga';
 import {isAsyncIterable} from '@graphql-tools/utils';
 import {createResolvers, type GraphQLContext} from './resolvers.ts';
+import {graphqlProjectionObserver} from './projection-observer.ts';
 import {buildBaseUrls} from '../http/request-url.ts';
 import {makeUrlObservationContext} from '../http/url-observability.ts';
 import {buildActorContext} from '../store/actors.ts';
@@ -78,7 +79,7 @@ export function createHandler(simulationStore: ExtendedSimulationStore, apiRoot 
       }
       return context;
     },
-    plugins: [customMediaTypeParser]
+    plugins: [customMediaTypeParser, graphqlProjectionObserver]
   });
 
   return yoga;

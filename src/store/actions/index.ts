@@ -87,7 +87,10 @@ export const processEntityUpdateQueue = (
   };
 
 /** Creates a supervisor that serializes updates for each entity key. */
-const createEntityUpdateSupervisor = <Command>(keyOf: (command: Command) => string): Supervisor => {
+const createEntityUpdateSupervisor = <Command>(
+  keyOf: (command: Command) => string,
+  decode: (command: Command) => Command
+): Supervisor => {
   return function* superviseEntityUpdates(pattern, operation) {
     const queues = new Map<string, Action[]>();
     const activeQueueIds = new Set<string>();
@@ -95,9 +98,10 @@ const createEntityUpdateSupervisor = <Command>(keyOf: (command: Command) => stri
 
     for (const action of yield* each(actions)) {
       // SAFETY: the pattern this supervisor is registered with only matches
-      // actions produced by `createEntityUpdateThunk`, whose payload is the
-      // command passed to the action creator.
-      const id = keyOf((action as EntityUpdateAction<Command>).payload.options);
+      // actions produced by `createEntityUpdateThunk`. Its command value can
+      // still be malformed at runtime, so decode it before deriving the key.
+      const command = decode((action as EntityUpdateAction<Command>).payload.options);
+      const id = keyOf(command);
       const queue = queues.get(id) ?? [];
       queue.push(action);
       queues.set(id, queue);
@@ -163,7 +167,7 @@ export const createEntityUpdateThunk = <Command, Entity extends AnyState, State 
 
   return thunks.create<Command>(
     name,
-    {supervisor: createEntityUpdateSupervisor(keyOf)},
+    {supervisor: createEntityUpdateSupervisor(keyOf, decode)},
     function* updateEntity(ctx, next) {
       // Decode before the key lookup and reducer so a runtime caller cannot
       // smuggle non-string values past the public action contract.
