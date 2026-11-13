@@ -13,10 +13,10 @@ JavaScript plug-ins (`ai-deslop` and the local `df12` plug-in), and prefers
 ## Context and problem statement
 
 Biome and Oxlint already share the maintainability gates (see the
-[Developers guide](developers-guide.md#linting-rules)). Biome covers function
-length, parameter count, and cognitive complexity; Oxlint covers McCabe
-complexity, nesting depth, complex conditionals, and the local `df12` JSDoc
-rules.
+[Developers guide](../developers-guide.md#linting-rules)). Biome covers
+function length, parameter count, and cognitive complexity; Oxlint covers
+McCabe complexity, nesting depth, complex conditionals, and the local `df12`
+JSDoc rules.
 
 Two gaps remained:
 
@@ -191,6 +191,6 @@ every disabled rule a reviewable line rather than an inherited default.
 
 ## References
 
-- [Developers guide: linting rules](developers-guide.md#linting-rules)
+- [Developers guide: linting rules](../developers-guide.md#linting-rules)
 - [Oxlint configuration schema](https://oxc.rs/docs/guide/usage/linter/config)
 - [`ai-deslop` package](https://www.npmjs.com/package/ai-deslop)

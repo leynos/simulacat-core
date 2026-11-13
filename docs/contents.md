@@ -61,7 +61,7 @@ default branch at import time. The complexity guide has three local grammar
 corrections; the documentation style guide is an unchanged import.
 
 [complexity-guide]: complexity-antipatterns-and-refactoring-strategies.md
-[adr-linting]: adr-001-linting-strategy.md
+[adr-linting]: adrs/adr-0001-linting-strategy.md
 [dependency-policy]: dependency-policy-exception-braces-nested-patterns.md
 [actors-design]: mocking-services-with-simulacrum-actors-and-stable-keyset-connections.md
 [plan-111]: execplans/1-1-1-re-key-repositories-and-refs-by-canonical-identifiers.md
