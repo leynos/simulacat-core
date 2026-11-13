@@ -649,5 +649,5 @@ test files, and the [documentation contents](contents.md) to find the relevant
 reference before changing a public contract.
 
 [complexity-guide]: complexity-antipatterns-and-refactoring-strategies.md
-[adr-linting]: adr-001-linting-strategy.md
+[adr-linting]: adrs/adr-0001-linting-strategy.md
 [typescript-lib]: https://www.typescriptlang.org/tsconfig/lib.html
