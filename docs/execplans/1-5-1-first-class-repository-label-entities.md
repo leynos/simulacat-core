@@ -326,7 +326,8 @@ proof stamp file (about 4 lines) against 40.
 - [x] (2026-11-15 22:20Z) Community-of-experts design review (structure and
   contracts; failure modes and verification; alternatives and viability)
   completed and applied in this revision.
-- [ ] Draft PRs opened (base spelling PR, then this plan's PR).
+- [x] (2026-11-15 22:50Z) PRs opened: base spelling-policy PR #134 and this
+  plan's draft PR #136, stacked on #134.
 - [ ] Plan approved by the user.
 - [ ] `EP-M0` LemmaScript feasibility probe (prototype).
 - [ ] `EP-M1` preparatory refactor: `src/store/index.ts` at or below 400
