@@ -63,7 +63,7 @@ labelStoreKey({owner: 'acme', repo: 'awesome-repo', name: 'Good First Issue'});
 // -> 'acme/awesome-repo:good first issue'
 ```
 
-Today the same `initialState` is rejected because `labels` is not a recognised
+Today the same `initialState` is rejected because `labels` is not a recognized
 collection, and there is no selector, key helper, or builder for labels.
 
 Observable success, matching the roadmap's success line, is that labels can be
@@ -132,7 +132,7 @@ git diff --numstat c2e5ddc -- . ':(exclude)docs/execplans/*' ':(exclude)*.dfy.ge
 ```
 
 This ExecPlan file is excluded from every count. Generated `*.dfy.gen` files
-written by `lsc gen` are excluded as generated artefacts; the hand-maintained
+written by `lsc gen` are excluded as generated artefacts; the handwritten
 `*.dfy` proof file counts as code. Classification is whole-file by purpose:
 `src/**`, `tests/**`, `features/**`, `*.dfy`, and `Makefile` are code;
 `LemmaScript-files.txt`, `typos.local.toml`, `package.json`, and CI workflows
@@ -197,7 +197,7 @@ The estimate for this plan, from tracing every affected caller and test:
   `tests/documented-surface.test-d.ts`, `tests/support/documented-example-*.ts`,
   and the existing seed-shape snapshot if it records collections.
 - Proof, about 160 net lines in `src/store/entities/label-key.dfy` (generated
-  base plus hand-written lemmas) and about 8 lines of `Makefile`.
+  base plus handwritten lemmas) and about 8 lines of `Makefile`.
 
 That totals roughly 1,690 lines against a 2,000-line code budget; the
 contingency of about 18 per cent covers proof helper lemmas, which are the
@@ -450,7 +450,7 @@ helpers (`issueNodeId` and others), and parsers. The private
 segments that exclude `/` and `:`.
 
 Selectors. `src/store/early-entity-selectors.ts` defines
-`buildEarlyEntitySelectors({createSelector, schema})`, using a memoised
+`buildEarlyEntitySelectors({createSelector, schema})`, using a memoized
 `buildRepoIndex` and object-coordinate lookups such as
 `getIssue(state, {owner, repo, number})`. `src/store/index.ts`
 `earlyEntitySelectorArgs` (lines 366–374) and `inputSelectors` (lines 377–385)
@@ -603,9 +603,10 @@ REQ-docs -> EP-M5 -> make markdownlint, make nixie, users-guide example tests
 
 ### Abstract model
 
-A label is a record `L = (owner, repo, name, color, description, default, id,
-node_id, url?)`. Let `fold(s) = s.toLowerCase()` and let a key segment be a
-non-empty string containing neither `/` nor `:`. The canonical key is
+A label is a record `L` with the fields `owner`, `repo`, `name`, `color`,
+`description`, `default`, `id`, `node_id`, and an optional `url`. Let
+`fold(s) = s.toLowerCase()`, and let a key segment be a non-empty string
+containing neither `/` nor `:`. The canonical key is
 `key(L) = owner + "/" + repo + ":" + fold(name)`. A seed is a finite list of
 labels plus a set `R` of seeded repository keys `owner/name`. Seeding succeeds
 if and only if every label parses, every `owner/repo` is in `R`, the keys are
@@ -687,7 +688,7 @@ offending keys.
   `//@ requires` predicate `isKeySegment(s) = s.length > 0 && !s.includes('/')
   && !s.includes(':')`. Artefact: `src/store/entities/label-key.ts` with
   `//@ verify`, `//@ requires`, and `//@ ensures`;
-  `src/store/entities/label-key.dfy` (hand-maintained lemmas);
+  `src/store/entities/label-key.dfy` (handwritten lemmas);
   `LemmaScript-files.txt`; `make prove`; and fast-check properties in
   `tests/label-keys.test.ts`. Evidence: `make prove` reports every obligation
   verified with zero errors; before the lemmas are written, `lsc check`
@@ -962,7 +963,7 @@ selector.
 
 Green: create `src/store/label-selectors.ts` exporting `LabelSelectorArgs`
 and `buildLabelSelectors({createSelector, schema})` returning `getLabel` and
-`listLabelsForRepository` (memoised per-repository index, sorted with
+`listLabelsForRepository` (memoized per-repository index, sorted with
 `toSorted` by folded name). In `src/store/index.ts`, spread
 `buildLabelSelectors({createSelector: args.createSelector, schema: {labels:
 args.schema.labels}})` into `inputSelectors`. Confirm the file is still at or
