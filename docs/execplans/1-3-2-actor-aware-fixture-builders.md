@@ -712,7 +712,7 @@ Red: add `tests/fixture-numbering.test.ts` (named examples plus the `INV-3`
 model property), `tests/fixture-policy.test.ts` (SHA format is 40 lowercase hex
 characters and stable for equal seeds; the clock is strictly increasing;
 sequences are strictly increasing), and `tests/fixture-integrity.test.ts` (one
-negative control per violation code plus a valid hand-written state that yields
+negative control per violation code plus a valid handwritten state that yields
 `[]`). Run them; expect module-not-found failures.
 
 Green: implement `src/fixtures/policy.ts`, `src/fixtures/numbering.ts`,
