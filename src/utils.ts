@@ -22,11 +22,11 @@ const openApiSchema = z
     swagger: z.string().optional(),
     paths: z.record(z.string(), z.unknown())
   })
-  .passthrough()
+  .loose()
   .superRefine((value, ctx) => {
     if (!value.openapi && !value.swagger) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message: 'OpenAPI documents must declare either an openapi or swagger version'
       });
     }

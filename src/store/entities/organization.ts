@@ -30,7 +30,7 @@ export const githubOrganizationSchema = z
     avatar_url: z.string().optional(),
     gravatar_id: z.string().optional().default(''),
     site_admin: z.boolean().optional().default(true),
-    url: z.string().url().optional(),
+    url: z.url().optional(),
     html_url: z.string().optional(),
     followers_url: z.string().optional(),
     following_url: z.string().optional(),

@@ -73,7 +73,7 @@ export const githubUserSchema = z
     name: z.string().optional(),
     bio: z.string().default(''),
     email: z.string().optional(),
-    url: z.string().url().optional(),
+    url: z.url().optional(),
     avatar_url: z.string().optional().default('https://github.com/images/error/octocat_happy.gif'),
     organizations: z.array(z.string()),
     created_at: z

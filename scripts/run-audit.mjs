@@ -28,7 +28,7 @@ const advisorySchema = z
     url: z.string().optional(),
     title: z.string().optional()
   })
-  .passthrough();
+  .loose();
 
 const plainObjectSchema = z.record(z.string(), z.unknown());
 

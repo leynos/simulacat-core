@@ -25,13 +25,11 @@ interface UrlSnapshot {
   readonly [key: string]: UrlSnapshotValue | undefined;
 }
 
-const urlSnapshotValueSchema: z.ZodType<UrlSnapshotValue, z.ZodTypeDef, unknown> = z.lazy(() =>
+const urlSnapshotValueSchema: z.ZodType<UrlSnapshotValue> = z.lazy(() =>
   z.union([z.string(), z.number(), z.boolean(), z.null(), z.array(urlSnapshotValueSchema), urlSnapshotSchema])
 );
 
-const urlSnapshotSchema: z.ZodType<UrlSnapshot, z.ZodTypeDef, unknown> = z.lazy(() =>
-  z.record(z.string(), urlSnapshotValueSchema.optional())
-);
+const urlSnapshotSchema: z.ZodType<UrlSnapshot> = z.lazy(() => z.record(z.string(), urlSnapshotValueSchema.optional()));
 
 /** Checks whether a value is a plain object that can contain URL fields. */
 const isRecord = <T>(value: T): value is T & UrlSnapshot => urlSnapshotSchema.safeParse(value).success;

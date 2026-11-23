@@ -38,7 +38,7 @@ const repositoryPatchBodySchema = z
     /** New repository homepage, when supplied as a string. */
     homepage: optionalWritableStringSchema
   })
-  .passthrough();
+  .loose();
 
 /**
  * Builds a repository update command from an untrusted REST request body.
