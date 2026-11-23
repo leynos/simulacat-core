@@ -16,5 +16,4 @@ export const githubEntityPermissionSchema = z
     /** Whether the collaborator can read (pull) from the repository. */
     pull: z.boolean().optional().default(true)
   })
-  .optional()
-  .default({admin: false, push: false, pull: true});
+  .prefault({admin: false, push: false, pull: true});

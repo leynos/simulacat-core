@@ -198,6 +198,16 @@ describe('early entity schemas', () => {
     expect(tagRef.object).not.toHaveProperty('url');
   });
 
+  it('gives each parsed fixture its own nested default objects', () => {
+    const first = githubRepositorySchema.parse({owner: 'test-org', name: 'first'});
+    const second = githubRepositorySchema.parse({owner: 'test-org', name: 'second'});
+
+    expect(first.security_and_analysis).not.toBe(second.security_and_analysis);
+    expect(first.security_and_analysis.advanced_security).not.toBe(second.security_and_analysis.advanced_security);
+    expect(first.permissions).not.toBe(second.permissions);
+    expect(first.security_and_analysis.advanced_security.status).toBe('enabled');
+  });
+
   it('uses deterministic commit defaults', () => {
     const first = githubCommitSchema.parse({owner: 'test-org', repo: 'test-repo'});
     const second = githubCommitSchema.parse({owner: 'test-org', repo: 'test-repo'});
