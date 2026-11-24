@@ -25,13 +25,11 @@ export interface JsonObject {
 /** Any value a JSON document can contain. */
 export type JsonValue = JsonScalar | JsonObject | JsonValue[];
 
-const jsonValueSchema: z.ZodType<JsonValue, z.ZodTypeDef, unknown> = z.lazy(() =>
+const jsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
   z.union([z.string(), z.number(), z.boolean(), z.null(), z.array(jsonValueSchema), jsonObjectSchema])
 );
 
-const jsonObjectSchema: z.ZodType<JsonObject, z.ZodTypeDef, unknown> = z.lazy(() =>
-  z.record(z.string(), jsonValueSchema)
-);
+const jsonObjectSchema: z.ZodType<JsonObject> = z.lazy(() => z.record(z.string(), jsonValueSchema));
 
 const jsonOutputSchema = z.union([jsonValueSchema, z.null()]);
 

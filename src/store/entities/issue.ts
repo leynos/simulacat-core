@@ -21,13 +21,13 @@ export const issueStoreKey = (issue: IssueStoreKeyInput): string => `${issue.own
 
 const issuePullRequestLinkSchema = z.object({
   /** URL for retrieving the pull request's diff. */
-  diff_url: z.string().url().optional(),
+  diff_url: z.url().optional(),
   /** Web URL for viewing the pull request. */
-  html_url: z.string().url().optional(),
+  html_url: z.url().optional(),
   /** URL for retrieving the pull request's patch file. */
-  patch_url: z.string().url().optional(),
+  patch_url: z.url().optional(),
   /** REST API URL for the pull request. */
-  url: z.string().url().optional()
+  url: z.url().optional()
 });
 
 /**

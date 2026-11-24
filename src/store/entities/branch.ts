@@ -23,8 +23,7 @@ export const githubBranchSchema = z
         /** API URL for the commit the branch currently points to. */
         url: z.string().optional()
       })
-      .optional()
-      .default({}),
+      .prefault({}),
     /** Whether branch protection rules are enforced for this branch. */
     protected: z.boolean().optional().default(true),
     /** Branch protection settings, present only when the branch is protected. */

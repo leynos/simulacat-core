@@ -40,8 +40,7 @@ const securityFeatureSchema = z
     /** Enablement state of the security feature. */
     status: z.string()
   })
-  .optional()
-  .default({status: 'enabled'});
+  .prefault({status: 'enabled'});
 
 /**
  * Validates and normalizes a minimal GitHub repository fixture. It accepts
@@ -241,8 +240,7 @@ export const githubRepositorySchema = z
         /** Secret scanning non-provider pattern detection enablement state for the repository. */
         secret_scanning_non_provider_patterns: securityFeatureSchema
       })
-      .optional()
-      .default({
+      .prefault({
         advanced_security: {
           status: 'enabled'
         },

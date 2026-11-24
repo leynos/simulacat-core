@@ -26,7 +26,7 @@ const workflowStepSchema = z
     if: z.unknown().optional(),
     'continue-on-error': z.unknown().optional()
   })
-  .passthrough();
+  .loose();
 
 const workflowJobSchema = z
   .object({
@@ -34,7 +34,7 @@ const workflowJobSchema = z
     if: z.unknown().optional(),
     'continue-on-error': z.unknown().optional()
   })
-  .passthrough();
+  .loose();
 
 const workflowSchema = z.object({
   jobs: z.object({verify: workflowJobSchema.optional()}).optional()

@@ -20,7 +20,7 @@ export const githubBlobSchema = z
   .transform((blob, ctx) => {
     if (!blob.path && !blob.sha) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message: 'Specify the path or sha of the blob'
       });
       return z.NEVER;

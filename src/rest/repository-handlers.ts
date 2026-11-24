@@ -92,7 +92,7 @@ const projectOrganizationOwnerResponse = (owner: RepositoryOwnerAccount, baseUrl
  * `login` is absent only when the selector could not resolve an owner record
  * and fell back to the raw login string.
  */
-const repositoryOwnerSchema = z.object({login: z.string()}).passthrough();
+const repositoryOwnerSchema = z.object({login: z.string()}).loose();
 
 /**
  * Projects a selected repository and its resolved user or organization owner.

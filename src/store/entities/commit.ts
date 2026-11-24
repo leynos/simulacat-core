@@ -30,12 +30,11 @@ const actorSchema = z
     /** Display name of the person who authored or committed the change. */
     name: z.string().optional().default('Simulacat Author'),
     /** Email address of the person who authored or committed the change. */
-    email: z.string().email().optional().default('simulacat@example.test'),
+    email: z.email().optional().default('simulacat@example.test'),
     /** ISO 8601 timestamp recording when the authoring or committing action occurred. */
     date: z.string().optional().default(STATIC_DEFAULT_COMMIT_TIMESTAMP)
   })
-  .optional()
-  .default({});
+  .prefault({});
 
 /** Validator for one optional REST/Git-tree pointer object. */
 const commitTreeSchema = z.object({
@@ -66,8 +65,7 @@ const commitObjectSchema = z
     /** Parent commit references nested under the Git commit object. */
     parents: z.array(parentCommitSchema).optional()
   })
-  .optional()
-  .default({});
+  .prefault({});
 
 /**
  * Validates and normalizes a minimal Git commit fixture.

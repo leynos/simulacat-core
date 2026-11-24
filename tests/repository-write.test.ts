@@ -12,9 +12,7 @@ import {fetchGraphQLDescription} from './repository-description-helper.ts';
 
 type SimulationServer = Awaited<ReturnType<ReturnType<typeof simulation>['listen']>>;
 
-const repositoryOwnerAccountSchema = z
-  .object({login: z.string().optional(), type: z.string().optional()})
-  .passthrough();
+const repositoryOwnerAccountSchema = z.object({login: z.string().optional(), type: z.string().optional()}).loose();
 
 const repositoryOwnerSchema = z.union([repositoryOwnerAccountSchema, z.string()]).optional();
 
@@ -26,7 +24,7 @@ const repositoryResponseSchema = z
     owner: repositoryOwnerSchema,
     private: z.boolean().optional()
   })
-  .passthrough();
+  .loose();
 const validationIssueSchema = z.object({instancePath: z.string(), message: z.string()});
 const validationErrorResponseSchema = z.object({err: z.array(validationIssueSchema)});
 const repositoryListResponseSchema = z.array(repositoryResponseSchema);
