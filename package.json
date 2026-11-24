@@ -120,7 +120,6 @@
     "linkify-it": "5.0.2",
     "lodash": "4.18.1",
     "markdown-it": "14.3.3",
-    "minimatch": "11.0.9",
     "proxy-addr": "2.0.8",
     "qs": "6.17.1",
     "shell-quote": "1.12.0",
