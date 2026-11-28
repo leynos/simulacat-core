@@ -31,7 +31,9 @@
 - **Keep file size manageable.** No single code file exceeds 400 lines. Long
   switch statements or dispatch tables are broken up by feature and
   constituents colocated with targets. Large blocks of test data move to
-  external data files.
+  external data files. A file vendored byte for byte from an upstream, such as
+  `scripts/uv_gate.py`, is exempt, because splitting it would break its
+  canonical digest.
 
 ## Documentation Maintenance
 
